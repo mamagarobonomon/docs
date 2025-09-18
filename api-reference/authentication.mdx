@@ -1,0 +1,237 @@
+---
+title: "Authentication"
+description: "Secure API authentication for Nimbus BCI Engine"
+icon: "key"
+---
+
+# API Authentication
+
+The Nimbus BCI Engine uses API keys to authenticate requests. All API endpoints require authentication to ensure secure access to your BCI models and data.
+
+## Getting Your API Key
+
+To get started with the Nimbus API, you'll need to obtain an API key:
+
+<Card title="Request API Access" icon="envelope" href="mailto:hello@nimbusbci.com">
+  Contact us at **hello@nimbusbci.com** to request your API key and discuss your BCI use case.
+</Card>
+
+<Note>
+API keys are currently issued on a case-by-case basis. Please include details about your intended use case, expected volume, and timeline in your request.
+</Note>
+
+## Authentication Methods
+
+### API Key Authentication
+
+Include your API key in the request headers:
+
+```bash
+curl -X POST "https://api.nimbusbci.com/v1/inference" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "motor-imagery-classifier",
+    "data": [...],
+    "config": {...}
+  }'
+```
+
+### Authentication Headers
+
+| Header | Value | Required |
+|--------|-------|----------|
+| `Authorization` | `Bearer YOUR_API_KEY` | ✅ Yes |
+| `Content-Type` | `application/json` | ✅ Yes |
+| `X-Client-Version` | Your client version | ⚪ Optional |
+
+## Security Best Practices
+
+### Protect Your API Key
+
+<Warning>
+**Never expose your API key in client-side code, public repositories, or logs.** API keys should only be used in secure server environments.
+</Warning>
+
+**✅ Do:**
+- Store API keys in environment variables
+- Use secure key management systems
+- Rotate keys regularly
+- Monitor API usage for anomalies
+
+**❌ Don't:**
+- Hardcode keys in source code
+- Share keys via email or chat
+- Use the same key across multiple environments
+- Commit keys to version control
+
+### Environment Variables
+
+Store your API key securely:
+
+```bash
+# .env file
+NIMBUS_API_KEY=your_api_key_here
+```
+
+```python
+import os
+from nimbus_bci import NimbusClient
+
+# Initialize client with environment variable
+client = NimbusClient(api_key=os.getenv('NIMBUS_API_KEY'))
+```
+
+## Rate Limits
+
+API requests are subject to rate limits to ensure fair usage and system stability:
+
+| Plan | Requests per minute | Concurrent connections | Data throughput |
+|------|-------------------|----------------------|-----------------|
+| **Research** | 60 | 2 | 1 MB/s |
+| **Professional** | 300 | 10 | 10 MB/s |
+| **Enterprise** | 1000+ | 50+ | 100+ MB/s |
+
+### Rate Limit Headers
+
+Response headers indicate your current rate limit status:
+
+```http
+X-RateLimit-Limit: 300
+X-RateLimit-Remaining: 299
+X-RateLimit-Reset: 1640995200
+X-RateLimit-Window: 60
+```
+
+### Handling Rate Limits
+
+When you exceed rate limits, the API returns a `429 Too Many Requests` response:
+
+```json
+{
+  "error": {
+    "code": "rate_limit_exceeded",
+    "message": "Rate limit exceeded. Try again in 60 seconds.",
+    "retry_after": 60
+  }
+}
+```
+
+**Best practices for handling rate limits:**
+- Implement exponential backoff
+- Cache responses when possible
+- Use streaming endpoints for real-time data
+- Contact us for higher limits if needed
+
+## Error Responses
+
+Authentication errors return specific status codes and messages:
+
+### 401 Unauthorized
+
+```json
+{
+  "error": {
+    "code": "unauthorized",
+    "message": "Invalid or missing API key"
+  }
+}
+```
+
+**Common causes:**
+- Missing `Authorization` header
+- Invalid API key format
+- Expired or revoked API key
+
+### 403 Forbidden
+
+```json
+{
+  "error": {
+    "code": "forbidden",
+    "message": "API key does not have permission for this resource"
+  }
+}
+```
+
+**Common causes:**
+- API key lacks required permissions
+- Accessing restricted endpoints
+- Account suspension or limitations
+
+## API Key Management
+
+### Key Rotation
+
+For security, we recommend rotating API keys regularly:
+
+1. **Request a new key** by contacting hello@nimbusbci.com
+2. **Update your applications** with the new key
+3. **Test thoroughly** in staging environment
+4. **Deploy to production** during maintenance window
+5. **Revoke the old key** after successful deployment
+
+### Multiple Environments
+
+Use different API keys for different environments:
+
+```bash
+# Development
+NIMBUS_API_KEY_DEV=dev_key_here
+
+# Staging  
+NIMBUS_API_KEY_STAGING=staging_key_here
+
+# Production
+NIMBUS_API_KEY_PROD=prod_key_here
+```
+
+## Monitoring and Logging
+
+### Usage Analytics
+
+Monitor your API usage through:
+- Request logs and metrics
+- Error rate monitoring  
+- Performance analytics
+- Cost tracking
+
+### Audit Logs
+
+All API requests are logged for security and debugging:
+- Timestamp and duration
+- Endpoint and method
+- Response status
+- Client IP and user agent
+- Request and response sizes
+
+<Note>
+Contact us at **hello@nimbusbci.com** for access to detailed usage analytics and audit logs for your account.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Inference Endpoints" icon="brain" href="/api-reference/inference-endpoints">
+    Learn about core BCI inference API endpoints
+  </Card>
+  <Card title="Python SDK" icon="python" href="/api-reference/python-sdk">
+    Get started with the Python SDK for easy integration
+  </Card>
+  <Card title="Streaming API" icon="wave-square" href="/api-reference/streaming-api">
+    Real-time BCI data processing with WebSocket streams
+  </Card>
+  <Card title="Webhook Integration" icon="webhook" href="/api-reference/webhook-integration">
+    Set up webhooks for event-driven BCI applications
+  </Card>
+</CardGroup>
+
+## Support
+
+Having trouble with authentication? We're here to help:
+
+- **Email**: hello@nimbusbci.com
+- **Documentation**: Browse our guides and examples
+- **Status Page**: Check system status and maintenance windows
+
+Our team typically responds within 24 hours for API-related inquiries.

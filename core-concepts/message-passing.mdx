@@ -1,0 +1,382 @@
+---
+title: "Message Passing Architecture"
+description: "Understanding the reactive message passing engine that powers Nimbus BCI"
+icon: "share"
+---
+
+# Message Passing Architecture
+
+Nimbus uses reactive message passing on factor graphs to perform efficient Bayesian inference for BCI applications. This architecture enables real-time probabilistic reasoning while maintaining scalability and flexibility. Understanding this foundation helps you build more effective BCI systems.
+
+## Factor Graphs for BCI
+
+### What are Factor Graphs?
+
+Factor graphs are a mathematical framework for representing probabilistic models. They consist of:
+
+- **Variable nodes**: Represent unknown quantities (brain states, intentions, etc.)
+- **Factor nodes**: Represent probabilistic relationships between variables
+- **Edges**: Connect variables to factors that depend on them
+
+### BCI Example: Motor Imagery
+
+Consider a simple motor imagery BCI:
+
+```
+EEG Signals → Neural Features → Brain State → Motor Intention → Cursor Movement
+     |              |             |              |              |
+  [Factor]      [Factor]      [Factor]      [Factor]      [Factor]
+```
+
+Each factor represents a probabilistic relationship:
+- **Signal model**: How EEG relates to neural features
+- **Feature model**: How features relate to brain state  
+- **State model**: How brain state relates to intention
+- **Motor model**: How intention relates to movement
+
+### Advantages for BCI
+
+<Columns cols={2}>
+  <Card title="Modular Design" icon="cubes">
+    Each component can be developed and tested independently
+  </Card>
+  <Card title="Flexible Architecture" icon="refresh">
+    Easy to add new sensors, features, or output modalities
+  </Card>
+  <Card title="Uncertainty Propagation" icon="signal">
+    Uncertainty flows naturally through the entire system
+  </Card>
+  <Card title="Efficient Inference" icon="bolt">
+    Exploit sparsity and local structure for fast computation
+  </Card>
+</Columns>
+
+## Message Passing Inference
+
+### How Message Passing Works
+
+Instead of computing the full joint probability distribution (which is computationally expensive), message passing computes local messages between connected nodes:
+
+1. **Forward pass**: Messages flow from observations to hidden variables
+2. **Backward pass**: Messages flow from priors to observations  
+3. **Marginal computation**: Combine messages to get final beliefs
+
+### Real-time Updates
+
+Traditional batch inference recomputes everything when new data arrives. Message passing enables incremental updates:
+
+```python
+# Traditional batch approach (slow)
+def batch_inference(all_data):
+    return compute_full_posterior(all_data)  # Recompute everything
+
+# Message passing approach (fast)  
+def streaming_inference(new_sample):
+    # Only update affected parts of the graph
+    affected_messages = identify_affected_messages(new_sample)
+    update_messages(affected_messages)
+    return get_updated_beliefs()
+```
+
+### Reactive Programming
+
+Nimbus uses reactive programming principles:
+
+- **Event-driven**: Computation triggered by new data
+- **Asynchronous**: Non-blocking message updates
+- **Backpressure**: Handle varying data rates gracefully
+- **Error handling**: Robust to sensor failures or data corruption
+
+## BCI-Specific Optimizations
+
+### Temporal Models
+
+BCI signals have strong temporal structure. Nimbus exploits this with specialized factor graphs:
+
+<AccordionGroup>
+  <Accordion title="State Space Models">
+    Model how brain states evolve over time:
+    
+    ```
+    Brain State[t-1] → Brain State[t] → Brain State[t+1]
+           |                |                |
+       EEG[t-1]         EEG[t]         EEG[t+1]
+    ```
+    
+    This enables:
+    - **Prediction**: Anticipate future brain states
+    - **Smoothing**: Reduce noise by considering temporal context
+    - **Missing data**: Interpolate when signals are corrupted
+  </Accordion>
+  
+  <Accordion title="Multi-scale Dynamics">
+    Different neural processes operate at different timescales:
+    
+    ```
+    Slow Dynamics (seconds) → Attention, Arousal
+    Medium Dynamics (100ms) → Motor Planning  
+    Fast Dynamics (10ms)    → Neural Oscillations
+    ```
+    
+    Nimbus models these hierarchically for better performance.
+  </Accordion>
+  
+  <Accordion title="Adaptive Forgetting">
+    Weight recent data more heavily than old data:
+    
+    ```python
+    # Exponential forgetting for non-stationary signals
+    message_weight = exp(-decay_rate * time_since_update)
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Multi-modal Integration
+
+Modern BCIs combine multiple signal types. Factor graphs naturally handle this:
+
+```
+    EEG → Neural State ← EMG
+     |        |         |
+   P300    Attention   Muscle
+  Speller    Level    Activity
+     |        |         |
+     └── Intention ──────┘
+            |
+      Final Command
+```
+
+Each modality provides complementary information that improves overall performance.
+
+### Hierarchical Processing
+
+Brain activity operates at multiple levels. Nimbus models this hierarchy:
+
+```
+Global Brain State (Attention, Arousal)
+        |
+Regional Activity (Motor Cortex, Visual Cortex)  
+        |
+Local Populations (Individual Electrodes)
+        |
+Raw Signals (EEG, EMG, EOG)
+```
+
+Higher levels provide context for lower levels, improving inference quality.
+
+## Implementation Details
+
+### Efficient Message Computation
+
+Nimbus optimizes message passing for BCI workloads:
+
+```python
+# Sparse message updates - only compute what changed
+def update_messages(new_data):
+    affected_nodes = dependency_graph.find_affected(new_data)
+    
+    for node in topological_sort(affected_nodes):
+        if node.needs_update():
+            node.compute_messages()
+            node.mark_updated()
+```
+
+### Memory Management
+
+Real-time systems require careful memory management:
+
+- **Message caching**: Reuse previous computations when possible
+- **Bounded memory**: Fixed memory usage regardless of runtime
+- **Garbage collection**: Minimize GC pressure for consistent latency
+
+### Numerical Stability
+
+BCI signals can have extreme values. Nimbus handles this robustly:
+
+- **Log-space computation**: Avoid numerical underflow
+- **Adaptive precision**: Use appropriate numerical precision
+- **Regularization**: Prevent degenerate solutions
+
+## Advanced Features
+
+### Online Learning
+
+Factor graphs can adapt to changing conditions:
+
+```python
+# Continuously update model parameters
+def online_update(new_data, current_model):
+    # Compute prediction error
+    error = compute_prediction_error(new_data, current_model)
+    
+    # Update model parameters using gradient descent
+    updated_model = gradient_update(current_model, error)
+    
+    # Update factor graph with new parameters
+    update_factor_parameters(updated_model)
+```
+
+### Model Selection
+
+Automatically choose the best model structure:
+
+```python
+# Compare different factor graph structures
+models = [
+    simple_motor_imagery_model(),
+    complex_motor_imagery_model(),
+    multimodal_model()
+]
+
+# Select based on performance and complexity
+best_model = nimbus.model_selection(
+    models=models,
+    validation_data=validation_set,
+    criterion='BIC'  # Bayesian Information Criterion
+)
+```
+
+### Distributed Inference
+
+Scale to large sensor arrays:
+
+```python
+# Distribute computation across multiple cores/machines
+distributed_graph = nimbus.distribute_factor_graph(
+    graph=bci_model,
+    num_workers=8,
+    communication='async'
+)
+```
+
+## Practical Examples
+
+### Motor Imagery BCI
+
+```python
+# Define factor graph for motor imagery
+motor_bci = nimbus.FactorGraph()
+
+# Add nodes
+eeg_signals = motor_bci.add_variable_node('eeg', shape=(64,))
+neural_features = motor_bci.add_variable_node('features', shape=(10,))
+brain_state = motor_bci.add_variable_node('state', categories=['left', 'right', 'rest'])
+cursor_position = motor_bci.add_variable_node('cursor', shape=(2,))
+
+# Add factors (probabilistic relationships)
+motor_bci.add_factor('signal_model', [eeg_signals, neural_features])
+motor_bci.add_factor('classifier', [neural_features, brain_state])  
+motor_bci.add_factor('motor_model', [brain_state, cursor_position])
+
+# Compile for efficient inference
+compiled_model = nimbus.compile(motor_bci)
+```
+
+### P300 Speller
+
+```python
+# P300 speller with attention modeling
+p300_bci = nimbus.FactorGraph()
+
+# Variables
+eeg_data = p300_bci.add_variable_node('eeg', shape=(32,))
+attention_state = p300_bci.add_variable_node('attention', continuous=True)
+p300_response = p300_bci.add_variable_node('p300', binary=True)
+target_letter = p300_bci.add_variable_node('letter', categories=list('ABCDEFGHIJKLMNOPQRSTUVWXYZ'))
+
+# Factors
+p300_bci.add_factor('attention_model', [eeg_data, attention_state])
+p300_bci.add_factor('p300_detector', [eeg_data, attention_state, p300_response])
+p300_bci.add_factor('letter_decoder', [p300_response, target_letter])
+```
+
+## Debugging and Visualization
+
+### Graph Visualization
+
+Understand your BCI model structure:
+
+```python
+# Visualize factor graph
+nimbus.visualize_graph(
+    graph=motor_bci,
+    layout='hierarchical',
+    show_messages=True,
+    save_path='bci_model.png'
+)
+```
+
+### Message Inspection
+
+Debug inference problems:
+
+```python
+# Inspect message flow
+with nimbus.message_tracer() as tracer:
+    result = compiled_model.infer(eeg_data)
+
+# Analyze message patterns
+tracer.plot_message_flow()
+tracer.identify_bottlenecks()
+```
+
+### Performance Profiling
+
+Optimize your BCI system:
+
+```python
+# Profile inference performance
+profiler = nimbus.Profiler()
+profiler.start()
+
+for sample in eeg_stream:
+    result = compiled_model.infer(sample)
+
+profiler.stop()
+profiler.report()  # Shows time spent in each factor
+```
+
+## Best Practices
+
+### Model Design
+
+<Tip>
+Start simple and add complexity gradually. A simple model that works reliably is better than a complex model that fails unpredictably.
+</Tip>
+
+1. **Begin with linear models**: Add nonlinearity only when needed
+2. **Use domain knowledge**: Incorporate known neural principles
+3. **Validate incrementally**: Test each component separately
+4. **Monitor performance**: Track inference speed and accuracy
+
+### Scalability
+
+1. **Exploit sparsity**: Most neural connections are sparse
+2. **Use hierarchical models**: Process at multiple resolutions
+3. **Cache computations**: Reuse expensive calculations
+4. **Profile regularly**: Identify and fix bottlenecks
+
+## Getting Started
+
+Ready to build with message passing?
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="play" href="/quickstart">
+    Build your first factor graph BCI
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/inference-endpoints">
+    Explore the factor graph API
+  </Card>
+  <Card title="Examples" icon="list" href="/examples/basic-examples">
+    See message passing in action
+  </Card>
+  <Card title="Advanced Topics" icon="cog" href="/development/custom-nodes">
+    Create custom factor nodes
+  </Card>
+</CardGroup>
+
+---
+
+<Note>
+**Next**: Learn how to configure [real-time inference](/inference-configuration/real-time-setup) for your BCI application.
+</Note>

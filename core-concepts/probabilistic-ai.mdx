@@ -1,0 +1,217 @@
+---
+title: "Probabilistic AI for BCI"
+description: "Understanding why probabilistic approaches are essential for robust brain-computer interfaces"
+icon: "star"
+---
+
+# Probabilistic AI for Brain-Computer Interfaces
+
+Brain-computer interfaces operate in an inherently uncertain environment. Neural signals are noisy, brain states change dynamically, and individual differences create significant variability. Traditional deterministic approaches to BCI fail to capture this uncertainty, leading to brittle systems that break down when conditions change.
+
+Nimbus uses probabilistic AI to handle uncertainty naturally, providing robust, adaptive BCI systems that work reliably in real-world conditions.
+
+## The Uncertainty Challenge in BCI
+
+### Neural Signal Variability
+
+Brain signals are inherently noisy and variable:
+
+- **Signal-to-noise ratio**: Neural signals often have poor SNR, especially in non-invasive recordings
+- **Temporal dynamics**: Brain states change continuously, affecting signal patterns
+- **Individual differences**: Each person's brain produces unique signal characteristics
+- **Environmental factors**: Movement, attention, fatigue all affect neural recordings
+
+<Warning>
+Traditional deterministic BCI systems assume clean, consistent signals. When these assumptions break down, the systems fail catastrophically with no indication of confidence or reliability.
+</Warning>
+
+### Why Deterministic Approaches Fail
+
+Most current BCI systems use deterministic classification:
+
+```python
+# Traditional deterministic BCI approach
+def classify_intent(neural_signal):
+    features = extract_features(neural_signal)
+    prediction = trained_classifier.predict(features)
+    return prediction  # Single answer, no uncertainty
+```
+
+**Problems with this approach:**
+- **Overconfident predictions**: Always returns an answer, even with poor signal quality
+- **No adaptability**: Cannot adjust when brain states change
+- **Binary decisions**: Cannot express uncertainty or multiple possibilities
+- **Poor generalization**: Fails when conditions differ from training data
+
+## Probabilistic AI Solution
+
+### Bayesian Inference for BCI
+
+Nimbus uses Bayesian inference to model uncertainty explicitly:
+
+```python
+# Probabilistic BCI approach with Nimbus
+def infer_intent(neural_signal):
+    # Returns probability distribution over possible intents
+    intent_distribution = nimbus.infer(
+        signal=neural_signal,
+        model=bci_model,
+        uncertainty=True
+    )
+    
+    # Can express confidence and multiple possibilities
+    return {
+        'most_likely': intent_distribution.mode(),
+        'confidence': intent_distribution.entropy(),
+        'alternatives': intent_distribution.top_k(3)
+    }
+```
+
+### Key Advantages
+
+<Columns cols={2}>
+  <Card title="Uncertainty Quantification" icon="tachometer-alt">
+    Know when the system is confident vs uncertain about predictions
+  </Card>
+  <Card title="Adaptive Responses" icon="refresh">
+    Adjust behavior based on signal quality and confidence levels
+  </Card>
+  <Card title="Robust Performance" icon="shield">
+    Graceful degradation when conditions change or signal quality drops
+  </Card>
+  <Card title="Explainable Decisions" icon="shield">
+    Understand why the system made specific predictions
+  </Card>
+</Columns>
+
+## Probabilistic Models for Neural Signals
+
+### State-Space Models
+
+Neural signals can be modeled as observations from hidden brain states:
+
+```
+Hidden Brain State → Observable Neural Signal
+     ↓                        ↓
+  Intent/Command         EEG/EMG/etc.
+```
+
+This allows Nimbus to:
+- **Infer hidden states** from noisy observations
+- **Track state changes** over time
+- **Predict future states** for proactive responses
+- **Handle missing data** gracefully
+
+### Hierarchical Models
+
+Brain activity operates at multiple scales:
+
+- **Local neural populations**: Individual electrode signals
+- **Regional networks**: Coordinated activity across brain regions  
+- **Global brain states**: Overall attention, arousal, cognitive load
+- **Behavioral intentions**: High-level goals and commands
+
+Nimbus models these hierarchical relationships probabilistically.
+
+## Real-World Benefits
+
+### Medical Applications
+
+<Note>
+For FDA-approved medical devices, explainability is crucial. Probabilistic models provide transparent reasoning that clinicians can understand and trust.
+</Note>
+
+**Example: Assistive Communication Device**
+```python
+# Patient with ALS using eye-tracking BCI
+signal_quality = assess_signal_quality(eye_data)
+
+if signal_quality.confidence > 0.8:
+    # High confidence - execute command immediately
+    execute_command(predicted_intent)
+elif signal_quality.confidence > 0.5:
+    # Medium confidence - ask for confirmation
+    request_confirmation(predicted_intent, alternatives)
+else:
+    # Low confidence - request clearer signal
+    prompt_user_for_clearer_input()
+```
+
+### Consumer Applications
+
+**Example: Gaming Interface**
+```python
+# Adaptive difficulty based on cognitive load
+cognitive_load = nimbus.infer_cognitive_state(eeg_signal)
+
+if cognitive_load.is_high():
+    # User is struggling - reduce game difficulty
+    game.adjust_difficulty(easier=True)
+elif cognitive_load.is_low():
+    # User is bored - increase challenge
+    game.adjust_difficulty(harder=True)
+```
+
+### Research Applications
+
+**Example: Neurofeedback Training**
+```python
+# Real-time feedback on meditation state
+meditation_state = nimbus.infer_meditation_depth(eeg_signal)
+
+# Provide nuanced feedback based on uncertainty
+if meditation_state.confidence > 0.9:
+    feedback = f"Deep meditation detected (confidence: {meditation_state.confidence:.1%})"
+else:
+    feedback = f"Meditation in progress (confidence: {meditation_state.confidence:.1%})"
+    
+display_feedback(feedback)
+```
+
+## Technical Implementation
+
+### Message Passing Algorithms
+
+Nimbus uses efficient message passing on factor graphs to perform Bayesian inference:
+
+1. **Factor graphs** represent probabilistic relationships between variables
+2. **Message passing** propagates information through the graph
+3. **Reactive updates** handle streaming data in real-time
+4. **Approximate inference** maintains computational efficiency
+
+<Tip>
+The mathematical details are handled automatically by Nimbus. You specify the model structure, and Nimbus generates efficient inference algorithms.
+</Tip>
+
+### Scalability
+
+Probabilistic inference scales to:
+- **Thousands of neural channels** (high-density EEG, ECoG arrays)
+- **Real-time processing** (sub-20ms latency)
+- **Continuous adaptation** (online learning from new data)
+- **Multi-modal integration** (EEG + EMG + eye tracking + etc.)
+
+## Getting Started
+
+Ready to build probabilistic BCI applications? 
+
+<CardGroup cols={2}>
+  <Card title="Quick Start Guide" icon="play" href="/quickstart">
+    Build your first probabilistic BCI model
+  </Card>
+  <Card title="Real-time Processing" icon="bolt" href="/core-concepts/real-time-processing">
+    Learn about ultra-low latency inference
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Explore the Nimbus API
+  </Card>
+  <Card title="Examples" icon="list" href="/examples/basic-examples">
+    See probabilistic BCI in action
+  </Card>
+</CardGroup>
+
+---
+
+<Note>
+**Next**: Learn how Nimbus achieves [real-time processing](/core-concepts/real-time-processing) with sub-20ms latency for responsive BCI applications.
+</Note>

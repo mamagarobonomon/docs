@@ -1,80 +1,311 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Get started with Nimbus BCI in minutes - from API key to your first BCI application"
+icon: "rocket"
 ---
 
-## Get started in three steps
+# Get Started with Nimbus BCI
 
-Get your documentation site running locally and make your first customization.
+Build your first brain-computer interface application in just a few steps. This guide will take you from setup to running inference on neural data in under 10 minutes.
 
-### Step 1: Set up your local environment
+## Prerequisites
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+Before you begin, make sure you have:
+- **Python 3.8+** installed on your system
+- **Basic understanding** of EEG data and BCI concepts
+- **Neural data** to test with (we'll provide sample data if needed)
 
-### Step 2: Deploy your changes
+## Step 1: Get Your API Key
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
+<Card title="Request API Access" icon="envelope" href="mailto:hello@nimbusbci.com">
+  Contact us at **hello@nimbusbci.com** to request your API key. Include your use case and expected volume.
 </Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+API keys are typically issued within 24 hours. Include details about your BCI application, expected data volume, and timeline in your request.
 </Note>
+
+## Step 2: Install the Python SDK
+
+Install the Nimbus BCI Python SDK using pip:
+
+```bash
+pip install nimbus-bci
+```
+
+<Tip>
+We recommend using a virtual environment to avoid package conflicts:
+```bash
+python -m venv nimbus-env
+source nimbus-env/bin/activate  # On Windows: nimbus-env\Scripts\activate
+pip install nimbus-bci
+```
+</Tip>
+
+## Step 3: Your First BCI Inference
+
+Create a new Python file and run your first BCI inference:
+
+```python
+import os
+import numpy as np
+from nimbus_bci import NimbusClient
+
+# Initialize the client with your API key
+client = NimbusClient(api_key=os.getenv('NIMBUS_API_KEY'))
+
+# Generate sample EEG data (or use your own)
+# 1 second of data at 250 Hz, 4 channels (C3, C4, Cz, Fz)
+eeg_data = np.random.randn(250, 4)
+channels = ['C3', 'C4', 'Cz', 'Fz']
+
+# Perform motor imagery classification
+result = client.inference(
+    model='motor-imagery-classifier',
+    eeg_data=eeg_data,
+    channels=channels,
+    sampling_rate=250
+)
+
+# Print the results
+print(f"🧠 Prediction: {result.prediction.class_name}")
+print(f"📊 Confidence: {result.prediction.confidence:.2f}")
+print(f"⚡ Latency: {result.latency_ms}ms")
+print(f"📈 All probabilities: {result.prediction.probabilities}")
+```
+
+### Set Your API Key
+
+```bash
+# Set your API key as an environment variable
+export NIMBUS_API_KEY="your_api_key_here"
+
+# Or create a .env file
+echo "NIMBUS_API_KEY=your_api_key_here" > .env
+```
+
+### Run Your First Inference
+
+```bash
+python your_bci_app.py
+```
+
+**Expected Output:**
+```
+🧠 Prediction: left_hand
+📊 Confidence: 0.87
+⚡ Latency: 15ms
+📈 All probabilities: {'left_hand': 0.87, 'right_hand': 0.08, 'rest': 0.05}
+```
+
+## Step 4: Try Different BCI Models
+
+Explore other available models:
+
+<AccordionGroup>
+  <Accordion icon="brain" title="P300 Speller">
+    Perfect for communication applications:
+    ```python
+    # P300 event-related potential detection
+    result = client.inference(
+        model='p300-speller',
+        eeg_data=eeg_epoch,  # 800ms epoch around stimulus
+        channels=['Fz', 'Cz', 'Pz', 'Oz'],
+        sampling_rate=250
+    )
+    print(f"P300 detected: {result.prediction.class_name}")
+    ```
+  </Accordion>
+  
+  <Accordion icon="wave-square" title="SSVEP Control">
+    High-speed visual BCI control:
+    ```python
+    # Steady-state visual evoked potential
+    result = client.inference(
+        model='ssvep-classifier',
+        eeg_data=eeg_data,
+        channels=['O1', 'Oz', 'O2'],
+        sampling_rate=250
+    )
+    print(f"Target frequency: {result.prediction.class_name}")
+    ```
+  </Accordion>
+  
+  <Accordion icon="heart" title="Neurofeedback">
+    Real-time brain state monitoring:
+    ```python
+    # Alpha/theta neurofeedback
+    result = client.inference(
+        model='neurofeedback-alpha',
+        eeg_data=eeg_data,
+        channels=['C3', 'C4', 'Cz'],
+        sampling_rate=250
+    )
+    print(f"Relaxation level: {result.prediction.confidence:.2f}")
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Step 5: Real-Time Processing
+
+For continuous BCI applications, use the streaming API:
+
+```python
+from nimbus_bci import RealTimeProcessor
+import time
+
+# Initialize real-time processor
+processor = RealTimeProcessor(
+    client=client,
+    model='motor-imagery-classifier',
+    config={
+        'buffer_size': 1000,
+        'update_interval_ms': 50,
+        'confidence_threshold': 0.6
+    }
+)
+
+# Define callback for predictions
+def on_prediction(result):
+    print(f"Real-time: {result.prediction.class_name} ({result.prediction.confidence:.2f})")
+    
+    # Your BCI control logic here
+    if result.prediction.class_name == 'left_hand' and result.prediction.confidence > 0.8:
+        print("🔄 Moving cursor left")
+    elif result.prediction.class_name == 'right_hand' and result.prediction.confidence > 0.8:
+        print("🔄 Moving cursor right")
+
+# Start real-time processing
+processor.start(callback=on_prediction)
+
+# Simulate continuous data acquisition
+for i in range(100):
+    # In a real application, this would come from your EEG device
+    new_sample = np.random.randn(4)  # 4 channels
+    processor.add_sample(new_sample)
+    time.sleep(0.004)  # 250 Hz sampling rate
+
+processor.stop()
+```
+
+## Common Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Motor Imagery Control" icon="gamepad" href="/examples/basic-examples">
+    Control cursors, wheelchairs, or prosthetics with imagined movements
+  </Card>
+  
+  <Card title="P300 Communication" icon="keyboard" href="/models/hmm-brain-states">
+    Build spelling interfaces and communication devices
+  </Card>
+  
+  <Card title="Neurofeedback Training" icon="chart-line" href="/examples/industry-use-cases">
+    Create meditation apps and cognitive training systems
+  </Card>
+  
+  <Card title="SSVEP Gaming" icon="gamepad" href="/examples/advanced-applications">
+    High-speed BCI gaming and entertainment applications
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+Now that you have Nimbus BCI running, explore these advanced features:
+
+<CardGroup cols={2}>
+  <Card title="Model Specification" icon="code" href="/model-specification">
+    Learn how to build custom BCI models
+  </Card>
+  
+  <Card title="Streaming API" icon="wave-square" href="/api-reference/streaming-api">
+    Real-time processing with WebSocket connections
+  </Card>
+  
+  <Card title="Batch Processing" icon="list" href="/inference-configuration/batch-processing">
+    Process large datasets efficiently
+  </Card>
+  
+  <Card title="Error Handling" icon="shield" href="/inference-configuration/error-handling">
+    Build robust production BCI systems
+  </Card>
+</CardGroup>
+
+## Sample Data & Examples
+
+<AccordionGroup>
+  <Accordion icon="download" title="Download Sample EEG Data">
+    Get started with pre-recorded EEG data:
+    ```python
+    from nimbus_bci.datasets import load_sample_data
+    
+    # Load motor imagery sample data
+    eeg_data, labels, channels = load_sample_data('motor_imagery')
+    
+    # Run inference on sample data
+    result = client.inference(
+        model='motor-imagery-classifier',
+        eeg_data=eeg_data[0],  # First trial
+        channels=channels,
+        sampling_rate=250
+    )
+    ```
+  </Accordion>
+  
+  <Accordion icon="github" title="Example Applications">
+    Check out complete example applications:
+    - **Cursor Control**: Real-time cursor movement with motor imagery
+    - **P300 Speller**: Communication interface using event-related potentials
+    - **Neurofeedback**: Meditation and relaxation training app
+    - **SSVEP Game**: High-speed BCI gaming interface
+    
+    Find all examples in our [GitHub repository](https://github.com/nimbusbci/examples).
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="exclamation-triangle" title="Common Issues">
+    **API Key Issues:**
+    - Ensure your API key is set correctly: `echo $NIMBUS_API_KEY`
+    - Check for typos in the key
+    - Contact hello@nimbusbci.com if your key isn't working
+    
+    **Data Format Issues:**
+    - EEG data should be numpy arrays with shape (samples, channels)
+    - Sampling rate should match your actual data
+    - Channel names should match the model requirements
+    
+    **Network Issues:**
+    - Check your internet connection
+    - Verify firewall settings allow HTTPS traffic
+    - Try the inference with a smaller data sample first
+  </Accordion>
+  
+  <Accordion icon="question-circle" title="Getting Help">
+    Need assistance? We're here to help:
+    
+    - **Email**: hello@nimbusbci.com for technical support
+    - **Documentation**: Browse our comprehensive guides
+    - **Examples**: Check out working code samples
+    - **Community**: Join our developer community
+    
+    When reporting issues, please include:
+    - Your Python version and OS
+    - The exact error message
+    - A minimal code example that reproduces the issue
+  </Accordion>
+</AccordionGroup>
+
+## Performance Tips
+
+<Tip>
+**Optimize for Production:**
+- Use batch inference for multiple samples
+- Implement proper error handling and retries
+- Monitor API usage and latency
+- Cache model information locally
+- Use appropriate confidence thresholds for your application
+</Tip>
+
+Congratulations! 🎉 You've successfully set up Nimbus BCI and run your first brain-computer interface inference. You're now ready to build powerful BCI applications with sub-20ms latency and enterprise-grade reliability.

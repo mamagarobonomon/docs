@@ -1,0 +1,572 @@
+---
+title: "Streaming API"
+description: "Real-time BCI processing with WebSocket connections"
+icon: "wave-square"
+---
+
+# Streaming API
+
+The Nimbus Streaming API enables real-time, continuous processing of neural signals with sub-20ms latency. Using WebSocket connections, you can stream EEG data and receive immediate BCI predictions for responsive applications.
+
+## Overview
+
+The Streaming API is designed for:
+- **Real-time BCI control** (cursor movement, prosthetics)
+- **Live neurofeedback** applications
+- **Continuous monitoring** systems
+- **Interactive BCI** experiences
+
+### Key Features
+
+- **Ultra-low latency**: Sub-20ms processing time
+- **Continuous processing**: No need to batch samples
+- **Adaptive buffering**: Automatic buffer management
+- **Quality monitoring**: Real-time signal quality metrics
+- **Error recovery**: Automatic reconnection and state recovery
+
+## Getting Started
+
+### 1. Initialize Streaming Session
+
+First, create a streaming session to get your WebSocket URL:
+
+```bash
+curl -X POST "https://api.nimbusbci.com/v1/streaming/sessions" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "motor-imagery-classifier",
+    "config": {
+      "buffer_size_ms": 1000,
+      "update_interval_ms": 50,
+      "confidence_threshold": 0.6,
+      "channels": ["C3", "C4", "Cz"],
+      "sampling_rate": 250
+    }
+  }'
+```
+
+#### Response
+
+```json
+{
+  "session_id": "stream_1234567890abcdef",
+  "websocket_url": "wss://stream.nimbusbci.com/v1/stream_1234567890abcdef",
+  "model": "motor-imagery-classifier",
+  "config": {
+    "buffer_size_ms": 1000,
+    "update_interval_ms": 50,
+    "confidence_threshold": 0.6,
+    "channels": ["C3", "C4", "Cz"],
+    "sampling_rate": 250
+  },
+  "status": "initialized",
+  "expires_at": "2024-01-01T12:00:00Z"
+}
+```
+
+### 2. Connect to WebSocket
+
+Connect to the WebSocket URL using your preferred WebSocket client:
+
+```javascript
+const ws = new WebSocket('wss://stream.nimbusbci.com/v1/stream_1234567890abcdef');
+
+ws.onopen = function() {
+    console.log('Connected to Nimbus streaming');
+};
+
+ws.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    handleStreamingResult(data);
+};
+
+ws.onerror = function(error) {
+    console.error('WebSocket error:', error);
+};
+```
+
+### 3. Send EEG Data
+
+Send EEG samples in real-time:
+
+```javascript
+// Send single sample
+function sendEEGSample(eegSample) {
+    const message = {
+        type: 'eeg_sample',
+        data: {
+            sample: eegSample,  // Array of channel values
+            timestamp: Date.now(),
+            sample_id: generateSampleId()
+        }
+    };
+    ws.send(JSON.stringify(message));
+}
+
+// Example: Send samples at 250 Hz
+setInterval(() => {
+    const sample = getNextEEGSample(); // Your data acquisition function
+    sendEEGSample(sample);
+}, 4); // 4ms = 250 Hz
+```
+
+### 4. Receive Predictions
+
+Handle real-time predictions:
+
+```javascript
+function handleStreamingResult(data) {
+    switch(data.type) {
+        case 'prediction':
+            console.log(`Prediction: ${data.result.class}`);
+            console.log(`Confidence: ${data.result.confidence}`);
+            updateBCIInterface(data.result);
+            break;
+            
+        case 'signal_quality':
+            updateSignalQuality(data.quality);
+            break;
+            
+        case 'error':
+            handleStreamingError(data.error);
+            break;
+    }
+}
+```
+
+## Message Types
+
+### Client Messages (You → Nimbus)
+
+#### EEG Sample
+
+Send individual EEG samples:
+
+```json
+{
+  "type": "eeg_sample",
+  "data": {
+    "sample": [1.2, -0.8, 0.3],
+    "timestamp": 1640995200000,
+    "sample_id": "sample_001"
+  }
+}
+```
+
+#### EEG Batch
+
+Send multiple samples at once:
+
+```json
+{
+  "type": "eeg_batch",
+  "data": {
+    "samples": [
+      [1.2, -0.8, 0.3],
+      [1.1, -0.9, 0.2],
+      [1.0, -0.7, 0.4]
+    ],
+    "timestamps": [1640995200000, 1640995200004, 1640995200008],
+    "batch_id": "batch_001"
+  }
+}
+```
+
+#### Configuration Update
+
+Update streaming parameters:
+
+```json
+{
+  "type": "config_update",
+  "data": {
+    "confidence_threshold": 0.8,
+    "update_interval_ms": 25
+  }
+}
+```
+
+#### Control Messages
+
+```json
+{
+  "type": "control",
+  "action": "pause"  // "pause", "resume", "reset_buffer"
+}
+```
+
+### Server Messages (Nimbus → You)
+
+#### Prediction Result
+
+```json
+{
+  "type": "prediction",
+  "timestamp": 1640995200000,
+  "result": {
+    "class": "left_hand",
+    "confidence": 0.87,
+    "probabilities": {
+      "left_hand": 0.87,
+      "right_hand": 0.08,
+      "rest": 0.05
+    },
+    "latency_ms": 15,
+    "buffer_samples": 250
+  }
+}
+```
+
+#### Signal Quality
+
+```json
+{
+  "type": "signal_quality",
+  "timestamp": 1640995200000,
+  "quality": {
+    "overall": 0.92,
+    "channels": {
+      "C3": 0.89,
+      "C4": 0.94,
+      "Cz": 0.93
+    },
+    "artifacts_detected": 2,
+    "noise_level": 0.08
+  }
+}
+```
+
+#### Buffer Status
+
+```json
+{
+  "type": "buffer_status",
+  "timestamp": 1640995200000,
+  "status": {
+    "size": 1000,
+    "filled": 250,
+    "utilization": 0.25,
+    "oldest_sample_age_ms": 1000
+  }
+}
+```
+
+#### Error Message
+
+```json
+{
+  "type": "error",
+  "timestamp": 1640995200000,
+  "error": {
+    "code": "invalid_sample_rate",
+    "message": "Sample rate mismatch: expected 250 Hz, got 500 Hz",
+    "recoverable": true
+  }
+}
+```
+
+## Python SDK Integration
+
+### Basic Streaming
+
+```python
+from nimbus_bci import StreamingClient
+import asyncio
+
+async def stream_bci_data():
+    client = StreamingClient(api_key='your_api_key')
+    
+    # Create streaming session
+    session = await client.create_session(
+        model='motor-imagery-classifier',
+        config={
+            'buffer_size_ms': 1000,
+            'update_interval_ms': 50,
+            'channels': ['C3', 'C4', 'Cz'],
+            'sampling_rate': 250
+        }
+    )
+    
+    # Define event handlers
+    @session.on('prediction')
+    async def handle_prediction(data):
+        print(f"Prediction: {data['result']['class']}")
+        print(f"Confidence: {data['result']['confidence']:.2f}")
+    
+    @session.on('signal_quality')
+    async def handle_quality(data):
+        print(f"Signal quality: {data['quality']['overall']:.2f}")
+    
+    # Connect and start streaming
+    await session.connect()
+    
+    # Send data continuously
+    while True:
+        sample = await get_eeg_sample()  # Your data source
+        await session.send_sample(sample)
+        await asyncio.sleep(0.004)  # 250 Hz
+
+# Run the streaming client
+asyncio.run(stream_bci_data())
+```
+
+### Advanced Streaming with Buffer Management
+
+```python
+from nimbus_bci import AdvancedStreamingClient
+import numpy as np
+
+class BCIStreamProcessor:
+    def __init__(self, api_key):
+        self.client = AdvancedStreamingClient(api_key)
+        self.buffer = []
+        self.predictions = []
+        
+    async def start_streaming(self):
+        session = await self.client.create_session(
+            model='motor-imagery-classifier',
+            config={
+                'buffer_size_ms': 2000,
+                'update_interval_ms': 25,
+                'confidence_threshold': 0.7,
+                'adaptive_threshold': True
+            }
+        )
+        
+        # Set up event handlers
+        session.on('prediction', self.handle_prediction)
+        session.on('buffer_status', self.handle_buffer_status)
+        session.on('error', self.handle_error)
+        
+        await session.connect()
+        
+        # Start data acquisition loop
+        await self.data_acquisition_loop(session)
+    
+    async def handle_prediction(self, data):
+        prediction = data['result']
+        self.predictions.append(prediction)
+        
+        # Implement your BCI control logic
+        if prediction['confidence'] > 0.8:
+            await self.execute_bci_command(prediction['class'])
+    
+    async def handle_buffer_status(self, data):
+        status = data['status']
+        if status['utilization'] > 0.9:
+            print("Warning: Buffer nearly full")
+    
+    async def handle_error(self, data):
+        error = data['error']
+        if error['recoverable']:
+            print(f"Recoverable error: {error['message']}")
+            await asyncio.sleep(1)  # Brief pause before continuing
+        else:
+            raise Exception(f"Fatal streaming error: {error['message']}")
+    
+    async def data_acquisition_loop(self, session):
+        while True:
+            try:
+                # Get batch of samples for efficiency
+                samples = await self.get_eeg_batch(batch_size=10)
+                await session.send_batch(samples)
+                await asyncio.sleep(0.04)  # 25 Hz batch rate
+                
+            except Exception as e:
+                print(f"Data acquisition error: {e}")
+                await asyncio.sleep(0.1)
+```
+
+## Configuration Options
+
+### Session Configuration
+
+```json
+{
+  "model": "motor-imagery-classifier",
+  "config": {
+    "buffer_size_ms": 1000,
+    "update_interval_ms": 50,
+    "confidence_threshold": 0.6,
+    "channels": ["C3", "C4", "Cz"],
+    "sampling_rate": 250,
+    "preprocessing": {
+      "filter": {"low": 1, "high": 40},
+      "artifact_removal": true,
+      "normalization": "zscore"
+    },
+    "adaptive_threshold": true,
+    "quality_monitoring": true,
+    "auto_reconnect": true
+  }
+}
+```
+
+### Performance Tuning
+
+| Parameter | Description | Recommended Value |
+|-----------|-------------|-------------------|
+| `buffer_size_ms` | Buffer duration | 1000-2000ms |
+| `update_interval_ms` | Prediction frequency | 25-100ms |
+| `batch_size` | Samples per batch | 5-20 samples |
+| `confidence_threshold` | Minimum confidence | 0.6-0.8 |
+
+## Error Handling
+
+### Connection Errors
+
+```javascript
+ws.onerror = function(error) {
+    console.error('WebSocket error:', error);
+    
+    // Implement reconnection logic
+    setTimeout(() => {
+        reconnectWebSocket();
+    }, 5000);
+};
+
+ws.onclose = function(event) {
+    if (event.code !== 1000) {  // Not a normal closure
+        console.log('Connection lost, attempting to reconnect...');
+        reconnectWebSocket();
+    }
+};
+```
+
+### Data Quality Issues
+
+```javascript
+function handleStreamingResult(data) {
+    if (data.type === 'signal_quality') {
+        const quality = data.quality.overall;
+        
+        if (quality < 0.5) {
+            showQualityWarning('Poor signal quality detected');
+        } else if (quality < 0.7) {
+            showQualityWarning('Signal quality could be improved');
+        }
+    }
+}
+```
+
+### Buffer Management
+
+```javascript
+function handleBufferStatus(data) {
+    const status = data.status;
+    
+    if (status.utilization > 0.9) {
+        // Buffer nearly full - reduce data rate temporarily
+        adjustSamplingRate(200);  // Reduce from 250 Hz to 200 Hz
+    } else if (status.utilization < 0.3) {
+        // Buffer underutilized - can increase data rate
+        adjustSamplingRate(250);  // Back to normal rate
+    }
+}
+```
+
+## Best Practices
+
+### Data Transmission
+
+**Optimize Sample Rate:**
+- Use 250 Hz for most BCI applications
+- Consider 500 Hz only for high-frequency applications
+- Batch samples for network efficiency
+
+**Buffer Management:**
+- Monitor buffer utilization
+- Adjust buffer size based on network latency
+- Implement adaptive buffering for variable networks
+
+**Quality Monitoring:**
+- Check signal quality regularly
+- Implement automatic artifact detection
+- Provide user feedback on signal quality
+
+### Network Optimization
+
+**Connection Management:**
+- Implement automatic reconnection
+- Use connection pooling for multiple sessions
+- Monitor connection health
+
+**Bandwidth Optimization:**
+- Compress data when possible
+- Use efficient data formats
+- Batch samples appropriately
+
+## Use Cases
+
+### Real-time Cursor Control
+
+```python
+class CursorController:
+    def __init__(self):
+        self.cursor_position = [0, 0]
+        self.movement_speed = 10
+    
+    async def handle_prediction(self, data):
+        prediction = data['result']
+        
+        if prediction['confidence'] > 0.7:
+            if prediction['class'] == 'left_hand':
+                self.cursor_position[0] -= self.movement_speed
+            elif prediction['class'] == 'right_hand':
+                self.cursor_position[0] += self.movement_speed
+            
+            # Update cursor position on screen
+            update_cursor_display(self.cursor_position)
+```
+
+### Neurofeedback Training
+
+```python
+class NeurofeedbackTrainer:
+    def __init__(self):
+        self.target_state = 'relaxed'
+        self.feedback_history = []
+    
+    async def handle_prediction(self, data):
+        prediction = data['result']
+        
+        # Calculate feedback based on desired state
+        if prediction['class'] == self.target_state:
+            feedback_value = prediction['confidence']
+        else:
+            feedback_value = 1.0 - prediction['confidence']
+        
+        self.feedback_history.append(feedback_value)
+        
+        # Provide visual/audio feedback
+        update_feedback_display(feedback_value)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Webhook Integration" icon="webhook" href="/api-reference/webhook-integration">
+    Set up webhooks for event-driven applications
+  </Card>
+  <Card title="Python SDK" icon="python" href="/api-reference/python-sdk">
+    Use the Python SDK for easier streaming integration
+  </Card>
+  <Card title="Real-time Examples" icon="code" href="/examples/code-samples">
+    Complete real-time BCI implementation examples
+  </Card>
+  <Card title="Performance Tuning" icon="gauge" href="/core-concepts/real-time-processing">
+    Optimize for sub-20ms latency
+  </Card>
+</CardGroup>
+
+## Support
+
+Need help with streaming integration?
+
+- **Email**: hello@nimbusbci.com
+- **Real-time Support**: Available for enterprise customers
+- **Documentation**: Comprehensive guides and examples
+- **Community**: Join our developer community
+
+The Streaming API is designed for production use with enterprise-grade reliability and performance.

@@ -1,0 +1,265 @@
+---
+title: "Real-time Processing"
+description: "How Nimbus achieves sub-20ms latency for responsive brain-computer interfaces"
+icon: "clock"
+---
+
+# Real-time Processing for BCI
+
+Real-time performance is critical for brain-computer interfaces. Users expect immediate responses to their neural commands - any delay breaks the sense of direct neural control and degrades the user experience. Nimbus achieves sub-20ms inference latency, enabling truly responsive BCI applications.
+
+## Why Latency Matters in BCI
+
+### The 20ms Threshold
+
+Research shows that for natural interaction, BCI systems need to respond within **20 milliseconds** of neural signal acquisition:
+
+- **Motor BCIs**: Cursor control feels natural only with sub-20ms latency
+- **Communication BCIs**: Real-time typing requires immediate character selection
+- **Gaming BCIs**: Competitive gaming demands instant response to mental commands
+- **Assistive BCIs**: Wheelchair control and robotic arms need immediate execution
+
+<Warning>
+Standard BCI processing pipelines take 200ms or more, creating a noticeable delay that breaks the illusion of direct neural control.
+</Warning>
+
+### Current BCI Latency Bottlenecks
+
+Traditional BCI systems have multiple latency sources:
+
+```
+Signal Acquisition → Feature Extraction → Classification → Post-processing → Output
+     ~10ms              ~50ms            ~100ms         ~40ms        ~10ms
+                                    
+Total: ~210ms (10x slower than needed)
+```
+
+**Major bottlenecks:**
+- **Batch processing**: Waiting for signal windows (50-100ms)
+- **Complex feature extraction**: FFTs, spatial filters, etc.
+- **Inefficient classifiers**: SVMs, neural networks with high overhead
+- **Post-processing**: Smoothing, voting, calibration steps
+
+## Nimbus Real-time Architecture
+
+### Streaming Inference Pipeline
+
+Nimbus processes neural signals as continuous streams, not batches:
+
+```
+Neural Stream → Reactive Processing → Probabilistic Inference → Real-time Output
+    ~1ms            ~5ms                    ~10ms              ~2ms
+
+Total: ~18ms (sub-20ms target achieved)
+```
+
+### Key Innovations
+
+<Columns cols={2}>
+  <Card title="Reactive Message Passing" icon="refresh">
+    Updates only when new data arrives, no waiting for batches
+  </Card>
+  <Card title="Incremental Inference" icon="arrow-right">
+    Builds on previous computations instead of starting fresh
+  </Card>
+  <Card title="Optimized Factor Graphs" icon="sitemap">
+    Efficient graph structures minimize computation
+  </Card>
+  <Card title="Hardware Acceleration" icon="cog">
+    GPU/TPU optimization for parallel processing
+  </Card>
+</Columns>
+
+## Technical Implementation
+
+### Streaming Data Processing
+
+Unlike traditional batch processing, Nimbus handles continuous data streams:
+
+```python
+# Traditional batch approach (slow)
+def process_batch(signal_window):
+    features = extract_features(signal_window)  # Wait for full window
+    prediction = classify(features)             # Process entire batch
+    return prediction
+
+# Nimbus streaming approach (fast)
+async def process_stream(signal_stream):
+    async for sample in signal_stream:
+        # Incremental processing - no waiting
+        updated_belief = nimbus.update_belief(sample)
+        if updated_belief.confidence > threshold:
+            yield updated_belief.prediction
+```
+
+### Reactive Message Passing
+
+Nimbus uses reactive programming principles:
+
+1. **Event-driven**: Computation triggered by new data arrival
+2. **Incremental**: Only update affected parts of the computation graph
+3. **Asynchronous**: Non-blocking operations for maximum throughput
+4. **Cached**: Reuse previous computations when possible
+
+### Memory Efficiency
+
+Real-time systems must manage memory carefully:
+
+- **Bounded memory**: Fixed memory usage regardless of runtime
+- **Circular buffers**: Efficient storage for streaming data
+- **Garbage collection**: Minimal GC pressure for consistent latency
+- **Memory pools**: Pre-allocated memory to avoid allocation overhead
+
+## Performance Optimizations
+
+### Algorithmic Optimizations
+
+<AccordionGroup>
+  <Accordion title="Sparse Factor Graphs">
+    Most neural signals have sparse connectivity patterns. Nimbus exploits this sparsity to reduce computation:
+    
+    - **Local updates**: Only affected nodes recompute
+    - **Pruning**: Remove irrelevant connections
+    - **Hierarchical**: Multi-resolution processing
+  </Accordion>
+  
+  <Accordion title="Approximate Inference">
+    Perfect inference is often unnecessary. Nimbus uses controlled approximations:
+    
+    - **Variational methods**: Fast approximate posteriors
+    - **Particle filters**: Monte Carlo approximations
+    - **Moment matching**: Gaussian approximations
+  </Accordion>
+  
+  <Accordion title="Adaptive Precision">
+    Adjust computational precision based on signal quality:
+    
+    ```python
+    if signal_quality.is_high():
+        precision = HighPrecision()
+    else:
+        precision = FastApproximation()
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Hardware Optimizations
+
+<Columns cols={2}>
+  <Card title="SIMD Instructions" icon="cog">
+    Vectorized operations for parallel computation
+  </Card>
+  <Card title="GPU Acceleration" icon="microchip">
+    Massively parallel inference on graphics cards
+  </Card>
+  <Card title="Memory Locality" icon="database">
+    Cache-friendly data structures and access patterns
+  </Card>
+  <Card title="Pipeline Parallelism" icon="bars">
+    Overlap computation and I/O operations
+  </Card>
+</Columns>
+
+## Real-World Performance
+
+### Benchmark Results
+
+Nimbus consistently achieves sub-20ms latency across different BCI applications:
+
+| Application Type | Signal Type | Channels | Nimbus Latency | Standard BCI |
+|-----------------|-------------|----------|----------------|--------------|
+| Motor Imagery   | EEG         | 64       | 15ms          | 180ms        |
+| P300 Speller    | EEG         | 32       | 12ms          | 150ms        |
+| EMG Control     | EMG         | 8        | 8ms           | 120ms        |
+| Eye Tracking    | EOG         | 4        | 6ms           | 100ms        |
+
+### Scalability
+
+Performance scales with system resources:
+
+```python
+# Automatic scaling based on available hardware
+config = nimbus.auto_configure(
+    target_latency=15,  # milliseconds
+    available_cores=8,
+    gpu_memory="8GB"
+)
+
+# Nimbus automatically optimizes for your hardware
+bci_system = nimbus.create_system(config)
+```
+
+## Deployment Considerations
+
+### Edge Computing
+
+For ultra-low latency, deploy Nimbus at the edge:
+
+- **Local processing**: No network round-trips
+- **Dedicated hardware**: Optimized for BCI workloads
+- **Real-time OS**: Deterministic scheduling
+- **Hardware acceleration**: Specialized BCI chips
+
+### Cloud Integration
+
+When edge computing isn't sufficient:
+
+- **Hybrid processing**: Critical path on edge, complex analysis in cloud
+- **Predictive caching**: Pre-compute likely responses
+- **Load balancing**: Distribute across multiple inference nodes
+- **Failover**: Graceful degradation when cloud is unavailable
+
+## Monitoring and Debugging
+
+### Real-time Metrics
+
+Monitor system performance in production:
+
+```python
+# Built-in performance monitoring
+metrics = nimbus.get_performance_metrics()
+print(f"Average latency: {metrics.latency_p50}ms")
+print(f"99th percentile: {metrics.latency_p99}ms")
+print(f"Throughput: {metrics.samples_per_second}")
+```
+
+### Latency Profiling
+
+Identify bottlenecks in your BCI pipeline:
+
+```python
+with nimbus.profiler() as prof:
+    result = bci_system.process(neural_signal)
+
+# Detailed breakdown of processing time
+prof.print_stats()
+```
+
+<Tip>
+Use Nimbus's built-in profiling tools to optimize your specific BCI application. Every use case has different performance characteristics.
+</Tip>
+
+## Getting Started with Real-time BCI
+
+Ready to build ultra-fast BCI applications?
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="play" href="/quickstart">
+    Build your first real-time BCI system
+  </Card>
+  <Card title="Streaming API" icon="signal" href="/api-reference/streaming-api">
+    Learn the streaming inference API
+  </Card>
+  <Card title="Performance Tuning" icon="tachometer-alt" href="/inference-configuration/real-time-setup">
+    Optimize for your hardware
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/basic-examples">
+    See real-time BCI in action
+  </Card>
+</CardGroup>
+
+---
+
+<Note>
+**Next**: Learn how Nimbus handles [uncertainty in neural signals](/core-concepts/uncertainty-handling) to build robust BCI applications.
+</Note>

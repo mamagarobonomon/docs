@@ -1,0 +1,546 @@
+---
+title: "Advanced BCI Applications"
+description: "Sophisticated probabilistic models for complex brain-computer interface scenarios"
+icon: "cog"
+---
+
+# Advanced BCI Applications
+
+This section demonstrates sophisticated probabilistic modeling techniques for complex BCI scenarios, including multi-modal sensor fusion, decision-making under uncertainty, and adaptive control systems.
+
+## Nonlinear Sensor Fusion for Multi-Modal BCI
+
+Modern BCI systems often combine multiple sensor modalities (EEG, EMG, eye tracking, IMU) to achieve robust performance. This example shows how to fuse heterogeneous sensor data with nonlinear relationships.
+
+### Problem Setup
+
+Different sensor modalities provide complementary information about user intent, but they operate at different time scales and have complex, nonlinear relationships. We use a hierarchical model to fuse these signals optimally.
+
+```python
+@model
+def multimodal_bci_fusion(eeg_data, emg_data, eye_data, imu_data):
+    """
+    Nonlinear sensor fusion for robust BCI control
+    
+    Args:
+        eeg_data: EEG signals [channels x time] - cortical activity
+        emg_data: EMG signals [muscles x time] - muscle activity  
+        eye_data: Eye tracking [x, y, pupil] - visual attention
+        imu_data: IMU data [accel, gyro] - head/body movement
+    """
+    
+    # Latent user intent (what the user wants to do)
+    user_intent_dim = 3  # [move_x, move_y, select]
+    
+    for t in range(len(eeg_data[0])):
+        if t == 0:
+            user_intent[t] ~ MultivariateNormal(
+                mean=np.zeros(user_intent_dim),
+                covariance=np.eye(user_intent_dim)
+            )
+        else:
+            # Intent evolves smoothly over time
+            user_intent[t] ~ MultivariateNormal(
+                mean=0.9 * user_intent[t-1],  # Temporal smoothing
+                covariance=0.1 * np.eye(user_intent_dim)
+            )
+        
+        # EEG observation model (cortical signals)
+        eeg_spatial_filters ~ MultivariateNormal(
+            mean=np.zeros((len(eeg_data), user_intent_dim)),
+            covariance=np.eye(len(eeg_data))
+        )
+        
+        eeg_features[t] = eeg_spatial_filters @ user_intent[t]
+        
+        for ch in range(len(eeg_data)):
+            eeg_data[ch][t] ~ Normal(
+                mean=eeg_features[t][ch],
+                variance=eeg_noise_variance
+            )
+        
+        # EMG observation model (muscle activation)
+        # Nonlinear relationship: EMG = sigmoid(intent * muscle_weights)
+        emg_weights ~ MultivariateNormal(
+            mean=np.zeros((len(emg_data), user_intent_dim)),
+            covariance=np.eye(len(emg_data))
+        )
+        
+        emg_activation[t] = sigmoid(emg_weights @ user_intent[t])
+        
+        for muscle in range(len(emg_data)):
+            emg_data[muscle][t] ~ Normal(
+                mean=emg_activation[t][muscle],
+                variance=emg_noise_variance
+            )
+        
+        # Eye tracking model (visual attention)
+        eye_sensitivity ~ Normal(mean=1.0, variance=0.1)
+        
+        # Eye position relates to intended cursor movement
+        eye_data[t][0] ~ Normal(  # x-position
+            mean=eye_sensitivity * user_intent[t][0],
+            variance=eye_noise_variance
+        )
+        eye_data[t][1] ~ Normal(  # y-position  
+            mean=eye_sensitivity * user_intent[t][1],
+            variance=eye_noise_variance
+        )
+        
+        # Pupil dilation relates to selection intent
+        eye_data[t][2] ~ Normal(  # pupil diameter
+            mean=baseline_pupil + pupil_gain * user_intent[t][2],
+            variance=pupil_noise_variance
+        )
+        
+        # IMU model (head movement compensation)
+        head_movement_coupling ~ Normal(mean=0.1, variance=0.05)
+        
+        for axis in range(len(imu_data)):
+            imu_data[axis][t] ~ Normal(
+                mean=head_movement_coupling * user_intent[t][axis % user_intent_dim],
+                variance=imu_noise_variance
+            )
+```
+
+### BCI Application: Adaptive Wheelchair Control
+
+```python
+class AdaptiveWheelchairBCI:
+    def __init__(self):
+        self.fusion_model = multimodal_bci_fusion()
+        self.calibration_data = {}
+        self.adaptation_rate = 0.1
+        
+    def calibrate_sensors(self, calibration_session):
+        """Calibrate sensor fusion weights for individual user"""
+        
+        # Collect data during structured calibration tasks
+        eeg_cal = calibration_session['eeg']
+        emg_cal = calibration_session['emg'] 
+        eye_cal = calibration_session['eye']
+        imu_cal = calibration_session['imu']
+        true_intents = calibration_session['intended_movements']
+        
+        # Learn sensor-specific parameters
+        result = self.fusion_model.infer(
+            eeg_data=eeg_cal,
+            emg_data=emg_cal,
+            eye_data=eye_cal,
+            imu_data=imu_cal,
+            target='user_intent'
+        )
+        
+        # Store calibrated parameters
+        self.calibration_data = {
+            'eeg_filters': result.eeg_spatial_filters,
+            'emg_weights': result.emg_weights,
+            'eye_sensitivity': result.eye_sensitivity,
+            'noise_levels': result.noise_variances
+        }
+    
+    def fuse_sensors_realtime(self, sensor_window):
+        """Real-time sensor fusion for wheelchair control"""
+        
+        # Extract sensor data
+        eeg = sensor_window['eeg']
+        emg = sensor_window['emg']
+        eye = sensor_window['eye'] 
+        imu = sensor_window['imu']
+        
+        # Perform sensor fusion
+        result = self.fusion_model.infer(
+            eeg_data=eeg,
+            emg_data=emg,
+            eye_data=eye,
+            imu_data=imu,
+            target='user_intent'
+        )
+        
+        # Extract fused intent estimate
+        intent = result.mean[-1]  # Most recent time point
+        confidence = 1.0 / result.variance[-1]
+        
+        # Convert to wheelchair commands
+        move_x = intent[0] * confidence[0]
+        move_y = intent[1] * confidence[1] 
+        select = intent[2] * confidence[2]
+        
+        # Safety thresholding
+        if confidence.mean() < 0.5:
+            # Low confidence - stop movement
+            return {'velocity': [0, 0], 'action': 'stop'}
+        
+        return {
+            'velocity': [move_x, move_y],
+            'action': 'select' if select > 0.7 else 'navigate',
+            'confidence': confidence.mean()
+        }
+    
+    def adapt_online(self, sensor_data, user_feedback):
+        """Continuously adapt fusion model based on user feedback"""
+        
+        if user_feedback['correction_needed']:
+            # User had to manually correct the system
+            # Reduce weights for poorly performing sensors
+            
+            intended_action = user_feedback['intended_action']
+            actual_action = user_feedback['system_action']
+            
+            error = np.array(intended_action) - np.array(actual_action)
+            
+            # Adaptive weight adjustment
+            for sensor in ['eeg', 'emg', 'eye', 'imu']:
+                sensor_contribution = self.estimate_sensor_contribution(
+                    sensor, sensor_data
+                )
+                
+                if np.dot(sensor_contribution, error) > 0:
+                    # Sensor contributed to error - reduce weight
+                    self.calibration_data[f'{sensor}_weights'] *= (1 - self.adaptation_rate)
+                else:
+                    # Sensor helped - increase weight slightly
+                    self.calibration_data[f'{sensor}_weights'] *= (1 + 0.5 * self.adaptation_rate)
+
+# Usage example
+wheelchair_bci = AdaptiveWheelchairBCI()
+
+# Initial calibration
+wheelchair_bci.calibrate_sensors(calibration_session)
+
+# Real-time operation with adaptation
+for sensor_window in real_time_sensors():
+    # Fuse sensor data
+    control_command = wheelchair_bci.fuse_sensors_realtime(sensor_window)
+    
+    # Execute wheelchair movement
+    wheelchair.move(control_command['velocity'])
+    
+    # Get user feedback for adaptation
+    if user_feedback_available():
+        feedback = get_user_feedback()
+        wheelchair_bci.adapt_online(sensor_window, feedback)
+```
+
+<Card title="Multi-Modal Performance" icon="layers">
+  **Accuracy Improvement**: 15-25% over single-modality BCI
+  
+  **Robustness**: Graceful degradation when sensors fail
+  
+  **Adaptation Speed**: Converges in 5-10 correction cycles
+</Card>
+
+## POMDP Control for BCI Decision Making
+
+Partially Observable Markov Decision Processes (POMDPs) are ideal for BCI applications where the user's true intent is hidden and must be inferred from noisy neural signals before making control decisions.
+
+### Problem Setup
+
+The BCI system must make control decisions based on uncertain observations of user intent, balancing between acting quickly and waiting for more information to reduce uncertainty.
+
+```python
+@model
+def bci_pomdp_control(neural_observations, actions, rewards):
+    """
+    POMDP model for BCI control under uncertainty
+    
+    Args:
+        neural_observations: Noisy neural signal measurements
+        actions: Control actions taken by BCI system
+        rewards: User satisfaction/task success feedback
+    """
+    
+    # Hidden user intent states
+    intent_states = ['rest', 'move_left', 'move_right', 'select', 'cancel']
+    num_states = len(intent_states)
+    
+    # Action space for BCI system
+    bci_actions = ['wait', 'move_left', 'move_right', 'select', 'cancel']
+    num_actions = len(bci_actions)
+    
+    # State transition probabilities (user intent dynamics)
+    for s in range(num_states):
+        intent_transition_probs[s] ~ Dirichlet(
+            alpha=np.ones(num_states) + state_persistence_bias[s]
+        )
+    
+    # Observation model (neural signals given intent)
+    for s in range(num_states):
+        observation_means[s] ~ MultivariateNormal(
+            mean=intent_signatures[s],  # Characteristic neural pattern
+            covariance=np.eye(len(neural_features))
+        )
+        
+        observation_precision[s] ~ Gamma(alpha=2.0, beta=1.0)
+    
+    # Reward model (user satisfaction given state-action pairs)
+    for s in range(num_states):
+        for a in range(num_actions):
+            reward_mean[s, a] ~ Normal(mean=0.0, variance=1.0)
+            reward_precision[s, a] ~ Gamma(alpha=2.0, beta=1.0)
+    
+    # Initial belief state
+    belief_state[0] ~ Dirichlet(alpha=np.ones(num_states))
+    
+    # POMDP sequence
+    for t in range(len(neural_observations)):
+        if t == 0:
+            # Initial user intent
+            user_intent[t] ~ Categorical(probs=belief_state[0])
+        else:
+            # Intent transition
+            user_intent[t] ~ Categorical(
+                probs=intent_transition_probs[user_intent[t-1]]
+            )
+        
+        # Neural observation given current intent
+        neural_observations[t] ~ MultivariateNormal(
+            mean=observation_means[user_intent[t]],
+            precision=observation_precision[user_intent[t]]
+        )
+        
+        # BCI action selection (to be optimized)
+        actions[t] ~ Categorical(probs=action_policy[t])
+        
+        # Reward feedback
+        rewards[t] ~ Normal(
+            mean=reward_mean[user_intent[t], actions[t]],
+            precision=reward_precision[user_intent[t], actions[t]]
+        )
+        
+        # Belief state update (Bayesian filtering)
+        belief_state[t+1] = update_belief(
+            belief_state[t],
+            neural_observations[t],
+            actions[t]
+        )
+```
+
+### BCI Application: Smart Prosthetic Hand Control
+
+```python
+class SmartProstheticController:
+    def __init__(self, confidence_threshold=0.8):
+        self.pomdp_model = bci_pomdp_control()
+        self.confidence_threshold = confidence_threshold
+        self.belief_state = np.ones(5) / 5  # Uniform initial belief
+        self.action_history = []
+        
+    def update_belief(self, neural_observation, last_action=None):
+        """Update belief about user intent using Bayesian filtering"""
+        
+        # Likelihood of observation given each intent state
+        likelihoods = []
+        for state in range(5):
+            likelihood = self.compute_observation_likelihood(
+                neural_observation, state
+            )
+            likelihoods.append(likelihood)
+        
+        likelihoods = np.array(likelihoods)
+        
+        # Prior belief (from previous time step + transition model)
+        if last_action is not None:
+            # Account for how actions might influence intent transitions
+            transition_probs = self.get_transition_probabilities(last_action)
+            prior_belief = transition_probs @ self.belief_state
+        else:
+            prior_belief = self.belief_state
+        
+        # Posterior belief (Bayes rule)
+        posterior_belief = prior_belief * likelihoods
+        posterior_belief /= posterior_belief.sum()  # Normalize
+        
+        self.belief_state = posterior_belief
+        return posterior_belief
+    
+    def select_action(self, neural_observation):
+        """Select optimal action using POMDP policy"""
+        
+        # Update belief about user intent
+        belief = self.update_belief(neural_observation)
+        
+        # Compute expected reward for each possible action
+        action_values = []
+        for action in range(5):  # ['wait', 'left', 'right', 'select', 'cancel']
+            expected_reward = 0
+            
+            for state in range(5):
+                # Expected immediate reward
+                immediate_reward = self.get_reward(state, action)
+                
+                # Expected future value (simplified - could use full POMDP solver)
+                future_value = self.estimate_future_value(state, action)
+                
+                expected_reward += belief[state] * (immediate_reward + 0.9 * future_value)
+            
+            action_values.append(expected_reward)
+        
+        # Select action with highest expected value
+        best_action = np.argmax(action_values)
+        confidence = np.max(belief)
+        
+        # Conservative policy: only act if confident
+        if confidence < self.confidence_threshold and best_action != 0:  # 0 = 'wait'
+            return {'action': 'wait', 'confidence': confidence, 'belief': belief}
+        
+        action_names = ['wait', 'move_left', 'move_right', 'select', 'cancel']
+        
+        return {
+            'action': action_names[best_action],
+            'confidence': confidence,
+            'belief': belief,
+            'expected_value': action_values[best_action]
+        }
+    
+    def get_reward(self, state, action):
+        """Reward function for state-action pairs"""
+        
+        # High reward for correct action matching intent
+        if state == action:  # Perfect match
+            return 1.0
+        elif action == 0:  # Waiting is neutral
+            return -0.1  # Small cost for delay
+        else:  # Wrong action
+            return -1.0  # High penalty for incorrect action
+    
+    def learn_from_feedback(self, neural_obs, action_taken, user_feedback):
+        """Update model parameters based on user feedback"""
+        
+        if user_feedback['satisfaction'] < 0.5:
+            # User was dissatisfied - update reward model
+            inferred_intent = np.argmax(self.belief_state)
+            
+            # Reduce expected reward for this state-action pair
+            self.reward_model[inferred_intent, action_taken] *= 0.9
+            
+            # If user corrected the action, learn the true intent
+            if 'corrected_action' in user_feedback:
+                true_intent = user_feedback['corrected_action']
+                
+                # Update observation model to better recognize this intent
+                self.update_observation_model(neural_obs, true_intent)
+
+# Usage for prosthetic hand control
+prosthetic_controller = SmartProstheticController()
+
+for neural_signal in emg_eeg_stream():
+    # Extract relevant features
+    neural_features = extract_control_features(neural_signal)
+    
+    # Select optimal action
+    decision = prosthetic_controller.select_action(neural_features)
+    
+    if decision['action'] != 'wait':
+        # Execute prosthetic action
+        execute_prosthetic_command(decision['action'])
+        
+        # Monitor user satisfaction
+        feedback = monitor_user_satisfaction()
+        prosthetic_controller.learn_from_feedback(
+            neural_features, decision['action'], feedback
+        )
+    
+    # Display confidence to user
+    display_confidence_indicator(decision['confidence'])
+```
+
+<Card title="POMDP Advantages" icon="shield">
+  **Uncertainty Handling**: Explicit modeling of observation uncertainty
+  
+  **Conservative Control**: Waits for confidence before acting
+  
+  **Adaptive Learning**: Improves from user feedback over time
+</Card>
+
+## Hierarchical Gaussian Filter for Multi-Scale BCI
+
+For complex BCI tasks involving multiple time scales (fast motor commands, slow cognitive states), hierarchical models can capture dependencies across temporal scales.
+
+### Problem Setup
+
+```python
+@model
+def hierarchical_bci_filter(neural_data, cognitive_state, motor_state):
+    """
+    Hierarchical model for multi-scale BCI processing
+    
+    Args:
+        neural_data: Multi-channel neural recordings
+        cognitive_state: Slow-changing cognitive variables (attention, fatigue)
+        motor_state: Fast-changing motor intentions
+    """
+    
+    # Cognitive level (slow dynamics - seconds to minutes)
+    cognitive_transition_noise ~ Gamma(alpha=2.0, beta=10.0)  # Low noise
+    
+    for t in range(len(cognitive_state)):
+        if t == 0:
+            cognitive_state[t] ~ MultivariateNormal(
+                mean=np.zeros(cognitive_dim),
+                covariance=np.eye(cognitive_dim)
+            )
+        else:
+            cognitive_state[t] ~ MultivariateNormal(
+                mean=0.99 * cognitive_state[t-1],  # Very slow evolution
+                precision=cognitive_transition_noise * np.eye(cognitive_dim)
+            )
+    
+    # Motor level (fast dynamics - milliseconds to seconds)  
+    motor_transition_noise ~ Gamma(alpha=2.0, beta=1.0)  # Higher noise
+    
+    for t in range(len(motor_state)):
+        if t == 0:
+            motor_state[t] ~ MultivariateNormal(
+                mean=np.zeros(motor_dim),
+                covariance=np.eye(motor_dim)
+            )
+        else:
+            # Motor state influenced by cognitive state
+            cognitive_influence = cognitive_coupling @ cognitive_state[t // cognitive_downsample]
+            
+            motor_state[t] ~ MultivariateNormal(
+                mean=0.8 * motor_state[t-1] + cognitive_influence,
+                precision=motor_transition_noise * np.eye(motor_dim)
+            )
+    
+    # Neural observations (influenced by both levels)
+    for t in range(len(neural_data)):
+        cognitive_contrib = cognitive_spatial_pattern @ cognitive_state[t // cognitive_downsample]
+        motor_contrib = motor_spatial_pattern @ motor_state[t]
+        
+        expected_signal = cognitive_contrib + motor_contrib
+        
+        for ch in range(len(neural_data)):
+            neural_data[ch][t] ~ Normal(
+                mean=expected_signal[ch],
+                variance=observation_noise
+            )
+```
+
+## Performance Comparison
+
+| Model | Accuracy | Latency | Complexity | Best Use Case |
+|-------|----------|---------|------------|---------------|
+| Multi-Modal Fusion | 85-95% | 50-100ms | High | Robust control systems |
+| POMDP Control | 80-90% | 100-200ms | Very High | Safety-critical applications |
+| Hierarchical Filter | 75-85% | 20-50ms | Medium | Multi-scale temporal dynamics |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Industry Use Cases" icon="briefcase" href="/examples/industry-use-cases">
+    See how these models apply to real-world BCI products
+  </Card>
+  <Card title="Custom Development" icon="wrench" href="/development/custom-nodes">
+    Build specialized models for your specific application
+  </Card>
+  <Card title="Performance Optimization" icon="rocket" href="/core-concepts/real-time-processing">
+    Optimize these complex models for real-time performance
+  </Card>
+  <Card title="Research Applications" icon="microscope" href="/examples/research-applications">
+    Explore cutting-edge research applications
+  </Card>
+</CardGroup>
+
+These advanced models demonstrate the power of probabilistic approaches for handling the complexity and uncertainty inherent in brain-computer interfaces. By combining multiple sensor modalities, modeling uncertainty explicitly, and using hierarchical structures, these approaches enable robust, adaptive BCI systems suitable for real-world deployment.

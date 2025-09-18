@@ -1,0 +1,406 @@
+---
+title: "Inference Endpoints"
+description: "Core API endpoints for BCI inference with Nimbus Engine"
+icon: "brain"
+---
+
+# Inference Endpoints
+
+The Nimbus BCI Engine provides powerful inference endpoints for real-time and batch processing of neural signals. These endpoints handle everything from raw EEG data to high-level BCI control decisions.
+
+## Base URL
+
+All API requests should be made to:
+
+```
+https://api.nimbusbci.com/v1
+```
+
+## Core Inference Endpoint
+
+### POST /inference
+
+Perform BCI inference on neural data using trained models.
+
+```bash
+curl -X POST "https://api.nimbusbci.com/v1/inference" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "motor-imagery-classifier",
+    "data": {
+      "eeg": [[1.2, -0.8, 0.3, ...], [1.1, -0.9, 0.2, ...]],
+      "channels": ["C3", "C4", "Cz", "Fz"],
+      "sampling_rate": 250,
+      "timestamp": 1640995200000
+    },
+    "config": {
+      "confidence_threshold": 0.7,
+      "preprocessing": {
+        "filter": {"low": 1, "high": 40},
+        "artifact_removal": true
+      }
+    }
+  }'
+```
+
+#### Request Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `model` | string | ✅ | Model identifier (e.g., "motor-imagery-classifier") |
+| `data` | object | ✅ | Neural data and metadata |
+| `config` | object | ⚪ | Inference configuration options |
+
+#### Data Object
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `eeg` | array | ✅ | EEG data as 2D array [samples × channels] |
+| `channels` | array | ✅ | Channel names in order |
+| `sampling_rate` | number | ✅ | Sampling frequency in Hz |
+| `timestamp` | number | ⚪ | Unix timestamp in milliseconds |
+| `metadata` | object | ⚪ | Additional context (subject_id, session, etc.) |
+
+#### Response
+
+```json
+{
+  "inference_id": "inf_1234567890abcdef",
+  "model": "motor-imagery-classifier",
+  "timestamp": 1640995200000,
+  "results": {
+    "prediction": {
+      "class": "left_hand",
+      "confidence": 0.87,
+      "probabilities": {
+        "left_hand": 0.87,
+        "right_hand": 0.08,
+        "rest": 0.05
+      }
+    },
+    "latency_ms": 15,
+    "preprocessing": {
+      "artifacts_detected": 2,
+      "signal_quality": 0.92
+    }
+  },
+  "status": "success"
+}
+```
+
+## Batch Inference
+
+### POST /inference/batch
+
+Process multiple samples in a single request for improved efficiency.
+
+```bash
+curl -X POST "https://api.nimbusbci.com/v1/inference/batch" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "p300-speller",
+    "batch": [
+      {
+        "data": {"eeg": [...], "channels": [...], "sampling_rate": 250},
+        "id": "sample_001"
+      },
+      {
+        "data": {"eeg": [...], "channels": [...], "sampling_rate": 250},
+        "id": "sample_002"
+      }
+    ],
+    "config": {
+      "parallel": true,
+      "return_features": false
+    }
+  }'
+```
+
+#### Response
+
+```json
+{
+  "batch_id": "batch_1234567890abcdef",
+  "model": "p300-speller",
+  "results": [
+    {
+      "id": "sample_001",
+      "prediction": {"class": "target", "confidence": 0.94},
+      "status": "success"
+    },
+    {
+      "id": "sample_002", 
+      "prediction": {"class": "non_target", "confidence": 0.76},
+      "status": "success"
+    }
+  ],
+  "summary": {
+    "total_samples": 2,
+    "successful": 2,
+    "failed": 0,
+    "avg_latency_ms": 12
+  }
+}
+```
+
+## Model Management
+
+### GET /models
+
+List available BCI models and their capabilities.
+
+```bash
+curl -X GET "https://api.nimbusbci.com/v1/models" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+#### Response
+
+```json
+{
+  "models": [
+    {
+      "id": "motor-imagery-classifier",
+      "name": "Motor Imagery Classifier",
+      "description": "3-class motor imagery classification (left, right, rest)",
+      "type": "classification",
+      "input_channels": ["C3", "C4", "Cz"],
+      "sampling_rate": 250,
+      "window_size_ms": 1000,
+      "classes": ["left_hand", "right_hand", "rest"],
+      "performance": {
+        "accuracy": 0.89,
+        "avg_latency_ms": 18
+      },
+      "status": "active"
+    },
+    {
+      "id": "p300-speller",
+      "name": "P300 Speller",
+      "description": "Event-related potential detection for BCI spelling",
+      "type": "detection",
+      "input_channels": ["Fz", "Cz", "Pz", "Oz"],
+      "sampling_rate": 250,
+      "window_size_ms": 800,
+      "classes": ["target", "non_target"],
+      "performance": {
+        "accuracy": 0.94,
+        "avg_latency_ms": 12
+      },
+      "status": "active"
+    }
+  ]
+}
+```
+
+### GET /models/{model_id}
+
+Get detailed information about a specific model.
+
+```bash
+curl -X GET "https://api.nimbusbci.com/v1/models/motor-imagery-classifier" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+## Real-time Inference
+
+### POST /inference/realtime
+
+Initialize a real-time inference session for continuous processing.
+
+```bash
+curl -X POST "https://api.nimbusbci.com/v1/inference/realtime" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "motor-imagery-classifier",
+    "config": {
+      "buffer_size": 1000,
+      "update_interval_ms": 50,
+      "confidence_threshold": 0.6
+    },
+    "webhook_url": "https://your-app.com/webhooks/bci-results"
+  }'
+```
+
+#### Response
+
+```json
+{
+  "session_id": "rt_1234567890abcdef",
+  "websocket_url": "wss://api.nimbusbci.com/v1/realtime/rt_1234567890abcdef",
+  "status": "initialized",
+  "config": {
+    "buffer_size": 1000,
+    "update_interval_ms": 50,
+    "confidence_threshold": 0.6
+  }
+}
+```
+
+## Feature Extraction
+
+### POST /features
+
+Extract features from neural data without performing classification.
+
+```bash
+curl -X POST "https://api.nimbusbci.com/v1/features" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "data": {
+      "eeg": [[...], [...]],
+      "channels": ["C3", "C4", "Cz"],
+      "sampling_rate": 250
+    },
+    "features": ["spectral_power", "csp", "hjorth_parameters"],
+    "config": {
+      "frequency_bands": {
+        "alpha": [8, 13],
+        "beta": [13, 30],
+        "gamma": [30, 50]
+      }
+    }
+  }'
+```
+
+#### Response
+
+```json
+{
+  "features": {
+    "spectral_power": {
+      "alpha": [0.23, 0.18, 0.31],
+      "beta": [0.45, 0.52, 0.38],
+      "gamma": [0.12, 0.08, 0.15]
+    },
+    "csp": [1.2, -0.8, 0.3, 0.7, -0.4],
+    "hjorth_parameters": {
+      "activity": [2.1, 1.8, 2.3],
+      "mobility": [0.45, 0.52, 0.41],
+      "complexity": [1.23, 1.18, 1.31]
+    }
+  },
+  "metadata": {
+    "extraction_time_ms": 8,
+    "feature_count": 23
+  }
+}
+```
+
+## Error Handling
+
+### Common Error Responses
+
+#### 400 Bad Request
+
+```json
+{
+  "error": {
+    "code": "invalid_request",
+    "message": "Invalid data format: EEG data must be a 2D array",
+    "details": {
+      "field": "data.eeg",
+      "expected": "array of arrays",
+      "received": "array of numbers"
+    }
+  }
+}
+```
+
+#### 422 Unprocessable Entity
+
+```json
+{
+  "error": {
+    "code": "model_error",
+    "message": "Model requires exactly 4 channels, got 3",
+    "details": {
+      "required_channels": ["C3", "C4", "Cz", "Fz"],
+      "provided_channels": ["C3", "C4", "Cz"]
+    }
+  }
+}
+```
+
+#### 429 Too Many Requests
+
+```json
+{
+  "error": {
+    "code": "rate_limit_exceeded",
+    "message": "Rate limit exceeded. Try again in 60 seconds.",
+    "retry_after": 60
+  }
+}
+```
+
+#### 500 Internal Server Error
+
+```json
+{
+  "error": {
+    "code": "inference_error",
+    "message": "Model inference failed due to internal error",
+    "request_id": "req_1234567890abcdef"
+  }
+}
+```
+
+## Response Status Codes
+
+| Code | Status | Description |
+|------|--------|-------------|
+| 200 | OK | Request successful |
+| 400 | Bad Request | Invalid request format or parameters |
+| 401 | Unauthorized | Missing or invalid API key |
+| 403 | Forbidden | Insufficient permissions |
+| 404 | Not Found | Model or resource not found |
+| 422 | Unprocessable Entity | Valid request but model cannot process data |
+| 429 | Too Many Requests | Rate limit exceeded |
+| 500 | Internal Server Error | Server error during processing |
+| 503 | Service Unavailable | Service temporarily unavailable |
+
+## Performance Optimization
+
+### Best Practices
+
+**Data Formatting:**
+- Send data in optimal format (float32 arrays)
+- Use appropriate sampling rates (250 Hz recommended)
+- Minimize unnecessary metadata
+
+**Batch Processing:**
+- Use batch endpoints for multiple samples
+- Optimal batch size: 10-50 samples
+- Enable parallel processing when available
+
+**Caching:**
+- Cache model information locally
+- Reuse feature extraction results when possible
+- Implement client-side result caching
+
+**Error Handling:**
+- Implement exponential backoff for retries
+- Handle rate limits gracefully
+- Log errors with request IDs for debugging
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Python SDK" icon="python" href="/api-reference/python-sdk">
+    Use our Python SDK for easier integration
+  </Card>
+  <Card title="Streaming API" icon="wave-square" href="/api-reference/streaming-api">
+    Real-time processing with WebSocket connections
+  </Card>
+  <Card title="Code Examples" icon="code" href="/examples/code-samples">
+    Complete implementation examples
+  </Card>
+  <Card title="Model Specification" icon="brain" href="/model-specification">
+    Learn about available BCI models
+  </Card>
+</CardGroup>

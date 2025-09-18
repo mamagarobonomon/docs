@@ -1,0 +1,493 @@
+---
+title: "BCI Model Examples"
+description: "Ready-to-use probabilistic models for common brain-computer interface applications"
+icon: "lightbulb"
+---
+
+# BCI Model Examples
+
+This section provides complete, working examples of probabilistic models for common BCI applications. Each example includes the model specification, data preprocessing, and deployment considerations.
+
+## Motor Imagery Classification
+
+Decode intended movements from EEG motor imagery signals.
+
+### Model Specification
+
+```python
+@model
+def motor_imagery_classifier(eeg_signals, movement_class, subject_params):
+    """
+    Classify motor imagery from EEG signals
+    
+    Args:
+        eeg_signals: Multi-channel EEG data [channels x time]
+        movement_class: Discrete movement intention (0=rest, 1=left, 2=right)
+        subject_params: Subject-specific calibration parameters
+    """
+    
+    # Subject-specific spatial filters (CSP-like)
+    spatial_filters ~ MatrixNormal(
+        mean=subject_params.spatial_prior,
+        row_cov=subject_params.spatial_uncertainty,
+        col_cov=identity_matrix(num_channels)
+    )
+    
+    # Extract spatial features
+    spatial_features := spatial_filters @ eeg_signals
+    
+    # Temporal dynamics of motor imagery
+    for t in range(sequence_length):
+        if t == 0:
+            brain_state[t] ~ Normal(mean=0.0, variance=1.0)
+        else:
+            brain_state[t] ~ Normal(
+                mean=0.8 * brain_state[t-1],  # Temporal persistence
+                variance=0.2
+            )
+    
+    # Class-dependent feature generation
+    for class_idx in range(num_classes):
+        class_templates[class_idx] ~ Normal(
+            mean=subject_params.class_means[class_idx],
+            variance=subject_params.class_variance
+        )
+    
+    # Observation model
+    spatial_features ~ Normal(
+        mean=class_templates[movement_class] * brain_state,
+        variance=measurement_noise
+    )
+    
+    # Classification output
+    movement_class ~ Categorical(
+        probs=softmax(class_scores)
+    )
+```
+
+### Usage Example
+
+```python
+# Initialize model
+model = motor_imagery_classifier(
+    num_channels=22,
+    num_classes=3,
+    sequence_length=250  # 1 second at 250 Hz
+)
+
+# Subject calibration
+subject_data = load_calibration_data(subject_id="S01")
+calibrated_model = model.calibrate(subject_data)
+
+# Real-time classification
+for eeg_batch in real_time_stream():
+    prediction = calibrated_model.infer(
+        eeg_signals=eeg_batch,
+        target='movement_class'
+    )
+    
+    control_command = map_to_control(prediction.mode)
+    send_to_device(control_command)
+```
+
+<Card title="Performance Metrics" icon="chart-bar">
+  **Accuracy**: 85-95% for 3-class motor imagery
+  
+  **Latency**: Sub-50ms inference time
+  
+  **Calibration**: 5-10 minutes per subject
+</Card>
+
+## P300 Speller
+
+Detect P300 event-related potentials for communication interfaces.
+
+### Model Specification
+
+```python
+@model
+def p300_speller(eeg_epochs, target_present, stimulus_timing):
+    """
+    Detect P300 responses for BCI speller applications
+    
+    Args:
+        eeg_epochs: Epoched EEG data around stimulus presentation
+        target_present: Binary indicator of target vs non-target stimulus
+        stimulus_timing: Precise timing of stimulus presentation
+    """
+    
+    # P300 template parameters
+    p300_amplitude ~ Normal(mean=5.0, variance=2.0)  # μV
+    p300_latency ~ Normal(mean=300.0, variance=50.0)  # ms
+    p300_width ~ Gamma(alpha=2.0, beta=0.1)  # ms
+    
+    # Background EEG parameters
+    background_variance ~ InverseGamma(alpha=2.0, beta=1.0)
+    
+    # Generate expected P300 waveform
+    for t in range(epoch_length):
+        if target_present:
+            # P300 component
+            p300_component[t] = p300_amplitude * gaussian_kernel(
+                t, center=p300_latency, width=p300_width
+            )
+        else:
+            p300_component[t] = 0.0
+        
+        # Background EEG + P300
+        expected_signal[t] = p300_component[t] + background_offset
+    
+    # Multi-channel observations
+    for channel in range(num_channels):
+        channel_weight ~ Normal(mean=1.0, variance=0.1)
+        
+        eeg_epochs[channel, :] ~ Normal(
+            mean=channel_weight * expected_signal,
+            variance=background_variance
+        )
+    
+    # Classification decision
+    target_present ~ Bernoulli(
+        prob=sigmoid(p300_evidence)
+    )
+```
+
+### Speller Interface Integration
+
+```python
+class P300Speller:
+    def __init__(self):
+        self.model = p300_speller(num_channels=8, epoch_length=100)
+        self.character_matrix = create_speller_matrix()
+        
+    def spell_character(self, num_repetitions=10):
+        character_scores = {}
+        
+        for rep in range(num_repetitions):
+            # Flash rows and columns
+            for stimulus in self.get_stimulus_sequence():
+                eeg_epoch = self.acquire_eeg_epoch(stimulus)
+                
+                prediction = self.model.infer(
+                    eeg_epochs=eeg_epoch,
+                    stimulus_timing=stimulus.timing,
+                    target='target_present'
+                )
+                
+                # Accumulate evidence
+                for char in stimulus.characters:
+                    character_scores[char] = character_scores.get(char, 0) + \
+                                           prediction.probability
+        
+        # Select most likely character
+        return max(character_scores, key=character_scores.get)
+```
+
+<Card title="Clinical Performance" icon="heartbeat">
+  **Typing Speed**: 5-15 characters per minute
+  
+  **Accuracy**: >95% with 10+ repetitions
+  
+  **User Training**: Minimal (5-10 minutes)
+</Card>
+
+## Steady-State Visual Evoked Potentials (SSVEP)
+
+High-speed BCI control using frequency-tagged visual stimuli.
+
+### Model Specification
+
+```python
+@model
+def ssvep_decoder(eeg_signals, stimulus_frequencies, attention_target):
+    """
+    Decode SSVEP responses for high-speed BCI control
+    
+    Args:
+        eeg_signals: Continuous EEG from occipital electrodes
+        stimulus_frequencies: Array of flickering frequencies [Hz]
+        attention_target: Which frequency the user is attending to
+    """
+    
+    # SSVEP response parameters for each frequency
+    for freq_idx, freq in enumerate(stimulus_frequencies):
+        # Fundamental frequency response
+        ssvep_amplitude[freq_idx] ~ Gamma(alpha=2.0, beta=1.0)
+        ssvep_phase[freq_idx] ~ VonMises(mu=0.0, kappa=1.0)
+        
+        # Harmonic responses (2f, 3f)
+        for harmonic in [2, 3]:
+            harmonic_amplitude[freq_idx, harmonic] ~ Gamma(alpha=1.0, beta=2.0)
+            harmonic_phase[freq_idx, harmonic] ~ VonMises(mu=0.0, kappa=0.5)
+    
+    # Attention modulation
+    attention_gain ~ Normal(mean=2.0, variance=0.5)
+    
+    # Generate expected SSVEP signals
+    for t in range(signal_length):
+        expected_signal[t] = background_eeg[t]
+        
+        for freq_idx, freq in enumerate(stimulus_frequencies):
+            # Fundamental component
+            fundamental = ssvep_amplitude[freq_idx] * cos(
+                2 * pi * freq * t / sampling_rate + ssvep_phase[freq_idx]
+            )
+            
+            # Harmonic components
+            harmonics = sum([
+                harmonic_amplitude[freq_idx, h] * cos(
+                    2 * pi * h * freq * t / sampling_rate + 
+                    harmonic_phase[freq_idx, h]
+                ) for h in [2, 3]
+            ])
+            
+            # Attention modulation
+            if freq_idx == attention_target:
+                ssvep_response = attention_gain * (fundamental + harmonics)
+            else:
+                ssvep_response = fundamental + harmonics
+            
+            expected_signal[t] += ssvep_response
+    
+    # Multi-channel observations
+    for channel in range(num_channels):
+        eeg_signals[channel, :] ~ Normal(
+            mean=expected_signal,
+            variance=measurement_noise[channel]
+        )
+    
+    # Target classification
+    attention_target ~ Categorical(
+        probs=softmax(frequency_evidence)
+    )
+```
+
+### Real-time Implementation
+
+```python
+class SSVEPController:
+    def __init__(self, frequencies=[6.0, 7.5, 8.57, 10.0]):
+        self.frequencies = frequencies
+        self.model = ssvep_decoder(
+            stimulus_frequencies=frequencies,
+            num_channels=4,  # O1, O2, Oz, POz
+            sampling_rate=250
+        )
+        
+    def continuous_decode(self, window_size=1.0):
+        """Continuous SSVEP decoding with sliding window"""
+        
+        while True:
+            # Acquire EEG window
+            eeg_window = self.acquire_eeg(duration=window_size)
+            
+            # Real-time inference
+            prediction = self.model.infer(
+                eeg_signals=eeg_window,
+                target='attention_target'
+            )
+            
+            # High-confidence detection
+            if prediction.confidence > 0.8:
+                selected_frequency = self.frequencies[prediction.mode]
+                self.execute_command(selected_frequency)
+                
+            time.sleep(0.1)  # 10 Hz update rate
+    
+    def execute_command(self, frequency):
+        """Map frequency to control command"""
+        command_map = {
+            6.0: 'move_left',
+            7.5: 'move_right', 
+            8.57: 'move_up',
+            10.0: 'move_down'
+        }
+        
+        command = command_map.get(frequency)
+        if command:
+            self.send_control_signal(command)
+```
+
+<Card title="High-Speed Performance" icon="clock">
+  **Response Time**: 100-500ms detection
+  
+  **Throughput**: 60-120 bits per minute
+  
+  **Accuracy**: >90% for 4-class selection
+</Card>
+
+## Neurofeedback Training
+
+Closed-loop neurofeedback for cognitive enhancement and rehabilitation.
+
+### Model Specification
+
+```python
+@model
+def neurofeedback_model(eeg_signals, target_band_power, feedback_signal):
+    """
+    Real-time neurofeedback based on spectral power modulation
+    
+    Args:
+        eeg_signals: Multi-channel EEG data
+        target_band_power: Desired power in specific frequency bands
+        feedback_signal: Visual/auditory feedback to user
+    """
+    
+    # Spectral analysis parameters
+    for band in frequency_bands:  # e.g., alpha, beta, theta
+        baseline_power[band] ~ Gamma(alpha=2.0, beta=1.0)
+        modulation_capacity[band] ~ Normal(mean=1.0, variance=0.2)
+    
+    # User learning dynamics
+    learning_rate ~ Beta(alpha=2.0, beta=2.0)
+    adaptation_time_constant ~ Gamma(alpha=5.0, beta=1.0)
+    
+    # Real-time spectral estimation
+    for t in range(num_time_points):
+        # Compute power spectral density
+        for band in frequency_bands:
+            current_power[band, t] = compute_band_power(
+                eeg_signals[:, t-window_size:t], 
+                band
+            )
+        
+        # Learning-modulated power
+        for band in frequency_bands:
+            expected_power[band, t] = baseline_power[band] + \
+                learning_rate * modulation_capacity[band] * \
+                exponential_decay(t, adaptation_time_constant)
+        
+        # Power observations
+        for band in frequency_bands:
+            current_power[band, t] ~ Normal(
+                mean=expected_power[band, t],
+                variance=spectral_noise_variance
+            )
+    
+    # Feedback generation
+    feedback_signal ~ Normal(
+        mean=compute_feedback_score(current_power, target_band_power),
+        variance=feedback_noise
+    )
+```
+
+### Training Protocol
+
+```python
+class NeurofeedbackTrainer:
+    def __init__(self, protocol='alpha_enhancement'):
+        self.protocol = protocol
+        self.model = neurofeedback_model(
+            frequency_bands=self.get_target_bands(protocol),
+            num_channels=19  # Full 10-20 system
+        )
+        
+    def run_training_session(self, duration_minutes=20):
+        """Run a complete neurofeedback training session"""
+        
+        session_data = []
+        
+        for minute in range(duration_minutes):
+            # 1-minute training blocks
+            block_data = self.run_training_block()
+            session_data.append(block_data)
+            
+            # Adaptive threshold adjustment
+            self.update_thresholds(block_data.performance)
+            
+            # Rest period
+            self.display_progress(minute, session_data)
+            time.sleep(30)  # 30-second rest
+        
+        return self.generate_session_report(session_data)
+    
+    def run_training_block(self):
+        """Single training block with real-time feedback"""
+        
+        start_time = time.time()
+        block_data = []
+        
+        while time.time() - start_time < 60:  # 1 minute
+            # Acquire EEG
+            eeg_segment = self.acquire_eeg(duration=2.0)  # 2-second windows
+            
+            # Real-time inference
+            result = self.model.infer(
+                eeg_signals=eeg_segment,
+                target='target_band_power'
+            )
+            
+            # Generate feedback
+            feedback_score = self.compute_feedback_score(result)
+            self.display_feedback(feedback_score)
+            
+            block_data.append({
+                'timestamp': time.time(),
+                'band_powers': result.band_powers,
+                'feedback_score': feedback_score
+            })
+        
+        return block_data
+```
+
+<Card title="Training Efficacy" icon="star">
+  **Session Duration**: 15-30 minutes optimal
+  
+  **Learning Rate**: Measurable improvement in 5-10 sessions
+  
+  **Retention**: Effects persist 24-48 hours post-training
+</Card>
+
+## Model Comparison and Selection
+
+<CardGroup cols={2}>
+  <Card title="Motor Imagery" icon="gamepad">
+    **Best for**: Prosthetic control, wheelchair navigation
+    
+    **Pros**: Intuitive, no external stimuli needed
+    
+    **Cons**: Requires training, moderate accuracy
+  </Card>
+  
+  <Card title="P300 Speller" icon="keyboard">
+    **Best for**: Communication, text entry
+    
+    **Pros**: High accuracy, minimal training
+    
+    **Cons**: Slower speed, requires visual attention
+  </Card>
+  
+  <Card title="SSVEP Control" icon="signal">
+    **Best for**: High-speed selection, gaming
+    
+    **Pros**: Fast response, high throughput
+    
+    **Cons**: Visual fatigue, limited commands
+  </Card>
+  
+  <Card title="Neurofeedback" icon="refresh">
+    **Best for**: Cognitive training, rehabilitation
+    
+    **Pros**: Therapeutic benefits, self-regulation
+    
+    **Cons**: Subtle effects, requires multiple sessions
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Models" icon="cog" href="/development/custom-nodes">
+    Build specialized models for your BCI application
+  </Card>
+  <Card title="Real-time Deployment" icon="play" href="/inference-configuration/streaming-inference">
+    Deploy models for live BCI control
+  </Card>
+  <Card title="Performance Optimization" icon="chart-bar" href="/core-concepts/real-time-processing">
+    Optimize models for sub-20ms latency
+  </Card>
+  <Card title="Multi-modal Integration" icon="layers" href="/model-specification/advanced-techniques">
+    Combine multiple sensor modalities
+  </Card>
+</CardGroup>

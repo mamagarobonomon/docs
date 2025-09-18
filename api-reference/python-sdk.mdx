@@ -1,0 +1,561 @@
+---
+title: "Python SDK"
+description: "Official Python SDK for Nimbus BCI Engine"
+icon: "python"
+---
+
+# Python SDK
+
+The Nimbus Python SDK provides a convenient interface for integrating BCI capabilities into your Python applications. It handles authentication, data formatting, and provides high-level abstractions for common BCI tasks.
+
+## Installation
+
+Install the Nimbus Python SDK using pip:
+
+```bash
+pip install nimbus-bci
+```
+
+### Requirements
+
+- Python 3.8 or higher
+- NumPy 1.19.0 or higher
+- Requests 2.25.0 or higher
+- WebSocket-client 1.0.0 or higher (for real-time features)
+
+## Quick Start
+
+### Initialize the Client
+
+```python
+import os
+from nimbus_bci import NimbusClient
+
+# Initialize with API key
+client = NimbusClient(api_key=os.getenv('NIMBUS_API_KEY'))
+
+# Or specify the API key directly (not recommended for production)
+client = NimbusClient(api_key='your_api_key_here')
+```
+
+### Basic Inference
+
+```python
+import numpy as np
+
+# Prepare EEG data (samples × channels)
+eeg_data = np.random.randn(250, 4)  # 1 second at 250 Hz, 4 channels
+channels = ['C3', 'C4', 'Cz', 'Fz']
+
+# Perform inference
+result = client.inference(
+    model='motor-imagery-classifier',
+    eeg_data=eeg_data,
+    channels=channels,
+    sampling_rate=250
+)
+
+print(f"Prediction: {result.prediction.class_name}")
+print(f"Confidence: {result.prediction.confidence:.2f}")
+```
+
+## Core Classes
+
+### NimbusClient
+
+The main client class for interacting with the Nimbus API.
+
+```python
+class NimbusClient:
+    def __init__(self, api_key: str, base_url: str = None):
+        """
+        Initialize Nimbus client.
+        
+        Args:
+            api_key: Your Nimbus API key
+            base_url: Optional custom API base URL
+        """
+```
+
+#### Methods
+
+##### inference()
+
+Perform single inference on EEG data.
+
+```python
+def inference(
+    self,
+    model: str,
+    eeg_data: np.ndarray,
+    channels: List[str],
+    sampling_rate: int,
+    config: Optional[Dict] = None,
+    metadata: Optional[Dict] = None
+) -> InferenceResult:
+    """
+    Perform BCI inference.
+    
+    Args:
+        model: Model identifier
+        eeg_data: EEG data array (samples × channels)
+        channels: Channel names in order
+        sampling_rate: Sampling frequency in Hz
+        config: Optional inference configuration
+        metadata: Optional metadata dictionary
+        
+    Returns:
+        InferenceResult object with prediction and metadata
+    """
+```
+
+**Example:**
+
+```python
+result = client.inference(
+    model='motor-imagery-classifier',
+    eeg_data=eeg_data,
+    channels=['C3', 'C4', 'Cz'],
+    sampling_rate=250,
+    config={
+        'confidence_threshold': 0.7,
+        'preprocessing': {
+            'filter': {'low': 1, 'high': 40},
+            'artifact_removal': True
+        }
+    }
+)
+```
+
+##### batch_inference()
+
+Process multiple samples efficiently.
+
+```python
+def batch_inference(
+    self,
+    model: str,
+    samples: List[Dict],
+    config: Optional[Dict] = None
+) -> BatchInferenceResult:
+    """
+    Perform batch inference on multiple samples.
+    
+    Args:
+        model: Model identifier
+        samples: List of sample dictionaries
+        config: Optional batch configuration
+        
+    Returns:
+        BatchInferenceResult with results for each sample
+    """
+```
+
+**Example:**
+
+```python
+samples = [
+    {
+        'id': 'trial_001',
+        'eeg_data': eeg_data_1,
+        'channels': ['C3', 'C4', 'Cz'],
+        'sampling_rate': 250
+    },
+    {
+        'id': 'trial_002', 
+        'eeg_data': eeg_data_2,
+        'channels': ['C3', 'C4', 'Cz'],
+        'sampling_rate': 250
+    }
+]
+
+results = client.batch_inference(
+    model='p300-speller',
+    samples=samples,
+    config={'parallel': True}
+)
+
+for result in results:
+    print(f"Sample {result.id}: {result.prediction.class_name}")
+```
+
+##### get_models()
+
+List available models.
+
+```python
+def get_models(self) -> List[ModelInfo]:
+    """Get list of available models."""
+```
+
+**Example:**
+
+```python
+models = client.get_models()
+for model in models:
+    print(f"{model.id}: {model.name}")
+    print(f"  Channels: {model.input_channels}")
+    print(f"  Classes: {model.classes}")
+```
+
+##### extract_features()
+
+Extract features without classification.
+
+```python
+def extract_features(
+    self,
+    eeg_data: np.ndarray,
+    channels: List[str],
+    sampling_rate: int,
+    features: List[str],
+    config: Optional[Dict] = None
+) -> FeatureResult:
+    """
+    Extract features from EEG data.
+    
+    Args:
+        eeg_data: EEG data array
+        channels: Channel names
+        sampling_rate: Sampling frequency
+        features: List of feature types to extract
+        config: Optional feature extraction configuration
+        
+    Returns:
+        FeatureResult with extracted features
+    """
+```
+
+**Example:**
+
+```python
+features = client.extract_features(
+    eeg_data=eeg_data,
+    channels=['C3', 'C4', 'Cz'],
+    sampling_rate=250,
+    features=['spectral_power', 'csp', 'hjorth_parameters'],
+    config={
+        'frequency_bands': {
+            'alpha': [8, 13],
+            'beta': [13, 30]
+        }
+    }
+)
+
+print(f"Alpha power: {features.spectral_power.alpha}")
+print(f"CSP features: {features.csp}")
+```
+
+## Real-time Processing
+
+### RealTimeProcessor
+
+For continuous, real-time BCI processing.
+
+```python
+from nimbus_bci import RealTimeProcessor
+
+processor = RealTimeProcessor(
+    client=client,
+    model='motor-imagery-classifier',
+    config={
+        'buffer_size': 1000,
+        'update_interval_ms': 50,
+        'confidence_threshold': 0.6
+    }
+)
+
+# Define callback for results
+def on_prediction(result):
+    print(f"Real-time prediction: {result.prediction.class_name}")
+    print(f"Confidence: {result.prediction.confidence:.2f}")
+
+# Start processing
+processor.start(callback=on_prediction)
+
+# Send data continuously
+while True:
+    # Get new EEG sample (e.g., from hardware)
+    new_sample = get_eeg_sample()  # Your data acquisition function
+    processor.add_sample(new_sample)
+    
+    time.sleep(0.004)  # 250 Hz sampling rate
+
+# Stop processing
+processor.stop()
+```
+
+### Streaming with WebSockets
+
+```python
+from nimbus_bci import StreamingClient
+
+streaming = StreamingClient(client)
+
+# Initialize streaming session
+session = streaming.create_session(
+    model='motor-imagery-classifier',
+    config={
+        'buffer_size': 1000,
+        'update_interval_ms': 50
+    }
+)
+
+# Define event handlers
+@session.on('prediction')
+def handle_prediction(data):
+    print(f"Streaming prediction: {data['class']}")
+
+@session.on('error')
+def handle_error(error):
+    print(f"Streaming error: {error}")
+
+# Connect and start streaming
+session.connect()
+
+# Send data
+for sample in eeg_samples:
+    session.send_sample(sample)
+
+session.disconnect()
+```
+
+## Data Classes
+
+### InferenceResult
+
+```python
+@dataclass
+class InferenceResult:
+    inference_id: str
+    prediction: Prediction
+    latency_ms: float
+    preprocessing: PreprocessingInfo
+    status: str
+    timestamp: datetime
+```
+
+### Prediction
+
+```python
+@dataclass  
+class Prediction:
+    class_name: str
+    confidence: float
+    probabilities: Dict[str, float]
+    features: Optional[Dict] = None
+```
+
+### ModelInfo
+
+```python
+@dataclass
+class ModelInfo:
+    id: str
+    name: str
+    description: str
+    type: str  # 'classification', 'detection', 'regression'
+    input_channels: List[str]
+    sampling_rate: int
+    window_size_ms: int
+    classes: List[str]
+    performance: Dict[str, float]
+    status: str
+```
+
+## Configuration Options
+
+### Preprocessing Configuration
+
+```python
+preprocessing_config = {
+    'filter': {
+        'low': 1,      # High-pass filter cutoff (Hz)
+        'high': 40,    # Low-pass filter cutoff (Hz)
+        'notch': 50    # Notch filter frequency (Hz)
+    },
+    'artifact_removal': True,
+    'rereferencing': 'average',  # 'average', 'cz', or None
+    'normalization': 'zscore'    # 'zscore', 'minmax', or None
+}
+```
+
+### Inference Configuration
+
+```python
+inference_config = {
+    'confidence_threshold': 0.7,
+    'return_features': False,
+    'return_probabilities': True,
+    'preprocessing': preprocessing_config
+}
+```
+
+## Error Handling
+
+### Exception Classes
+
+```python
+from nimbus_bci.exceptions import (
+    NimbusAPIError,
+    AuthenticationError,
+    RateLimitError,
+    ModelError,
+    DataFormatError
+)
+
+try:
+    result = client.inference(
+        model='motor-imagery-classifier',
+        eeg_data=eeg_data,
+        channels=['C3', 'C4', 'Cz'],
+        sampling_rate=250
+    )
+except AuthenticationError:
+    print("Invalid API key")
+except RateLimitError as e:
+    print(f"Rate limit exceeded. Retry after {e.retry_after} seconds")
+except ModelError as e:
+    print(f"Model error: {e.message}")
+except DataFormatError as e:
+    print(f"Data format error: {e.details}")
+except NimbusAPIError as e:
+    print(f"API error: {e.message}")
+```
+
+### Retry Logic
+
+```python
+from nimbus_bci.utils import retry_with_backoff
+
+@retry_with_backoff(max_retries=3, backoff_factor=2)
+def robust_inference(client, **kwargs):
+    return client.inference(**kwargs)
+
+# Usage
+result = robust_inference(
+    client,
+    model='motor-imagery-classifier',
+    eeg_data=eeg_data,
+    channels=['C3', 'C4', 'Cz'],
+    sampling_rate=250
+)
+```
+
+## Utilities
+
+### Data Validation
+
+```python
+from nimbus_bci.utils import validate_eeg_data
+
+# Validate data format before sending
+is_valid, errors = validate_eeg_data(
+    eeg_data=eeg_data,
+    channels=['C3', 'C4', 'Cz'],
+    sampling_rate=250
+)
+
+if not is_valid:
+    print(f"Data validation errors: {errors}")
+```
+
+### Data Preprocessing
+
+```python
+from nimbus_bci.preprocessing import (
+    apply_bandpass_filter,
+    remove_artifacts,
+    normalize_data
+)
+
+# Preprocess data locally before sending
+filtered_data = apply_bandpass_filter(eeg_data, low=1, high=40, fs=250)
+clean_data = remove_artifacts(filtered_data, method='ica')
+normalized_data = normalize_data(clean_data, method='zscore')
+```
+
+## Examples
+
+### Motor Imagery Classification
+
+```python
+import numpy as np
+from nimbus_bci import NimbusClient
+
+# Initialize client
+client = NimbusClient(api_key=os.getenv('NIMBUS_API_KEY'))
+
+# Simulate motor imagery trial (2 seconds at 250 Hz)
+eeg_data = np.random.randn(500, 3)  # 3 channels: C3, C4, Cz
+channels = ['C3', 'C4', 'Cz']
+
+# Classify motor imagery
+result = client.inference(
+    model='motor-imagery-classifier',
+    eeg_data=eeg_data,
+    channels=channels,
+    sampling_rate=250,
+    config={'confidence_threshold': 0.6}
+)
+
+print(f"Predicted class: {result.prediction.class_name}")
+print(f"Confidence: {result.prediction.confidence:.2f}")
+print(f"All probabilities: {result.prediction.probabilities}")
+```
+
+### P300 Speller
+
+```python
+# Process P300 speller epochs
+epochs = []  # List of EEG epochs around stimulus events
+
+results = client.batch_inference(
+    model='p300-speller',
+    samples=[
+        {
+            'id': f'epoch_{i}',
+            'eeg_data': epoch,
+            'channels': ['Fz', 'Cz', 'Pz', 'Oz'],
+            'sampling_rate': 250
+        }
+        for i, epoch in enumerate(epochs)
+    ]
+)
+
+# Find P300 responses
+p300_responses = [
+    r for r in results 
+    if r.prediction.class_name == 'target' and r.prediction.confidence > 0.8
+]
+
+print(f"Detected {len(p300_responses)} P300 responses")
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Streaming API" icon="wave-square" href="/api-reference/streaming-api">
+    Real-time processing with WebSocket connections
+  </Card>
+  <Card title="Code Examples" icon="code" href="/examples/code-samples">
+    Complete implementation examples
+  </Card>
+  <Card title="BCI Models" icon="brain" href="/models/kalman-eeg-filtering">
+    Learn about available BCI models
+  </Card>
+  <Card title="Authentication" icon="key" href="/api-reference/authentication">
+    API key setup and security best practices
+  </Card>
+</CardGroup>
+
+## Support
+
+Need help with the Python SDK?
+
+- **GitHub Issues**: Report bugs and request features
+- **Email**: hello@nimbusbci.com for technical support
+- **Documentation**: Browse our comprehensive guides
+- **Examples**: Check out our example repository
+
+The SDK is actively maintained and updated regularly with new features and improvements.

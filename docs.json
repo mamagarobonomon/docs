@@ -1,17 +1,21 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "theme": "palm",
+  "name": "Nimbus",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#FFD700",
+    "light": "#FFFF66",
+    "dark": "#B8860B"
+  },
+  "modeToggle": {
+    "default": "dark",
+    "isHidden": false
   },
   "favicon": "/favicon.svg",
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
             "group": "Getting started",
@@ -22,27 +26,57 @@
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "core-concepts/probabilistic-ai",
+              "core-concepts/real-time-processing",
+              "core-concepts/uncertainty-handling",
+              "core-concepts/message-passing"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Model specification",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "model-specification/index",
+              "model-specification/bci-examples",
+              "model-specification/advanced-techniques"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Inference configuration",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "inference-configuration/real-time-setup",
+              "inference-configuration/batch-processing",
+              "inference-configuration/streaming-inference",
+              "inference-configuration/error-handling"
+            ]
+          },
+                    {
+                      "group": "BCI Models",
+                      "pages": [
+                        "models/kalman-eeg-filtering",
+                        "models/hmm-brain-states",
+                        "models/ar-motor-rhythms",
+                        "models/sensor-fusion",
+                        "models/pomdp-control"
+                      ]
+                    },
+                    {
+                      "group": "Examples & tutorials",
+                      "pages": [
+                        "examples/basic-examples",
+                        "examples/advanced-applications",
+                        "examples/industry-use-cases",
+                        "examples/code-samples"
+                      ]
+                    },
+          {
+            "group": "Development",
+            "pages": [
+              "development/custom-nodes",
+              "development/algorithm-customization",
+              "development/plugin-development",
+              "development/testing-validation"
             ]
           }
         ]
@@ -57,12 +91,20 @@
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Nimbus Engine API",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api-reference/authentication",
+              "api-reference/inference-endpoints",
+              "api-reference/streaming-api",
+              "api-reference/webhook-integration"
+            ]
+          },
+          {
+            "group": "SDKs",
+            "pages": [
+              "api-reference/python-sdk",
+              "api-reference/javascript-sdk",
+              "api-reference/rest-api"
             ]
           }
         ]
@@ -71,38 +113,38 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "Website",
+          "href": "https://nimbusbci.com",
+          "icon": "globe"
         },
         {
-          "anchor": "Community",
-          "href": "https://mintlify.com/community",
-          "icon": "slack"
+          "anchor": "Book a Demo",
+          "href": "https://nimbusbci.com",
+          "icon": "calendar"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "GitHub",
+          "href": "https://github.com/nimbusbci",
+          "icon": "github"
         }
       ]
     }
   },
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "/logo/Logo yellow.svg",
+    "dark": "/logo/Logo yellow.svg"
   },
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "label": "Contact",
+        "href": "mailto:hello@nimbusbci.com"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "label": "Book Demo",
+      "href": "https://nimbusbci.com"
     }
   },
   "contextual": {
@@ -119,9 +161,9 @@
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "x": "https://x.com/nimbusbci",
+      "github": "https://github.com/nimbusbci",
+      "linkedin": "https://linkedin.com/company/nimbusbci"
     }
   }
 }

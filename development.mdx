@@ -1,94 +1,672 @@
 ---
 title: 'Development'
-description: 'Preview changes locally to update your docs'
+description: 'Local development setup and best practices for building BCI applications with Nimbus'
+icon: 'code'
 ---
 
+# Development Guide
+
+This guide covers everything you need to know for developing BCI applications with Nimbus, from local setup to production deployment. Whether you're building a research prototype or a production system, this guide will help you establish a robust development workflow.
+
+## Development Environment Setup
+
+### Prerequisites
+
+Before you begin developing with Nimbus BCI, ensure you have:
+
 <Info>
-  **Prerequisites**:
-  - Node.js version 19 or higher
-  - A docs repository with a `docs.json` file
+**Required:**
+- **Python 3.8+** (3.9+ recommended for best performance)
+- **Git** for version control
+- **API Key** from hello@nimbusbci.com
+- **EEG Hardware** or sample data for testing
+
+**Recommended:**
+- **Virtual environment** (venv, conda, or pipenv)
+- **IDE** with Python support (VS Code, PyCharm, or Jupyter)
+- **Node.js 19+** (for documentation development)
 </Info>
 
-Follow these steps to install and run Mintlify on your operating system.
+### Local Setup
 
 <Steps>
-<Step title="Install the Mintlify CLI">
+<Step title="Create Development Environment">
+
+Set up an isolated Python environment for your BCI project:
 
 ```bash
-npm i -g mint
+# Create virtual environment
+python -m venv nimbus-dev
+source nimbus-dev/bin/activate  # On Windows: nimbus-dev\Scripts\activate
+
+# Upgrade pip
+pip install --upgrade pip
+
+# Install Nimbus BCI SDK
+pip install nimbus-bci
+
+# Install development dependencies
+pip install jupyter matplotlib scipy scikit-learn pytest black flake8
 ```
+
 </Step>
 
-<Step title="Preview locally">
+<Step title="Configure API Access">
 
-Navigate to your docs directory where your `docs.json` file is located, and run the following command:
+Set up your API credentials securely:
 
 ```bash
-mint dev
+# Create .env file for local development
+echo "NIMBUS_API_KEY=your_api_key_here" > .env
+echo "NIMBUS_ENV=development" >> .env
+
+# Add .env to .gitignore
+echo ".env" >> .gitignore
 ```
 
-A local preview of your documentation will be available at `http://localhost:3000`.
+Create a configuration file for different environments:
+
+```python
+# config.py
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class Config:
+    NIMBUS_API_KEY = os.getenv('NIMBUS_API_KEY')
+    NIMBUS_ENV = os.getenv('NIMBUS_ENV', 'development')
+    
+    # Development settings
+    DEBUG = NIMBUS_ENV == 'development'
+    CONFIDENCE_THRESHOLD = 0.6 if DEBUG else 0.8
+    BUFFER_SIZE_MS = 2000 if DEBUG else 1000
+```
+
+</Step>
+
+<Step title="Project Structure">
+
+Organize your BCI project with this recommended structure:
+
+```
+your-bci-project/
+├── src/
+│   ├── __init__.py
+│   ├── models/          # Custom BCI models
+│   ├── preprocessing/   # Data preprocessing
+│   ├── inference/       # Inference logic
+│   ├── ui/             # User interface
+│   └── utils/          # Utility functions
+├── data/
+│   ├── raw/            # Raw EEG data
+│   ├── processed/      # Preprocessed data
+│   └── samples/        # Sample datasets
+├── tests/
+│   ├── test_models.py
+│   ├── test_inference.py
+│   └── test_integration.py
+├── notebooks/          # Jupyter notebooks
+├── docs/              # Project documentation
+├── requirements.txt   # Python dependencies
+├── .env              # Environment variables
+├── .gitignore        # Git ignore rules
+└── README.md         # Project overview
+```
 
 </Step>
 </Steps>
 
-## Custom ports
+## Development Workflow
 
-By default, Mintlify uses port 3000. You can customize the port Mintlify runs on by using the `--port` flag. For example, to run Mintlify on port 3333, use this command:
+### 1. Data Acquisition Setup
 
-```bash
-mint dev --port 3333
+Set up your EEG data acquisition pipeline:
+
+```python
+# src/data_acquisition.py
+import numpy as np
+from nimbus_bci import NimbusClient
+from config import Config
+
+class EEGDataAcquisition:
+    def __init__(self):
+        self.client = NimbusClient(api_key=Config.NIMBUS_API_KEY)
+        self.sampling_rate = 250
+        self.channels = ['C3', 'C4', 'Cz', 'Fz']
+        self.buffer = []
+    
+    def simulate_eeg_stream(self):
+        """Simulate real-time EEG data for development."""
+        while True:
+            # In production, replace with actual EEG device interface
+            sample = np.random.randn(len(self.channels))
+            self.buffer.append(sample)
+            
+            if len(self.buffer) >= self.sampling_rate:  # 1 second of data
+                yield np.array(self.buffer[-self.sampling_rate:])
+    
+    def load_sample_data(self, dataset='motor_imagery'):
+        """Load sample data for development and testing."""
+        # Implementation for loading various sample datasets
+        pass
 ```
 
-If you attempt to run Mintlify on a port that's already in use, it will use the next available port:
+### 2. Model Development
 
-```md
-Port 3000 is already in use. Trying 3001 instead.
+Create and test custom BCI models:
+
+```python
+# src/models/custom_classifier.py
+from nimbus_bci import NimbusClient
+import numpy as np
+
+class CustomBCIModel:
+    def __init__(self, model_name='motor-imagery-classifier'):
+        self.client = NimbusClient(api_key=Config.NIMBUS_API_KEY)
+        self.model_name = model_name
+        self.preprocessing_config = {
+            'filter': {'low': 1, 'high': 40},
+            'artifact_removal': True,
+            'normalization': 'zscore'
+        }
+    
+    def preprocess_data(self, eeg_data):
+        """Apply preprocessing steps."""
+        # Custom preprocessing logic
+        return processed_data
+    
+    def predict(self, eeg_data, channels):
+        """Make prediction with error handling."""
+        try:
+            processed_data = self.preprocess_data(eeg_data)
+            
+            result = self.client.inference(
+                model=self.model_name,
+                eeg_data=processed_data,
+                channels=channels,
+                sampling_rate=self.sampling_rate,
+                config={'preprocessing': self.preprocessing_config}
+            )
+            
+            return result
+            
+        except Exception as e:
+            print(f"Prediction error: {e}")
+            return None
 ```
 
-## Mintlify versions
+### 3. Testing Framework
 
-Please note that each CLI release is associated with a specific version of Mintlify. If your local preview does not align with the production version, please update the CLI:
+Implement comprehensive testing:
 
-```bash
-npm mint update
+```python
+# tests/test_models.py
+import unittest
+import numpy as np
+from src.models.custom_classifier import CustomBCIModel
+
+class TestBCIModel(unittest.TestCase):
+    def setUp(self):
+        self.model = CustomBCIModel()
+        self.sample_data = np.random.randn(250, 4)  # 1 second, 4 channels
+        self.channels = ['C3', 'C4', 'Cz', 'Fz']
+    
+    def test_prediction_format(self):
+        """Test that predictions return expected format."""
+        result = self.model.predict(self.sample_data, self.channels)
+        
+        self.assertIsNotNone(result)
+        self.assertIn('prediction', result.__dict__)
+        self.assertIn('confidence', result.prediction.__dict__)
+        self.assertIn('latency_ms', result.__dict__)
+    
+    def test_data_validation(self):
+        """Test data validation and error handling."""
+        # Test with invalid data shapes
+        invalid_data = np.random.randn(10, 2)  # Too few samples/channels
+        result = self.model.predict(invalid_data, self.channels)
+        
+        # Should handle gracefully
+        self.assertIsNone(result)
+    
+    def test_confidence_thresholds(self):
+        """Test confidence threshold handling."""
+        result = self.model.predict(self.sample_data, self.channels)
+        
+        if result:
+            self.assertGreaterEqual(result.prediction.confidence, 0.0)
+            self.assertLessEqual(result.prediction.confidence, 1.0)
+
+if __name__ == '__main__':
+    unittest.main()
 ```
 
-## Validating links
+## Real-time Development
 
-The CLI can assist with validating links in your documentation. To identify any broken links, use the following command:
+### Streaming Development Setup
+
+For real-time BCI applications:
+
+```python
+# src/realtime/stream_processor.py
+import asyncio
+from nimbus_bci import StreamingClient
+from config import Config
+
+class RealTimeProcessor:
+    def __init__(self):
+        self.client = StreamingClient(api_key=Config.NIMBUS_API_KEY)
+        self.session = None
+        self.is_running = False
+    
+    async def start_session(self, model='motor-imagery-classifier'):
+        """Start real-time processing session."""
+        self.session = await self.client.create_session(
+            model=model,
+            config={
+                'buffer_size_ms': Config.BUFFER_SIZE_MS,
+                'update_interval_ms': 50,
+                'confidence_threshold': Config.CONFIDENCE_THRESHOLD,
+                'channels': ['C3', 'C4', 'Cz', 'Fz'],
+                'sampling_rate': 250
+            }
+        )
+        
+        # Set up event handlers
+        self.session.on('prediction', self.handle_prediction)
+        self.session.on('signal_quality', self.handle_quality)
+        self.session.on('error', self.handle_error)
+        
+        await self.session.connect()
+        self.is_running = True
+    
+    async def handle_prediction(self, data):
+        """Handle real-time predictions."""
+        prediction = data['result']
+        
+        if Config.DEBUG:
+            print(f"Prediction: {prediction['class']} ({prediction['confidence']:.2f})")
+        
+        # Your application logic here
+        await self.process_bci_command(prediction)
+    
+    async def handle_quality(self, data):
+        """Monitor signal quality."""
+        quality = data['quality']['overall']
+        
+        if quality < 0.5:
+            print("⚠️ Poor signal quality detected")
+            # Implement quality improvement suggestions
+    
+    async def handle_error(self, data):
+        """Handle streaming errors."""
+        error = data['error']
+        print(f"Streaming error: {error['message']}")
+        
+        if error['recoverable']:
+            await asyncio.sleep(1)  # Brief pause before continuing
+        else:
+            await self.stop_session()
+    
+    async def stop_session(self):
+        """Stop streaming session."""
+        if self.session:
+            await self.session.disconnect()
+        self.is_running = False
+```
+
+### Development Tools
+
+Create helpful development utilities:
+
+```python
+# src/utils/dev_tools.py
+import matplotlib.pyplot as plt
+import numpy as np
+from datetime import datetime
+
+class BCIDevTools:
+    @staticmethod
+    def plot_eeg_data(eeg_data, channels, sampling_rate=250):
+        """Visualize EEG data for debugging."""
+        time_axis = np.arange(len(eeg_data)) / sampling_rate
+        
+        fig, axes = plt.subplots(len(channels), 1, figsize=(12, 8))
+        
+        for i, channel in enumerate(channels):
+            axes[i].plot(time_axis, eeg_data[:, i])
+            axes[i].set_ylabel(channel)
+            axes[i].grid(True)
+        
+        axes[-1].set_xlabel('Time (s)')
+        plt.title('EEG Data Visualization')
+        plt.tight_layout()
+        plt.show()
+    
+    @staticmethod
+    def log_prediction(result, log_file='predictions.log'):
+        """Log predictions for analysis."""
+        timestamp = datetime.now().isoformat()
+        log_entry = f"{timestamp},{result.prediction.class_name},{result.prediction.confidence},{result.latency_ms}\n"
+        
+        with open(log_file, 'a') as f:
+            f.write(log_entry)
+    
+    @staticmethod
+    def analyze_performance(log_file='predictions.log'):
+        """Analyze prediction performance."""
+        import pandas as pd
+        
+        df = pd.read_csv(log_file, names=['timestamp', 'class', 'confidence', 'latency'])
+        
+        print("Performance Analysis:")
+        print(f"Average confidence: {df['confidence'].mean():.3f}")
+        print(f"Average latency: {df['latency'].mean():.1f}ms")
+        print(f"Class distribution:\n{df['class'].value_counts()}")
+        
+        return df
+```
+
+## Documentation Development
+
+### Local Documentation Setup
+
+If you're contributing to Nimbus documentation:
+
+<Steps>
+<Step title="Install Documentation Tools">
 
 ```bash
+# Install Mintlify CLI
+npm i -g mint
+
+# Clone documentation repository
+git clone https://github.com/nimbusbci/docs.git
+cd docs
+```
+
+</Step>
+
+<Step title="Preview Documentation">
+
+```bash
+# Start local preview
+mint dev
+
+# Open http://localhost:3000 to see your changes
+```
+
+</Step>
+
+<Step title="Validate Documentation">
+
+```bash
+# Check for broken links
 mint broken-links
+
+# Validate MDX syntax
+npx mintlify validate
 ```
 
-## Deployment
+</Step>
+</Steps>
 
-If the deployment is successful, you should see the following:
+## Best Practices
 
-<Frame>
-  <img src="/images/checks-passed.png" alt="Screenshot of a deployment confirmation message that says All checks have passed." style={{ borderRadius: '0.5rem' }} />
-</Frame>
-
-## Code formatting
-
-We suggest using extensions on your IDE to recognize and format MDX. If you're a VSCode user, consider the [MDX VSCode extension](https://marketplace.visualstudio.com/items?itemName=unifiedjs.vscode-mdx) for syntax highlighting, and [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) for code formatting.
-
-## Troubleshooting
+### Code Quality
 
 <AccordionGroup>
-  <Accordion title='Error: Could not load the "sharp" module using the darwin-arm64 runtime'>
-
-    This may be due to an outdated version of node. Try the following:
-    1. Remove the currently-installed version of the CLI: `npm remove -g mint`
-    2. Upgrade to Node v19 or higher.
-    3. Reinstall the CLI: `npm i -g mint`
+  <Accordion title="Code Formatting and Linting">
+    Use automated tools to maintain code quality:
+    
+    ```bash
+    # Format code with Black
+    black src/ tests/
+    
+    # Lint with flake8
+    flake8 src/ tests/
+    
+    # Type checking with mypy
+    mypy src/
+    ```
+    
+    Create a `pyproject.toml` for configuration:
+    ```toml
+    [tool.black]
+    line-length = 88
+    target-version = ['py38']
+    
+    [tool.flake8]
+    max-line-length = 88
+    ignore = E203, W503
+    ```
   </Accordion>
-
-  <Accordion title="Issue: Encountering an unknown error">
   
-    Solution: Go to the root of your device and delete the `~/.mintlify` folder. Then run `mint dev` again.
+  <Accordion title="Error Handling">
+    Implement robust error handling for BCI applications:
+    
+    ```python
+    from nimbus_bci.exceptions import (
+        NimbusAPIError, 
+        AuthenticationError, 
+        RateLimitError
+    )
+    
+    def robust_inference(client, **kwargs):
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                return client.inference(**kwargs)
+                
+            except RateLimitError as e:
+                print(f"Rate limit hit, waiting {e.retry_after}s")
+                time.sleep(e.retry_after)
+                retry_count += 1
+                
+            except AuthenticationError:
+                print("Authentication failed - check API key")
+                break
+                
+            except NimbusAPIError as e:
+                print(f"API error: {e.message}")
+                retry_count += 1
+                time.sleep(2 ** retry_count)  # Exponential backoff
+        
+        return None
+    ```
+  </Accordion>
+  
+  <Accordion title="Performance Monitoring">
+    Monitor your BCI application performance:
+    
+    ```python
+    import time
+    from collections import deque
+    
+    class PerformanceMonitor:
+        def __init__(self, window_size=100):
+            self.latencies = deque(maxlen=window_size)
+            self.confidences = deque(maxlen=window_size)
+            self.errors = 0
+        
+        def record_prediction(self, result, start_time):
+            latency = (time.time() - start_time) * 1000  # ms
+            self.latencies.append(latency)
+            
+            if result:
+                self.confidences.append(result.prediction.confidence)
+            else:
+                self.errors += 1
+        
+        def get_stats(self):
+            if not self.latencies:
+                return None
+                
+            return {
+                'avg_latency': sum(self.latencies) / len(self.latencies),
+                'max_latency': max(self.latencies),
+                'avg_confidence': sum(self.confidences) / len(self.confidences),
+                'error_rate': self.errors / (len(self.latencies) + self.errors)
+            }
+    ```
   </Accordion>
 </AccordionGroup>
 
-Curious about what changed in the latest CLI version? Check out the [CLI changelog](https://www.npmjs.com/package/mintlify?activeTab=versions).
+## Debugging and Troubleshooting
+
+### Common Development Issues
+
+<AccordionGroup>
+  <Accordion title="API Connection Issues">
+    **Symptoms**: Connection timeouts, authentication errors
+    
+    **Solutions**:
+    ```python
+    # Test API connectivity
+    def test_api_connection():
+        try:
+            client = NimbusClient(api_key=Config.NIMBUS_API_KEY)
+            models = client.get_models()
+            print(f"✅ Connected successfully. {len(models)} models available.")
+            return True
+        except Exception as e:
+            print(f"❌ Connection failed: {e}")
+            return False
+    
+    # Debug API requests
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+    ```
+  </Accordion>
+  
+  <Accordion title="Data Format Issues">
+    **Symptoms**: Model errors, unexpected predictions
+    
+    **Solutions**:
+    ```python
+    def validate_eeg_data(eeg_data, channels, sampling_rate):
+        """Validate EEG data format."""
+        issues = []
+        
+        # Check data shape
+        if eeg_data.ndim != 2:
+            issues.append(f"Data should be 2D, got {eeg_data.ndim}D")
+        
+        if eeg_data.shape[1] != len(channels):
+            issues.append(f"Channel mismatch: {eeg_data.shape[1]} vs {len(channels)}")
+        
+        # Check for NaN or infinite values
+        if np.isnan(eeg_data).any():
+            issues.append("Data contains NaN values")
+        
+        if np.isinf(eeg_data).any():
+            issues.append("Data contains infinite values")
+        
+        # Check data range (typical EEG is ±100µV)
+        if np.abs(eeg_data).max() > 1000:
+            issues.append("Data values seem too large (>1000µV)")
+        
+        return issues
+    ```
+  </Accordion>
+  
+  <Accordion title="Performance Issues">
+    **Symptoms**: High latency, memory usage
+    
+    **Solutions**:
+    ```python
+    # Profile your code
+    import cProfile
+    import pstats
+    
+    def profile_inference():
+        profiler = cProfile.Profile()
+        profiler.enable()
+        
+        # Your BCI code here
+        result = client.inference(...)
+        
+        profiler.disable()
+        stats = pstats.Stats(profiler)
+        stats.sort_stats('cumulative')
+        stats.print_stats(10)  # Top 10 functions
+    
+    # Memory monitoring
+    import psutil
+    import os
+    
+    def monitor_memory():
+        process = psutil.Process(os.getpid())
+        memory_mb = process.memory_info().rss / 1024 / 1024
+        print(f"Memory usage: {memory_mb:.1f} MB")
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Deployment Preparation
+
+### Production Checklist
+
+Before deploying your BCI application:
+
+- [ ] **Security**: API keys stored securely, no hardcoded credentials
+- [ ] **Error Handling**: Comprehensive error handling and logging
+- [ ] **Performance**: Latency under target thresholds (typically <50ms)
+- [ ] **Testing**: Unit tests, integration tests, and user acceptance testing
+- [ ] **Monitoring**: Performance monitoring and alerting set up
+- [ ] **Documentation**: Code documented, deployment guide written
+- [ ] **Backup**: Data backup and recovery procedures in place
+
+### Environment Configuration
+
+```python
+# production_config.py
+class ProductionConfig(Config):
+    DEBUG = False
+    CONFIDENCE_THRESHOLD = 0.8
+    BUFFER_SIZE_MS = 1000
+    MAX_RETRIES = 5
+    TIMEOUT_SECONDS = 30
+    
+    # Logging configuration
+    LOG_LEVEL = 'INFO'
+    LOG_FILE = '/var/log/nimbus-bci.log'
+    
+    # Performance settings
+    BATCH_SIZE = 10
+    CACHE_SIZE = 1000
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/api-reference/authentication">
+    Explore the complete API documentation
+  </Card>
+  
+  <Card title="Model Specification" icon="brain" href="/model-specification">
+    Learn to build custom BCI models
+  </Card>
+  
+  <Card title="Examples" icon="play" href="/examples/code-samples">
+    See complete implementation examples
+  </Card>
+  
+  <Card title="Production Deployment" icon="server" href="/inference-configuration/real-time-setup">
+    Deploy your BCI application to production
+  </Card>
+</CardGroup>
+
+## Support
+
+Need help with development?
+
+- **Email**: hello@nimbusbci.com for technical support
+- **GitHub**: Report issues and contribute to examples
+- **Documentation**: Browse our comprehensive guides
+- **Community**: Join our developer community
+
+Happy coding! 🚀 Build amazing BCI applications with Nimbus.

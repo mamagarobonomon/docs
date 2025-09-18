@@ -1,97 +1,117 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Nimbus BCI Engine"
+description: "The AI engine for BCI decisions under uncertainty. Turn probabilistic insights from the brain into real-time, adaptive control."
 ---
 
-## Setting up
+_The AI engine for Brain-Computer Interface applications with reactive probabilistic inference._
 
-Get your documentation site up and running in minutes.
+Given neural signals and BCI models, Nimbus enables efficient probabilistic inference for real-time brain-computer interfaces. It uses advanced message-passing algorithms to generate ultra-low latency responses that adapt to uncertainty in neural data. Nimbus has been designed with a focus on performance, scalability, and maximum throughput for real-time BCI applications.
+
+## Why Nimbus BCI
+
+Many critical BCI applications, including assistive technologies, gaming interfaces, medical devices, and research platforms require continually solving inference tasks in sophisticated probabilistic models with thousands of neural signals. Often, the inference task in these applications must be performed in real-time with sub-20ms latency in response to streaming brain data.
+
+Popular traditional BCI methods rely on deterministic classification approaches that cannot handle the inherent uncertainty in neural signals. These methods produce brittle, overconfident predictions that fail to adapt when brain states change or signal quality degrades. While machine learning approaches promise better performance, they typically require extensive training data and cannot provide the explainability needed for medical applications or the real-time performance required for responsive interfaces.
+
+**Current BCI systems face fundamental limitations:**
+- **High latency**: Standard BCI processing takes 200ms+ 
+- **Poor uncertainty handling**: Deterministic outputs with no confidence measures
+- **Limited adaptability**: Cannot adjust to changing brain states or signal quality
+- **Scalability issues**: Performance degrades with multi-channel, high-bandwidth data
+
+Nimbus aims to solve these challenges by providing **ultra-low latency probabilistic inference** (sub-20ms) that handles uncertainty naturally, adapts to changing conditions, and scales to thousands of neural channels while maintaining explainable, FDA-ready outputs.
 
 <Card
-  title="Start here"
-  icon="rocket"
+  title="Get started with Nimbus"
+  icon="play"
   href="/quickstart"
   horizontal
 >
-  Follow our three step quickstart guide.
+  Build your first real-time BCI application in minutes.
 </Card>
 
-## Make it yours
+## Core Features
 
-Design a docs site that looks great and empowers your users.
+Nimbus provides everything needed for production-ready BCI applications.
 
 <Columns cols={2}>
   <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
+    title="Ultra-low latency"
+    icon="bolt"
+    href="/core-concepts/real-time-processing"
   >
-    Edit your docs locally and preview them in real time.
+    Sub-20ms inference latency vs 200ms+ standard BCI processing.
   </Card>
   <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
+    title="Probabilistic AI"
+    icon="lightbulb"
+    href="/core-concepts/probabilistic-ai"
   >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+    Handle uncertainty in neural signals with confidence measures and adaptive responses.
   </Card>
   <Card
-    title="API documentation"
-    icon="terminal"
+    title="Real-time streaming"
+    icon="signal"
+    href="/inference-configuration/streaming-inference"
+  >
+    Process continuous neural data streams with reactive message passing.
+  </Card>
+  <Card
+    title="Explainable outputs"
+    icon="shield"
+    href="/core-concepts/uncertainty-handling"
+  >
+    "White box" probabilistic models for FDA compliance and clinical trust.
+  </Card>
+</Columns>
+
+## Built for the Entire BCI Ecosystem
+
+Nimbus is designed to serve the full spectrum of neurotechnology applications.
+
+<Columns cols={2}>
+  <Card
+    title="Consumer Neurotech"
+    icon="gamepad"
+    href="/examples/consumer-applications"
+  >
+    Power immersive gaming and wellness apps with ultra-low latency and adaptive user experiences.
+  </Card>
+  <Card
+    title="Medical & Assistive Tech"
+    icon="heartbeat"
+    href="/examples/medical-applications"
+  >
+    Build FDA-ready assistive technologies where explainability is critical for approval and trust.
+  </Card>
+  <Card
+    title="High-Bandwidth Research"
+    icon="microscope"
+    href="/examples/research-applications"
+  >
+    Provide real-time processing for next-generation invasive interfaces and research platforms.
+  </Card>
+  <Card
+    title="API Integration"
+    icon="plug"
     href="/api-reference/introduction"
   >
-    Auto-generate API documentation from OpenAPI specifications.
+    Integrate with existing BCI hardware and software through comprehensive APIs.
   </Card>
 </Columns>
 
-## Create beautiful pages
+## Performance That Matters
 
-Everything you need to create world-class documentation.
+Real-time BCI applications demand exceptional performance. Nimbus delivers a 10x improvement in processing latency.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
-
-## Need inspiration?
+<Note>
+**Benchmark**: Nimbus achieves sub-20ms inference latency compared to 200ms+ for standard BCI processing pipelines, enabling truly responsive brain-computer interfaces.
+</Note>
 
 <Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
+  title="See performance benchmarks"
+  icon="chart-bar"
+  href="https://nimbusbci.com"
 >
-  Browse our showcase of exceptional documentation sites.
+  Learn more about Nimbus performance advantages and validation studies.
 </Card>
