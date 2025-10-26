@@ -48,35 +48,30 @@
               "inference-configuration/real-time-setup",
               "inference-configuration/batch-processing",
               "inference-configuration/streaming-inference",
-              "inference-configuration/error-handling"
+              "inference-configuration/preprocessing-requirements"
             ]
           },
-                    {
-                      "group": "BCI Models",
-                      "pages": [
-                        "models/kalman-eeg-filtering",
-                        "models/hmm-brain-states",
-                        "models/ar-motor-rhythms",
-                        "models/sensor-fusion",
-                        "models/pomdp-control"
-                      ]
-                    },
-                    {
-                      "group": "Examples & tutorials",
-                      "pages": [
-                        "examples/basic-examples",
-                        "examples/advanced-applications",
-                        "examples/industry-use-cases",
-                        "examples/code-samples"
-                      ]
-                    },
+          {
+            "group": "BCI Models",
+            "pages": [
+              "models/rxlda",
+              "models/rxgmm"
+            ]
+          },
+          {
+            "group": "Examples & tutorials",
+            "pages": [
+              "examples/basic-examples",
+              "examples/advanced-applications",
+              "examples/industry-use-cases",
+              "examples/code-samples"
+            ]
+          },
           {
             "group": "Development",
             "pages": [
-              "development/custom-nodes",
-              "development/algorithm-customization",
-              "development/plugin-development",
-              "development/testing-validation"
+              "development",
+              "development/preprocessing-integration"
             ]
           }
         ]
@@ -100,11 +95,9 @@
             ]
           },
           {
-            "group": "SDKs",
+            "group": "SDK",
             "pages": [
-              "api-reference/python-sdk",
-              "api-reference/javascript-sdk",
-              "api-reference/rest-api"
+              "api-reference/julia-sdk"
             ]
           }
         ]

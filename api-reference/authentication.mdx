@@ -20,30 +20,65 @@ To get started with the Nimbus API, you'll need to obtain an API key:
 API keys are currently issued on a case-by-case basis. Please include details about your intended use case, expected volume, and timeline in your request.
 </Note>
 
-## Authentication Methods
+## Authentication in Julia SDK
 
-### API Key Authentication
+The NimbusSDK.jl package handles authentication automatically. You authenticate once when initializing the SDK:
 
-Include your API key in the request headers:
+```julia
+using NimbusSDK
 
-```bash
-curl -X POST "https://api.nimbusbci.com/v1/inference" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "motor-imagery-classifier",
-    "data": [...],
-    "config": {...}
-  }'
+# Authenticate with your API key
+session = NimbusSDK.authenticate("your-api-key-here")
+
+# SDK is now authenticated and ready to use
+# Credentials are cached locally for 30 days
 ```
+
+## API Endpoints
+
+The Nimbus API provides authentication, license management, and analytics endpoints (inference is handled client-side via the Julia SDK).
+
+### POST /v1/auth/validate
+
+Validate an API key and return user permissions.
+
+**Request:**
+```json
+{
+  "api_key": "nbci_live_..."
+}
+```
+
+**Response:**
+```json
+{
+  "valid": true,
+  "user_id": "...",
+  "license_type": "research",
+  "features": ["batch_inference", "streaming"],
+  "quota": {
+    "monthly_limit": 50000,
+    "used": 1234,
+    "remaining": 48766,
+    "resets_at": "2025-11-01T00:00:00Z"
+  }
+}
+```
+
+### POST /v1/auth/refresh
+
+Refresh API key credentials and quota information.
+
+### POST /v1/auth/revoke
+
+Revoke an API key (makes it inactive).
 
 ### Authentication Headers
 
 | Header | Value | Required |
 |--------|-------|----------|
-| `Authorization` | `Bearer YOUR_API_KEY` | ✅ Yes |
 | `Content-Type` | `application/json` | ✅ Yes |
-| `X-Client-Version` | Your client version | ⚪ Optional |
+| `api_key` | Your API key | ✅ Yes |
 
 ## Security Best Practices
 
@@ -70,27 +105,31 @@ curl -X POST "https://api.nimbusbci.com/v1/inference" \
 Store your API key securely:
 
 ```bash
-# .env file
-NIMBUS_API_KEY=your_api_key_here
+# Environment variable
+export NIMBUS_API_KEY="nbci_live_..."
 ```
 
-```python
-import os
-from nimbus_bci import NimbusClient
+```julia
+using NimbusSDK
 
-# Initialize client with environment variable
-client = NimbusClient(api_key=os.getenv('NIMBUS_API_KEY'))
+# In Julia, store API key in ~/.nimbus/api_key (auto-created)
+# Or set environment variable
+key = ENV["NIMBUS_API_KEY"]
+
+# Authenticate
+session = NimbusSDK.authenticate(key)
 ```
 
 ## Rate Limits
 
 API requests are subject to rate limits to ensure fair usage and system stability:
 
-| Plan | Requests per minute | Concurrent connections | Data throughput |
-|------|-------------------|----------------------|-----------------|
-| **Research** | 60 | 2 | 1 MB/s |
-| **Professional** | 300 | 10 | 10 MB/s |
-| **Enterprise** | 1000+ | 50+ | 100+ MB/s |
+| License Type | Monthly Requests | Features |
+|------|-------------------|----------------|
+| **Free** | 50,000 | Batch inference, basic models |
+| **Research** | 100,000 | Batch + streaming, advanced models, custom training |
+| **Commercial** | 500,000 | All features, priority support, custom models |
+| **Enterprise** | Unlimited | All features, dedicated support, custom deployments |
 
 ### Rate Limit Headers
 
@@ -119,9 +158,9 @@ When you exceed rate limits, the API returns a `429 Too Many Requests` response:
 
 **Best practices for handling rate limits:**
 - Implement exponential backoff
-- Cache responses when possible
-- Use streaming endpoints for real-time data
-- Contact us for higher limits if needed
+- Cache credentials locally (SDK does this automatically)
+- Use Julia SDK's streaming mode for real-time data (client-side)
+- Contact us to upgrade your license for higher limits
 
 ## Error Responses
 
@@ -212,17 +251,17 @@ Contact us at **hello@nimbusbci.com** for access to detailed usage analytics and
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Inference Endpoints" icon="brain" href="/api-reference/inference-endpoints">
-    Learn about core BCI inference API endpoints
+  <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
+    Complete Julia SDK documentation
   </Card>
-  <Card title="Python SDK" icon="python" href="/api-reference/python-sdk">
-    Get started with the Python SDK for easy integration
+  <Card title="API Endpoints" icon="plug" href="/api-reference/inference-endpoints">
+    Learn about API endpoints for authentication and licensing
   </Card>
-  <Card title="Streaming API" icon="wave-square" href="/api-reference/streaming-api">
-    Real-time BCI data processing with WebSocket streams
+  <Card title="Streaming Inference" icon="wave-square" href="/api-reference/streaming-api">
+    Real-time chunk-by-chunk processing (client-side)
   </Card>
-  <Card title="Webhook Integration" icon="webhook" href="/api-reference/webhook-integration">
-    Set up webhooks for event-driven BCI applications
+  <Card title="Code Examples" icon="code" href="/examples/code-samples">
+    See working code examples
   </Card>
 </CardGroup>
 

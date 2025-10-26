@@ -1,832 +1,540 @@
 ---
 title: "Code Samples"
-description: "Ready-to-use code examples and implementation templates for common BCI scenarios"
+description: "Ready-to-use Julia code examples for BCI inference with NimbusSDK.jl"
 icon: "code"
 ---
 
 # Code Samples
 
-This section provides complete, ready-to-use code examples for implementing common BCI functionality with Nimbus. Each sample includes full implementation details, error handling, and performance optimizations.
+Complete, production-ready Julia code examples for BCI inference with NimbusSDK.jl. Each example includes full implementation, error handling, and best practices.
 
-## Real-Time EEG Processing Pipeline
+## Basic Motor Imagery Inference
 
-Complete pipeline for real-time EEG acquisition, preprocessing, and feature extraction.
+Complete example for 4-class Motor Imagery classification using RxLDA.
 
-```python
-import numpy as np
-from nimbus import Model, StreamingInference
-from nimbus.preprocessing import BandpassFilter, CommonAverageReference
-from nimbus.features import PowerSpectralDensity, CommonSpatialPatterns
+```julia
+using NimbusSDK
+using Statistics
 
-class RealTimeEEGPipeline:
-    """Complete real-time EEG processing pipeline"""
-    
-    def __init__(self, channels, sampling_rate=250, window_size=1.0):
-        self.channels = channels
-        self.sampling_rate = sampling_rate
-        self.window_size = window_size
-        self.buffer_size = int(sampling_rate * window_size)
-        
-        # Initialize preprocessing components
-        self.bandpass_filter = BandpassFilter(
-            low_freq=1.0, 
-            high_freq=40.0, 
-            sampling_rate=sampling_rate
-        )
-        
-        self.car_filter = CommonAverageReference()
-        
-        # Feature extraction
-        self.psd_extractor = PowerSpectralDensity(
-            frequency_bands={
-                'delta': (1, 4),
-                'theta': (4, 8), 
-                'alpha': (8, 13),
-                'beta': (13, 30),
-                'gamma': (30, 40)
-            }
-        )
-        
-        # Circular buffer for real-time processing
-        self.eeg_buffer = np.zeros((len(channels), self.buffer_size))
-        self.buffer_index = 0
-        
-    def add_sample(self, eeg_sample):
-        """Add new EEG sample to processing buffer"""
-        
-        # Add sample to circular buffer
-        self.eeg_buffer[:, self.buffer_index] = eeg_sample
-        self.buffer_index = (self.buffer_index + 1) % self.buffer_size
-        
-        # Return True when buffer is full (ready for processing)
-        return self.buffer_index == 0
-    
-    def process_window(self):
-        """Process current buffer window"""
-        
-        # Get current window (handle circular buffer)
-        if self.buffer_index == 0:
-            window = self.eeg_buffer.copy()
-        else:
-            window = np.concatenate([
-                self.eeg_buffer[:, self.buffer_index:],
-                self.eeg_buffer[:, :self.buffer_index]
-            ], axis=1)
-        
-        # Preprocessing pipeline
-        filtered = self.bandpass_filter.apply(window)
-        car_filtered = self.car_filter.apply(filtered)
-        
-        # Feature extraction
-        psd_features = self.psd_extractor.extract(car_filtered)
-        
-        # Additional features
-        features = {
-            'psd': psd_features,
-            'variance': np.var(car_filtered, axis=1),
-            'mean_amplitude': np.mean(np.abs(car_filtered), axis=1),
-            'line_length': self.compute_line_length(car_filtered)
-        }
-        
-        return features
-    
-    def compute_line_length(self, signal):
-        """Compute line length feature (measure of signal complexity)"""
-        return np.sum(np.abs(np.diff(signal, axis=1)), axis=1)
+# Step 1: Authenticate
+println("Authenticating...")
+NimbusSDK.authenticate("nbci_live_your_api_key_here")
+println("✓ Authentication successful")
 
-# Usage example
-pipeline = RealTimeEEGPipeline(
-    channels=['Fp1', 'Fp2', 'C3', 'C4', 'P3', 'P4', 'O1', 'O2'],
-    sampling_rate=250
+# Step 2: Load model
+println("\nLoading model...")
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+println("✓ Model loaded: $(model.metadata.name)")
+println("  - Features: $(get_n_features(model))")
+println("  - Classes: $(get_n_classes(model))")
+
+# Step 3: Prepare data (features already preprocessed!)
+println("\nPreparing data...")
+n_features = 16
+n_samples = 250  # 1 second at 250 Hz
+n_trials = 20
+
+# In practice, load your preprocessed CSP features
+features = randn(n_features, n_samples, n_trials)
+labels = rand(1:4, n_trials)
+
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = n_features,
+    n_classes = 4,
+    chunk_size = nothing
 )
 
-# Simulate real-time EEG acquisition
-for sample in eeg_data_stream():
-    buffer_ready = pipeline.add_sample(sample)
-    
-    if buffer_ready:
-        features = pipeline.process_window()
-        
-        # Use features for BCI classification
-        bci_output = classify_motor_imagery(features)
-        send_control_command(bci_output)
+data = BCIData(features, metadata, labels)
+println("✓ Data prepared: $n_trials trials")
+
+# Step 4: Run inference
+println("\nRunning batch inference...")
+results = predict_batch(model, data; iterations=10)
+
+# Step 5: Analyze results
+println("\nResults:")
+for (i, (pred, conf)) in enumerate(zip(results.predictions, results.confidences))
+    println("  Trial $i: Class $pred (confidence: $(round(conf, digits=3)))")
+end
+
+println("\nOverall Performance:")
+accuracy = sum(results.predictions .== labels) / length(labels)
+println("  Accuracy: $(round(accuracy * 100, digits=1))%")
+println("  Mean confidence: $(round(mean(results.confidences), digits=3))")
+
+# Calculate ITR
+itr = calculate_ITR(accuracy, 4, 4.0)
+println("  ITR: $(round(itr, digits=1)) bits/minute")
+
+# Quality assessment
+quality = assess_trial_quality(results)
+println("  Quality score: $(round(quality.overall_score, digits=3))")
+
+if !quality.confidence_acceptable
+    println("⚠️  Warning: Low confidence trials detected")
+end
 ```
 
-## Motor Imagery Classification
+## Training Custom Model
 
-Complete implementation of a motor imagery classifier using Common Spatial Patterns and probabilistic inference.
+Example of training an RxLDA model on your own labeled data.
 
-```python
-@Model
-def motor_imagery_classifier(eeg_features, class_labels, subject_id):
-    """
-    Probabilistic motor imagery classifier with subject adaptation
-    """
+```julia
+using NimbusSDK
+
+println("="^60)
+println("Training Custom RxLDA Model")
+println("="^60)
+
+# Step 1: Authenticate
+NimbusSDK.authenticate("your-api-key")
+
+# Step 2: Prepare training data
+println("\n1. Loading training data...")
+train_features = load_csp_features("train_data.mat")  # Your function
+train_labels = load_labels("train_labels.mat")         # Your function
+
+println("  Data loaded: $(size(train_features))")
+
+# Step 3: Create BCIData
+train_data = BCIData(
+    train_features,
+    BCIMetadata(
+        sampling_rate = 250.0,
+        paradigm = :motor_imagery,
+        feature_type = :csp,
+        n_features = size(train_features, 1),
+        n_classes = length(unique(train_labels)),
+        chunk_size = nothing
+    ),
+    train_labels
+)
+
+println("✓ Training data prepared")
+println("  - Features: $(get_n_features(train_data.metadata))")
+println("  - Classes: $(get_n_classes(train_data.metadata))")
+println("  - Trials: $(length(train_labels))")
+
+# Step 4: Train model
+println("\n2. Training model...")
+model = train_model(
+    RxLDAModel,
+    train_data;
+    iterations = 50,
+    showprogress = true,
+    name = "my_motor_imagery_model",
+    description = "4-class motor imagery with CSP"
+)
+
+println("\n✓ Model trained successfully")
+println("  Model name: $(model.metadata.name)")
+
+# Step 5: Save model
+save_path = "my_motor_imagery_model.jld2"
+save_model(model, save_path)
+println("✓ Model saved to: $save_path")
+
+# Step 6: Test on held-out data
+println("\n3. Testing on held-out data...")
+test_features = load_csp_features("test_data.mat")
+test_labels = load_labels("test_labels.mat")
+
+test_data = BCIData(
+    test_features,
+    train_data.metadata,  # Same metadata
+    test_labels
+)
+
+test_results = predict_batch(model, test_data)
+
+# Calculate accuracy
+test_accuracy = sum(test_results.predictions .== test_labels) / length(test_labels)
+println("✓ Test accuracy: $(round(test_accuracy * 100, digits=1))%")
+
+println("\n" * "="^60)
+println("Training complete!")
+println("="^60)
+```
+
+## Subject-Specific Calibration
+
+Fine-tune a pre-trained model with a small subject-specific dataset.
+
+```julia
+using NimbusSDK
+
+println("Subject-Specific Calibration")
+
+# Step 1: Load baseline model
+println("\n1. Loading baseline model...")
+base_model = load_model(RxLDAModel, "motor_imagery_baseline_v1")
+println("✓ Baseline model loaded")
+
+# Step 2: Collect calibration data from new subject
+println("\n2. Collecting calibration data...")
+println("  (Collect 10-20 trials per class from subject)")
+
+calib_features = collect_calibration_trials()  # Your function
+calib_labels = [1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 1, 2, 3, 4, 2, 3, 1, 4, 3, 2]
+
+calib_data = BCIData(
+    calib_features,
+    BCIMetadata(
+        sampling_rate = 250.0,
+        paradigm = :motor_imagery,
+        feature_type = :csp,
+        n_features = 16,
+        n_classes = 4
+    ),
+    calib_labels
+)
+
+println("✓ Calibration data prepared: $(length(calib_labels)) trials")
+
+# Step 3: Calibrate model
+println("\n3. Calibrating model...")
+println("  (Fine-tuning with subject-specific data)")
+
+personalized_model = calibrate_model(
+    base_model,
+    calib_data;
+    iterations = 20  # Fewer than training from scratch
+)
+
+println("✓ Model calibrated")
+
+# Step 4: Save personalized model
+save_path = "subject_001_calibrated.jld2"
+save_model(personalized_model, save_path)
+println("✓ Saved: $save_path")
+
+# Step 5: Compare performance
+println("\n4. Performance comparison...")
+
+# Test on same test data
+test_results_baseline = predict_batch(base_model, test_data)
+test_results_personalized = predict_batch(personalized_model, test_data)
+
+acc_baseline = sum(test_results_baseline.predictions .== test_labels) / length(test_labels)
+acc_personalized = sum(test_results_personalized.predictions .== test_labels) / length(test_labels)
+
+println("  Baseline accuracy: $(round(acc_baseline * 100, digits=1))%")
+println("  Personalized accuracy: $(round(acc_personalized * 100, digits=1))%")
+println("  Improvement: +$(round((acc_personalized - acc_baseline) * 100, digits=1))%")
+```
+
+## Streaming Inference
+
+Real-time chunk-by-chunk processing for continuous BCI control.
+
+```julia
+using NimbusSDK
+
+# Initialize streaming
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4,
+    chunk_size = 250  # 1 second chunks
+)
+
+session = init_streaming(model, metadata)
+
+# Simulate real-time EEG stream
+function process_real_time_eeg()
+    for trial in 1:20  # 20 trials
+        println("\n--- Trial $trial ---")
+        
+        for chunk_idx in 1:4  # 4 chunks per trial (4 seconds total)
+            # In practice: get chunk from EEG hardware
+            chunk = randn(16, 250)  # 16 features × 250 samples
+            
+            # Process chunk
+            result = process_chunk(session, chunk)
+            
+            # Real-time feedback
+            class_names = ["Left", "Right", "Feet", "Tongue"]
+            println("  Chunk $chunk_idx: $(class_names[result.prediction]) " *
+                   "(confidence: $(round(result.confidence, digits=3)))")
+            
+            # Implement control logic
+            if result.confidence > 0.7
+                handle_bci_command(result.prediction)
+            end
+        end
+        
+        # Finalize trial
+        final = finalize_trial(session; method=:weighted_vote)
+        println("✓ Final: $(class_names[final.prediction]) " *
+               "(confidence: $(round(final.confidence, digits=3)))")
+    end
+end
+
+# Your BCI control function
+function handle_bci_command(prediction::Int)
+    if prediction == 1
+        # Move cursor left
+        println("    ↖ Moving left")
+    elseif prediction == 2
+        # Move cursor right
+        println("    ↗ Moving right")
+    elseif prediction == 3
+        # Move cursor up
+        println("    ↑ Moving up")
+    elseif prediction == 4
+        # Move cursor down
+        println("    ↓ Moving down")
+    end
+end
+
+# Run the processing
+process_real_time_eeg()
+```
+
+## Error Handling
+
+Robust error handling and recovery for production use.
+
+```julia
+using NimbusSDK
+using Logging
+
+# Configure logging
+global_logger(ConsoleLogger(stderr, Logging.Info))
+
+function robust_inference(model, data)
+    """Run inference with comprehensive error handling"""
     
-    # Subject-specific parameters
-    subject_spatial_filters[subject_id] ~ MatrixNormal(
-        mean=np.zeros((num_channels, num_spatial_filters)),
-        row_cov=np.eye(num_channels),
-        col_cov=np.eye(num_spatial_filters)
+    try
+        # Validate data first
+        is_valid, errors = validate_data(data)
+        if !is_valid
+            @error "Data validation failed" errors
+            return nothing
+        end
+        
+        # Check model compatibility
+        if !check_model_compatibility(model, data)
+            @error "Model incompatible with data"
+            return nothing
+        end
+        
+        # Run inference
+        results = predict_batch(model, data; iterations=10)
+        
+        # Check quality
+        quality = assess_trial_quality(results)
+        if !quality.confidence_acceptable
+            @warn "Low quality inference" quality
+        end
+        
+        return results
+        
+    catch e
+        if isa(e, AuthenticationError)
+            @error "Authentication failed - re-authenticate"
+            reauthenticate()
+        elseif isa(e, DataValidationError)
+            @error "Invalid data format" error_msg(e)
+        elseif isa(e, QuotaExceededError)
+            @error "API quota exceeded" e
+        else
+            @error "Unexpected error" exception=(e, catch_backtrace())
+        end
+        return nothing
+    end
+end
+
+# Usage
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+results = robust_inference(model, data)
+
+if !isnothing(results)
+    println("Inference successful!")
+    println("Accuracy: ", sum(results.predictions .== labels) / length(labels))
+else
+    println("Inference failed - check logs")
+end
+```
+
+## Data Loading and Preprocessing
+
+Load data from various formats and validate for NimbusSDK.
+
+```julia
+using NimbusSDK, MAT, CSV, DataFrames
+
+function load_csp_features_from_mat(filepath::String)
+    """Load CSP features from .mat file"""
+    data = matread(filepath)
+    
+    features = data["features"]  # (n_features × n_samples × n_trials)
+    labels = Int.(vec(data["labels"]))
+    
+    # Validate shape
+    @assert ndims(features) == 3 "Features must be 3D"
+    @assert length(labels) == size(features, 3) "Labels must match number of trials"
+    
+    # Check for NaN/Inf
+    if any(isnan, features) || any(isinf, features)
+        error("Features contain NaN or Inf values")
+    end
+    
+    println("Loaded: $(size(features))")
+    println("Classes: $(unique(labels))")
+    
+    return features, labels
+end
+
+function create_bcidata(features, labels, metadata::BCIMetadata)
+    """Create BCIData with validation"""
+    
+    # Validate dimensions
+    n_features = size(features, 1)
+    n_classes = length(unique(labels))
+    
+    @assert n_features == metadata.n_features "Feature count mismatch"
+    @assert n_classes == metadata.n_classes "Class count mismatch"
+    
+    # Check labels are 1-indexed
+    @assert minimum(labels) >= 1 "Labels must be 1-indexed"
+    @assert maximum(labels) <= n_classes "Labels out of range"
+    
+    data = BCIData(features, metadata, labels)
+    
+    # Run diagnostics
+    report = diagnose_preprocessing(data)
+    if !isempty(report.errors)
+        @warn "Preprocessing issues" report.errors
+    end
+    
+    println("Data quality score: $(round(report.quality_score * 100, digits=1))%")
+    
+    return data
+end
+
+# Usage
+features, labels = load_csp_features_from_mat("motor_imagery.mat")
+
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4
+)
+
+data = create_bcidata(features, labels, metadata)
+```
+
+## Performance Metrics
+
+Calculate comprehensive performance metrics including ITR.
+
+```julia
+using NimbusSDK, Statistics
+
+function calculate_comprehensive_metrics(results, true_labels)
+    """Calculate all performance metrics"""
+    
+    # Basic accuracy
+    accuracy = sum(results.predictions .== true_labels) / length(true_labels)
+    
+    # Per-class accuracy
+    n_classes = length(unique(true_labels))
+    per_class_accuracy = [
+        sum((results.predictions .== i) .& (true_labels .== i)) /
+        sum(true_labels .== i)
+        for i in 1:n_classes
+    ]
+    
+    # Confusion matrix
+    confusion = zeros(Int, n_classes, n_classes)
+    for (pred, true_lbl) in zip(results.predictions, true_labels)
+        confusion[pred, true_lbl] += 1
+    end
+    
+    # Mean confidence
+    mean_confidence = mean(results.confidences)
+    
+    # High confidence trials
+    high_conf = sum(results.confidences .> 0.7) / length(results.confidences)
+    
+    return (
+        accuracy = accuracy,
+        per_class_accuracy = per_class_accuracy,
+        confusion_matrix = confusion,
+        mean_confidence = mean_confidence,
+        high_confidence_rate = high_conf
     )
-    
-    # Class-specific parameters
-    for class_idx in range(num_classes):
-        class_means[class_idx] ~ MultivariateNormal(
-            mean=np.zeros(num_features),
-            covariance=np.eye(num_features)
-        )
-        
-        class_precision[class_idx] ~ Wishart(
-            nu=num_features + 1,
-            V=np.eye(num_features)
-        )
-    
-    # Feature generation and classification
-    for trial in range(len(eeg_features)):
-        # Apply spatial filtering
-        spatial_features[trial] = subject_spatial_filters[subject_id] @ eeg_features[trial]
-        
-        # Class likelihood
-        class_labels[trial] ~ Categorical(
-            probs=softmax([
-                log_likelihood(spatial_features[trial], class_means[c], class_precision[c])
-                for c in range(num_classes)
-            ])
-        )
+end
 
-class MotorImageryBCI:
-    """Complete motor imagery BCI system"""
+function print_performance_report(results, true_labels, trial_duration::Float64)
+    """Print formatted performance report"""
     
-    def __init__(self, subject_id, classes=['left_hand', 'right_hand', 'rest']):
-        self.subject_id = subject_id
-        self.classes = classes
-        self.num_classes = len(classes)
-        self.model = motor_imagery_classifier()
-        self.is_calibrated = False
-        
-    def calibrate(self, calibration_data):
-        """Calibrate classifier using labeled training data"""
-        
-        eeg_trials = calibration_data['eeg']
-        labels = calibration_data['labels']
-        
-        # Extract features for calibration
-        features = []
-        for trial in eeg_trials:
-            trial_features = self.extract_features(trial)
-            features.append(trial_features)
-        
-        # Train classifier
-        result = self.model.infer(
-            eeg_features=features,
-            class_labels=labels,
-            subject_id=self.subject_id,
-            target=['subject_spatial_filters', 'class_means', 'class_precision']
-        )
-        
-        # Store calibrated parameters
-        self.spatial_filters = result.subject_spatial_filters
-        self.class_parameters = {
-            'means': result.class_means,
-            'precisions': result.class_precision
-        }
-        
-        self.is_calibrated = True
-        
-        # Compute calibration accuracy
-        predictions = []
-        for features_trial in features:
-            pred = self.classify_trial(features_trial)
-            predictions.append(pred['predicted_class'])
-        
-        accuracy = np.mean(np.array(predictions) == np.array(labels))
-        
-        return {
-            'calibration_accuracy': accuracy,
-            'spatial_filters': self.spatial_filters,
-            'ready_for_online': accuracy > 0.7
-        }
+    n_classes = length(unique(true_labels))
+    accuracy = sum(results.predictions .== true_labels) / length(true_labels)
+    itr = calculate_ITR(accuracy, n_classes, trial_duration)
     
-    def extract_features(self, eeg_trial):
-        """Extract features from single EEG trial"""
-        
-        # Common Spatial Pattern features
-        if hasattr(self, 'spatial_filters'):
-            spatial_features = self.spatial_filters @ eeg_trial
-        else:
-            spatial_features = eeg_trial  # Use raw channels during calibration
-        
-        # Log-variance features (standard for motor imagery)
-        log_var_features = np.log(np.var(spatial_features, axis=1))
-        
-        return log_var_features
+    println("="^60)
+    println("Performance Report")
+    println("="^60)
     
-    def classify_trial(self, eeg_trial):
-        """Classify single motor imagery trial"""
-        
-        if not self.is_calibrated:
-            raise ValueError("Classifier must be calibrated before use")
-        
-        # Extract features
-        features = self.extract_features(eeg_trial)
-        
-        # Compute class probabilities
-        class_probs = []
-        for class_idx in range(self.num_classes):
-            mean = self.class_parameters['means'][class_idx]
-            precision = self.class_parameters['precisions'][class_idx]
-            
-            # Log probability under multivariate normal
-            log_prob = multivariate_normal_logpdf(features, mean, precision)
-            class_probs.append(log_prob)
-        
-        # Normalize to get probabilities
-        class_probs = np.array(class_probs)
-        class_probs = softmax(class_probs)
-        
-        predicted_class = np.argmax(class_probs)
-        confidence = class_probs[predicted_class]
-        
-        return {
-            'predicted_class': predicted_class,
-            'class_name': self.classes[predicted_class],
-            'confidence': confidence,
-            'class_probabilities': class_probs
-        }
+    println("\nOverall Metrics:")
+    println("  Accuracy: $(round(accuracy * 100, digits=1))%")
+    println("  ITR: $(round(itr, digits=1)) bits/minute")
+    println("  Mean confidence: $(round(mean(results.confidences), digits=3))")
     
-    def online_classification(self, eeg_stream, confidence_threshold=0.7):
-        """Real-time motor imagery classification"""
-        
-        for eeg_trial in eeg_stream:
-            prediction = self.classify_trial(eeg_trial)
-            
-            if prediction['confidence'] > confidence_threshold:
-                yield {
-                    'command': prediction['class_name'],
-                    'confidence': prediction['confidence'],
-                    'timestamp': time.time()
-                }
-            else:
-                yield {
-                    'command': 'uncertain',
-                    'confidence': prediction['confidence'],
-                    'timestamp': time.time()
-                }
+    # Per-class performance
+    class_names = ["Left", "Right", "Feet", "Tongue"][1:n_classes]
+    metrics = calculate_comprehensive_metrics(results, true_labels)
+    
+    println("\nPer-Class Accuracy:")
+    for (i, (name, acc)) in enumerate(zip(class_names, metrics.per_class_accuracy))
+        println("  $name: $(round(acc * 100, digits=1))%")
+    end
+    
+    println("\nConfusion Matrix:")
+    println("  " * join([rpad("", 8) for _ in 1:n_classes], ""))
+    for i in 1:n_classes
+        print("$(rpad(class_names[i], 8))")
+        for j in 1:n_classes
+            print(rpad(metrics.confusion_matrix[i, j], 12))
+        end
+        println()
+    end
+    
+    println("\nQuality Metrics:")
+    println("  High confidence trials: $(round(metrics.high_confidence_rate * 100, digits=1))%")
+    
+    println("="^60)
+end
 
-# Usage example
-bci = MotorImageryBCI(subject_id='S001')
-
-# Calibration phase
-calibration_result = bci.calibrate(training_data)
-print(f"Calibration accuracy: {calibration_result['calibration_accuracy']:.2f}")
-
-if calibration_result['ready_for_online']:
-    # Online classification
-    for command in bci.online_classification(live_eeg_stream):
-        if command['command'] != 'uncertain':
-            execute_bci_command(command)
-```
-
-## P300 Speller Implementation
-
-Complete P300 speller system with stimulus presentation and character selection.
-
-```python
-class P300Speller:
-    """Complete P300 speller BCI system"""
-    
-    def __init__(self, matrix_size=(6, 6), flash_duration=0.1, inter_flash_interval=0.1):
-        self.matrix_size = matrix_size
-        self.flash_duration = flash_duration
-        self.inter_flash_interval = inter_flash_interval
-        
-        # Create character matrix
-        self.character_matrix = self.create_character_matrix()
-        
-        # P300 detection model
-        self.p300_model = self.create_p300_model()
-        self.is_calibrated = False
-        
-    def create_character_matrix(self):
-        """Create standard 6x6 character matrix"""
-        chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-        matrix = np.array(list(chars)).reshape(self.matrix_size)
-        return matrix
-    
-    def create_p300_model(self):
-        """Create P300 detection model"""
-        
-        @Model
-        def p300_detector(eeg_epochs, target_present):
-            # P300 template parameters
-            p300_amplitude ~ Normal(mean=5.0, variance=2.0)  # μV
-            p300_latency ~ Normal(mean=300.0, variance=50.0)  # ms
-            
-            # Background EEG parameters
-            background_variance ~ InverseGamma(alpha=2.0, beta=1.0)
-            
-            for epoch in range(len(eeg_epochs)):
-                # Generate expected P300 waveform
-                if target_present[epoch]:
-                    expected_amplitude = p300_amplitude
-                else:
-                    expected_amplitude = 0.0
-                
-                # EEG epoch observation
-                eeg_epochs[epoch] ~ MultivariateNormal(
-                    mean=expected_amplitude * p300_template,
-                    covariance=background_variance * np.eye(epoch_length)
-                )
-                
-                # Target classification
-                target_present[epoch] ~ Bernoulli(
-                    prob=sigmoid(p300_evidence[epoch])
-                )
-        
-        return p300_detector
-    
-    def calibrate(self, calibration_data):
-        """Calibrate P300 detector using labeled data"""
-        
-        epochs = calibration_data['epochs']
-        labels = calibration_data['target_present']
-        
-        result = self.p300_model.infer(
-            eeg_epochs=epochs,
-            target_present=labels,
-            target=['p300_amplitude', 'p300_latency', 'background_variance']
-        )
-        
-        self.p300_parameters = {
-            'amplitude': result.p300_amplitude,
-            'latency': result.p300_latency,
-            'background_var': result.background_variance
-        }
-        
-        self.is_calibrated = True
-        
-        # Test calibration accuracy
-        predictions = []
-        for epoch in epochs:
-            pred = self.detect_p300(epoch)
-            predictions.append(pred['p300_detected'])
-        
-        accuracy = np.mean(np.array(predictions) == np.array(labels))
-        
-        return {'calibration_accuracy': accuracy}
-    
-    def detect_p300(self, eeg_epoch):
-        """Detect P300 in single EEG epoch"""
-        
-        if not self.is_calibrated:
-            raise ValueError("P300 detector must be calibrated first")
-        
-        # Use calibrated parameters to compute P300 probability
-        result = self.p300_model.infer(
-            eeg_epochs=[eeg_epoch],
-            target='target_present'
-        )
-        
-        p300_probability = result.probability[0]
-        
-        return {
-            'p300_detected': p300_probability > 0.5,
-            'p300_probability': p300_probability
-        }
-    
-    def spell_character(self, num_repetitions=10):
-        """Spell single character using P300 paradigm"""
-        
-        row_scores = np.zeros(self.matrix_size[0])
-        col_scores = np.zeros(self.matrix_size[1])
-        
-        for rep in range(num_repetitions):
-            # Flash rows
-            for row in range(self.matrix_size[0]):
-                # Present row flash
-                self.flash_row(row)
-                
-                # Record EEG epoch
-                eeg_epoch = self.record_eeg_epoch()
-                
-                # Detect P300
-                p300_result = self.detect_p300(eeg_epoch)
-                row_scores[row] += p300_result['p300_probability']
-            
-            # Flash columns  
-            for col in range(self.matrix_size[1]):
-                # Present column flash
-                self.flash_column(col)
-                
-                # Record EEG epoch
-                eeg_epoch = self.record_eeg_epoch()
-                
-                # Detect P300
-                p300_result = self.detect_p300(eeg_epoch)
-                col_scores[col] += p300_result['p300_probability']
-        
-        # Select character with highest combined score
-        best_row = np.argmax(row_scores)
-        best_col = np.argmax(col_scores)
-        
-        selected_character = self.character_matrix[best_row, best_col]
-        confidence = (row_scores[best_row] + col_scores[best_col]) / (2 * num_repetitions)
-        
-        return {
-            'character': selected_character,
-            'confidence': confidence,
-            'row_scores': row_scores,
-            'col_scores': col_scores
-        }
-    
-    def spell_word(self, target_word=None):
-        """Spell complete word using P300 speller"""
-        
-        spelled_word = ""
-        
-        while True:
-            # Spell next character
-            result = self.spell_character()
-            
-            if result['confidence'] > 0.6:  # Confidence threshold
-                character = result['character']
-                
-                if character == '_':  # Space character
-                    spelled_word += " "
-                elif character == '<':  # Backspace
-                    spelled_word = spelled_word[:-1]
-                elif character == '>':  # End of word
-                    break
-                else:
-                    spelled_word += character
-                
-                print(f"Spelled: '{spelled_word}' (confidence: {result['confidence']:.2f})")
-            else:
-                print(f"Uncertain selection (confidence: {result['confidence']:.2f})")
-        
-        return spelled_word
-    
-    def flash_row(self, row_index):
-        """Present visual flash for specified row"""
-        # Implementation depends on display system
-        pass
-    
-    def flash_column(self, col_index):
-        """Present visual flash for specified column"""
-        # Implementation depends on display system  
-        pass
-    
-    def record_eeg_epoch(self):
-        """Record EEG epoch after stimulus presentation"""
-        # Implementation depends on EEG acquisition system
-        pass
-
-# Usage example
-speller = P300Speller()
-
-# Calibration
-speller.calibrate(p300_calibration_data)
-
-# Spell words
-word = speller.spell_word()
-print(f"User spelled: '{word}'")
-```
-
-## Adaptive Neurofeedback System
-
-Real-time neurofeedback system that adapts to user performance.
-
-```python
-class AdaptiveNeurofeedback:
-    """Adaptive neurofeedback training system"""
-    
-    def __init__(self, target_frequency_band='alpha', channels=['O1', 'O2']):
-        self.target_band = target_frequency_band
-        self.channels = channels
-        self.baseline_power = None
-        self.threshold_adaptation_rate = 0.1
-        
-        # Frequency band definitions
-        self.frequency_bands = {
-            'delta': (1, 4),
-            'theta': (4, 8),
-            'alpha': (8, 13),
-            'beta': (13, 30),
-            'gamma': (30, 40)
-        }
-        
-        # Performance tracking
-        self.session_performance = []
-        self.current_threshold = 0.5
-        
-    def establish_baseline(self, baseline_eeg_data):
-        """Establish baseline power in target frequency band"""
-        
-        baseline_powers = []
-        
-        for window in baseline_eeg_data:
-            power = self.compute_band_power(window, self.target_band)
-            baseline_powers.append(power)
-        
-        self.baseline_power = np.mean(baseline_powers)
-        self.baseline_std = np.std(baseline_powers)
-        
-        # Set initial threshold
-        self.current_threshold = self.baseline_power + 0.5 * self.baseline_std
-        
-        return {
-            'baseline_power': self.baseline_power,
-            'baseline_std': self.baseline_std,
-            'initial_threshold': self.current_threshold
-        }
-    
-    def compute_band_power(self, eeg_window, frequency_band):
-        """Compute power in specified frequency band"""
-        
-        # Apply FFT to compute power spectral density
-        freqs, psd = signal.welch(
-            eeg_window, 
-            fs=250,  # Sampling rate
-            nperseg=250  # 1-second windows
-        )
-        
-        # Extract target frequency band
-        band_freqs = self.frequency_bands[frequency_band]
-        band_indices = (freqs >= band_freqs[0]) & (freqs <= band_freqs[1])
-        
-        # Compute average power in band
-        band_power = np.mean(psd[band_indices])
-        
-        return band_power
-    
-    def run_training_session(self, duration_minutes=20):
-        """Run adaptive neurofeedback training session"""
-        
-        session_start = time.time()
-        session_data = []
-        success_count = 0
-        trial_count = 0
-        
-        while (time.time() - session_start) < (duration_minutes * 60):
-            # Record 2-second EEG window
-            eeg_window = self.record_eeg_window(duration=2.0)
-            
-            # Compute current power
-            current_power = self.compute_band_power(eeg_window, self.target_band)
-            
-            # Normalize relative to baseline
-            normalized_power = (current_power - self.baseline_power) / self.baseline_std
-            
-            # Check if threshold exceeded
-            success = normalized_power > self.current_threshold
-            
-            # Provide feedback
-            feedback_score = min(1.0, normalized_power / self.current_threshold)
-            self.display_feedback(feedback_score, success)
-            
-            # Track performance
-            trial_count += 1
-            if success:
-                success_count += 1
-            
-            session_data.append({
-                'timestamp': time.time(),
-                'power': current_power,
-                'normalized_power': normalized_power,
-                'threshold': self.current_threshold,
-                'success': success,
-                'feedback_score': feedback_score
-            })
-            
-            # Adaptive threshold adjustment (every 10 trials)
-            if trial_count % 10 == 0:
-                success_rate = success_count / trial_count
-                self.adapt_threshold(success_rate)
-                
-                print(f"Success rate: {success_rate:.2f}, New threshold: {self.current_threshold:.3f}")
-        
-        # Session summary
-        overall_success_rate = success_count / trial_count
-        
-        return {
-            'duration_minutes': duration_minutes,
-            'total_trials': trial_count,
-            'success_rate': overall_success_rate,
-            'final_threshold': self.current_threshold,
-            'session_data': session_data
-        }
-    
-    def adapt_threshold(self, success_rate):
-        """Adapt threshold based on user performance"""
-        
-        target_success_rate = 0.7  # Target 70% success rate
-        
-        if success_rate > target_success_rate + 0.1:
-            # User performing too well - increase difficulty
-            self.current_threshold += self.threshold_adaptation_rate
-        elif success_rate < target_success_rate - 0.1:
-            # User struggling - decrease difficulty
-            self.current_threshold -= self.threshold_adaptation_rate
-        
-        # Ensure threshold stays within reasonable bounds
-        self.current_threshold = max(0.1, min(2.0, self.current_threshold))
-    
-    def display_feedback(self, feedback_score, success):
-        """Display real-time feedback to user"""
-        
-        # Visual feedback (implementation depends on display system)
-        if success:
-            print(f"SUCCESS! Score: {feedback_score:.2f}")
-        else:
-            print(f"Keep trying... Score: {feedback_score:.2f}")
-    
-    def record_eeg_window(self, duration):
-        """Record EEG window of specified duration"""
-        # Implementation depends on EEG acquisition system
-        pass
-
-# Usage example
-neurofeedback = AdaptiveNeurofeedback(
-    target_frequency_band='alpha',
-    channels=['O1', 'O2']
-)
-
-# Establish baseline during eyes-closed rest
-baseline_result = neurofeedback.establish_baseline(baseline_eeg_data)
-print(f"Baseline established: {baseline_result['baseline_power']:.3f} μV²")
-
-# Run training session
-session_result = neurofeedback.run_training_session(duration_minutes=15)
-print(f"Training complete. Success rate: {session_result['success_rate']:.2f}")
-```
-
-## Performance Monitoring and Optimization
-
-Utilities for monitoring BCI system performance and optimizing for real-time operation.
-
-```python
-class BCIPerformanceMonitor:
-    """Monitor and optimize BCI system performance"""
-    
-    def __init__(self):
-        self.latency_history = []
-        self.accuracy_history = []
-        self.throughput_history = []
-        self.error_log = []
-        
-    def measure_latency(self, func):
-        """Decorator to measure function execution latency"""
-        
-        def wrapper(*args, **kwargs):
-            start_time = time.perf_counter()
-            result = func(*args, **kwargs)
-            end_time = time.perf_counter()
-            
-            latency = (end_time - start_time) * 1000  # Convert to ms
-            self.latency_history.append(latency)
-            
-            # Alert if latency exceeds real-time requirements
-            if latency > 20:  # 20ms threshold for real-time BCI
-                self.log_performance_warning(f"High latency: {latency:.2f}ms")
-            
-            return result
-        
-        return wrapper
-    
-    def monitor_accuracy(self, predictions, ground_truth):
-        """Monitor classification accuracy over time"""
-        
-        accuracy = np.mean(predictions == ground_truth)
-        self.accuracy_history.append(accuracy)
-        
-        # Alert if accuracy drops significantly
-        if len(self.accuracy_history) > 10:
-            recent_accuracy = np.mean(self.accuracy_history[-10:])
-            if recent_accuracy < 0.7:  # Below 70% accuracy
-                self.log_performance_warning(f"Low accuracy: {recent_accuracy:.2f}")
-        
-        return accuracy
-    
-    def monitor_throughput(self, samples_processed, time_elapsed):
-        """Monitor data processing throughput"""
-        
-        throughput = samples_processed / time_elapsed  # Samples per second
-        self.throughput_history.append(throughput)
-        
-        return throughput
-    
-    def generate_performance_report(self):
-        """Generate comprehensive performance report"""
-        
-        if not self.latency_history:
-            return "No performance data available"
-        
-        report = {
-            'latency_stats': {
-                'mean': np.mean(self.latency_history),
-                'std': np.std(self.latency_history),
-                'p95': np.percentile(self.latency_history, 95),
-                'p99': np.percentile(self.latency_history, 99),
-                'max': np.max(self.latency_history)
-            },
-            'accuracy_stats': {
-                'mean': np.mean(self.accuracy_history) if self.accuracy_history else 0,
-                'std': np.std(self.accuracy_history) if self.accuracy_history else 0,
-                'recent': np.mean(self.accuracy_history[-10:]) if len(self.accuracy_history) >= 10 else 0
-            },
-            'throughput_stats': {
-                'mean': np.mean(self.throughput_history) if self.throughput_history else 0,
-                'min': np.min(self.throughput_history) if self.throughput_history else 0
-            },
-            'error_count': len(self.error_log),
-            'real_time_compliance': np.mean(np.array(self.latency_history) <= 20) if self.latency_history else 0
-        }
-        
-        return report
-    
-    def log_performance_warning(self, message):
-        """Log performance warning"""
-        
-        warning = {
-            'timestamp': time.time(),
-            'message': message,
-            'type': 'performance_warning'
-        }
-        
-        self.error_log.append(warning)
-        print(f"PERFORMANCE WARNING: {message}")
-    
-    def optimize_for_realtime(self, bci_system):
-        """Suggest optimizations for real-time performance"""
-        
-        report = self.generate_performance_report()
-        suggestions = []
-        
-        if report['latency_stats']['p95'] > 20:
-            suggestions.append("Consider reducing model complexity or using approximate inference")
-        
-        if report['accuracy_stats']['recent'] < 0.7:
-            suggestions.append("Recalibrate classifier or increase training data")
-        
-        if report['throughput_stats']['mean'] < 250:  # Below 250 Hz
-            suggestions.append("Optimize preprocessing pipeline or use parallel processing")
-        
-        if report['real_time_compliance'] < 0.95:
-            suggestions.append("Enable GPU acceleration or reduce feature dimensionality")
-        
-        return {
-            'performance_report': report,
-            'optimization_suggestions': suggestions
-        }
-
-# Usage example
-monitor = BCIPerformanceMonitor()
-
-# Decorate BCI functions with performance monitoring
-@monitor.measure_latency
-def process_eeg_window(eeg_data):
-    # Your EEG processing code here
-    return processed_features
-
-@monitor.measure_latency  
-def classify_motor_imagery(features):
-    # Your classification code here
-    return prediction
-
-# Monitor system during operation
-for eeg_window in real_time_stream():
-    features = process_eeg_window(eeg_window)
-    prediction = classify_motor_imagery(features)
-    
-    # Monitor accuracy when ground truth available
-    if ground_truth_available:
-        accuracy = monitor.monitor_accuracy([prediction], [true_label])
-
-# Generate performance report
-performance_report = monitor.generate_performance_report()
-print("Performance Report:", performance_report)
-
-# Get optimization suggestions
-optimization = monitor.optimize_for_realtime(bci_system)
-print("Optimization Suggestions:", optimization['optimization_suggestions'])
+# Usage
+results = predict_batch(model, data)
+print_performance_report(results, data.labels, 4.0)
 ```
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Advanced Examples" icon="cog" href="/examples/advanced-applications">
-    Explore more sophisticated BCI implementations
+  <Card title="RxLDA Model" icon="brain" href="/models/rxlda">
+    Learn about RxLDA model
   </Card>
-  <Card title="API Reference" icon="book" href="/api-reference/introduction">
-    Complete API documentation and reference
+  <Card title="RxGMM Model" icon="brain" href="/models/rxgmm">
+    Learn about RxGMM model
   </Card>
-  <Card title="Performance Tuning" icon="rocket" href="/core-concepts/real-time-processing">
-    Optimize your BCI system for production deployment
+  <Card title="Julia SDK Reference" icon="code" href="/api-reference/julia-sdk">
+    Complete API documentation
   </Card>
-  <Card title="Custom Development" icon="wrench" href="/development/custom-nodes">
-    Build specialized components for your application
+  <Card title="Preprocessing Guide" icon="cog" href="/inference-configuration/preprocessing-requirements">
+    Critical preprocessing requirements
   </Card>
 </CardGroup>
-
-These code samples provide complete, production-ready implementations that you can adapt for your specific BCI applications. Each example includes proper error handling, performance monitoring, and real-time optimization considerations.

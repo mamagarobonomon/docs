@@ -1,0 +1,390 @@
+---
+title: "RxLDA Model"
+description: "Linear Discriminant Analysis with Bayesian inference for BCI classification"
+icon: "brain"
+---
+
+# RxLDA - Bayesian Linear Discriminant Analysis
+
+RxLDA (Reactive Linear Discriminant Analysis) is a Bayesian classification model with shared precision matrix (covariance) across all classes. It's fast, interpretable, and ideal for BCI applications with well-separated classes.
+
+## Overview
+
+RxLDA extends traditional LDA with **Bayesian inference** using RxInfer.jl's reactive message passing. Unlike deterministic LDA, RxLDA provides:
+
+- **Posterior probability distributions** (not just point estimates)
+- **Uncertainty quantification** for each prediction
+- **Probabilistic confidence** scores
+- **Robust adaptation** to uncertain data
+
+### When to Use RxLDA
+
+**RxLDA is ideal for:**
+- Motor Imagery classification (2-4 classes)
+- Well-separated class distributions
+- Fast inference requirements (<20ms)
+- Interpretable results for medical applications
+
+**Consider RxGMM instead if:**
+- Classes have significantly different covariance structures
+- Complex, overlapping distributions
+- Need more flexibility in modeling
+
+## Model Architecture
+
+RxLDA uses a shared precision matrix across all classes, making it more constrained (and faster) than RxGMM.
+
+### Mathematical Foundation
+
+**Class-Conditional Distribution:**
+```
+p(x | y=k) = N(μ_k, W^-1)
+```
+
+Where:
+- `μ_k` = mean vector for class k
+- `W` = shared precision matrix (same for all classes)
+- Assumes classes have similar covariance structure
+
+**Inference:**
+```
+p(y=k | x) = posterior probability of class k given features x
+```
+
+Posterior computed via message passing in RxInfer.jl.
+
+### Advantages
+
+1. **Fast Training**: Shared covariance estimation is efficient
+2. **Fast Inference**: Predictive posterior can be computed analytically
+3. **Interpretable**: Clear probabilistic formulation
+4. **Robust**: Handles uncertainty naturally
+
+### Limitations
+
+1. **Shared Covariance**: May not fit well if classes have very different spreads
+2. **Linear Decision Boundary**: Cannot capture non-linear class boundaries
+3. **Normal Assumption**: Assumes Gaussian class distributions
+
+## Using RxLDA
+
+### Loading a Pre-trained Model
+
+```julia
+using NimbusSDK
+
+# Authenticate first
+NimbusSDK.authenticate("your-api-key")
+
+# Load from Nimbus model zoo
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+# Or load from file
+model = load_model(RxLDAModel, "my_model.jld2")
+```
+
+### Training a Custom Model
+
+```julia
+using NimbusSDK
+
+# Prepare training data (must have labels!)
+train_data = BCIData(
+    csp_features,  # (16 × 250 × 100) - preprocessed!
+    BCIMetadata(
+        sampling_rate = 250.0,
+        paradigm = :motor_imagery,
+        feature_type = :csp,
+        n_features = 16,
+        n_classes = 4,
+        chunk_size = nothing
+    ),
+    train_labels  # [1, 2, 3, 4, 1, 2, ...] - REQUIRED!
+)
+
+# Train the model
+model = train_model(
+    RxLDAModel,
+    train_data;
+    iterations = 50,      # More iterations = better convergence
+    showprogress = true,
+    name = "my_motor_imagery_model"
+)
+
+# Save for later use
+save_model(model, "motor_imagery_v1.jld2")
+```
+
+### Running Inference
+
+```julia
+using NimbusSDK
+
+# Load model
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+# Prepare test data (features must be preprocessed!)
+test_features = load_csp_features()  # (16 × 250 × 20)
+test_labels = load_labels()         # Optional, for evaluation
+
+test_data = BCIData(
+    test_features,
+    BCIMetadata(
+        sampling_rate = 250.0,
+        paradigm = :motor_imagery,
+        feature_type = :csp,
+        n_features = 16,
+        n_classes = 4
+    ),
+    test_labels  # Optional
+)
+
+# Run batch inference
+results = predict_batch(model, test_data)
+
+# Analyze results
+println("Predictions: ", results.predictions)
+println("Mean confidence: ", round(mean(results.confidences), digits=3))
+
+if !isnothing(test_labels)
+    accuracy = sum(results.predictions .== test_labels) / length(test_labels)
+    println("Accuracy: ", round(accuracy * 100, digits=1), "%")
+end
+```
+
+## Training Parameters
+
+### iterations (default: 50)
+
+Number of Bayesian inference iterations during training. More iterations improve convergence but increase training time.
+
+```julia
+# For small datasets (50-100 trials)
+model = train_model(RxLDAModel, data; iterations=30)
+
+# For larger datasets (200+ trials)
+model = train_model(RxLDAModel, data; iterations=100)
+```
+
+### Data Requirements
+
+**Minimum:**
+- 50-100 trials per class
+- Clean, preprocessed features (CSP recommended)
+- Balanced classes
+
+**Recommended:**
+- 200+ trials per class
+- Cross-validation for robust performance
+- Multiple subjects for generalization
+
+## Model Structure
+
+RxLDA stores:
+
+```julia
+struct RxLDAModel <: BCIModel
+    means::Vector{Vector{Float64}}           # Class means [μ1, μ2, ..., μk]
+    precisions::Vector{Matrix{Float64}}      # Class-specific predictive precisions
+    global_precision::Matrix{Float64}          # Shared precision matrix W
+    metadata::ModelMetadata                  # Sampling rate, paradigm, etc.
+end
+```
+
+**Accessing model information:**
+
+```julia
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+println("Number of features: ", get_n_features(model))
+println("Number of classes: ", get_n_classes(model))
+println("Paradigm: ", get_paradigm(model))
+```
+
+## Performance Characteristics
+
+### Training Speed
+
+| Dataset Size | Training Time | Notes |
+|--------------|---------------|-------|
+| 100 trials | 5-10 seconds | Small dataset, fast convergence |
+| 400 trials | 15-30 seconds | Medium dataset, good for production |
+| 800 trials | 40-60 seconds | Large dataset, maximum performance |
+
+### Inference Speed
+
+| Batch Size | Latency (per trial) | Notes |
+|------------|---------------------|-------|
+| 1 trial | <5ms | Single prediction |
+| 20 trials | <3ms | Batch processing is efficient |
+| 100 trials | <2ms | Optimal for large batches |
+
+<Tip>
+Batch inference is more efficient than processing trials one-by-one. Batch 20-100 trials together for best performance.
+</Tip>
+
+### Accuracy
+
+Typical accuracy for Motor Imagery:
+- **2-classes**: 75-90% (left vs right hand)
+- **4-classes**: 65-85% (left, right, feet, tongue)
+- **Subject-specific**: 70-95% with calibration
+
+## Calibration (Personalization)
+
+Fine-tune a pre-trained model with subject-specific data (faster than training from scratch):
+
+```julia
+using NimbusSDK
+
+# Load a general pre-trained model
+base_model = load_model(RxLDAModel, "motor_imagery_baseline_v1")
+
+# Collect small calibration set from new subject
+# (10-20 trials per class, much less than full training!)
+calib_features = collect_subject_trials()  # Your function
+calib_labels = [1, 2, 3, 4, 1, 2, ...]    # Labels for calibration
+
+calib_data = BCIData(
+    calib_features,
+    BCIMetadata(
+        sampling_rate = 250.0,
+        paradigm = :motor_imagery,
+        feature_type = :csp,
+        n_features = 16,
+        n_classes = 4
+    ),
+    calib_labels
+)
+
+# Calibrate (personalize) the model
+personalized_model = calibrate_model(
+    base_model,
+    calib_data;
+    iterations = 20  # Fewer iterations needed for calibration
+)
+
+# Save personalized model
+save_model(personalized_model, "subject_001_personalized.jld2")
+```
+
+**Benefits of Calibration:**
+- Faster than training from scratch (fewer iterations)
+- Better accuracy than generic model (personalized to subject)
+- Fewer trials needed (10-20 per class vs 100-200)
+
+## Quality Assessment
+
+Check the quality of your inferences:
+
+```julia
+results = predict_batch(model, data)
+
+# Assess overall quality
+quality = assess_trial_quality(results)
+
+println("Overall quality score: ", round(quality.overall_score, digits=3))
+println("Confidence acceptable: ", quality.confidence_acceptable)
+println("Recommendation: ", quality.recommendation)
+
+# Reject low-confidence trials
+high_conf_trials = results.confidences .> 0.7
+println("High confidence trials: ", sum(high_conf_trials), " / ", length(high_conf_trials))
+```
+
+## Example: Complete Motor Imagery Pipeline
+
+```julia
+using NimbusSDK
+using Statistics
+
+# Step 1: Authenticate
+NimbusSDK.authenticate("your-api-key")
+
+# Step 2: Load or train model
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+# Step 3: Prepare data (features already preprocessed!)
+# Shape: (16 × 250 × 20) = (n_features × n_samples × n_trials)
+features = load_csp_features()
+labels = [1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 1, 2, 3, 4, 2, 3, 1, 4, 3, 2]
+
+data = BCIData(
+    features,
+    BCIMetadata(
+        sampling_rate = 250.0,
+        paradigm = :motor_imagery,
+        feature_type = :csp,
+        n_features = 16,
+        n_classes = 4
+    ),
+    labels
+)
+
+# Step 4: Run inference
+results = predict_batch(model, data; iterations=10)
+
+# Step 5: Evaluate performance
+accuracy = sum(results.predictions .== labels) / length(labels)
+println("Accuracy: ", round(accuracy * 100, digits=1), "%")
+
+mean_conf = mean(results.confidences)
+println("Mean confidence: ", round(mean_conf, digits=3))
+
+# Step 6: Calculate ITR (Information Transfer Rate)
+itr = calculate_ITR(accuracy, 4, 4.0)
+println("ITR: ", round(itr, digits=1), " bits/minute")
+
+# Step 7: Quality assessment
+quality = assess_trial_quality(results)
+if !quality.confidence_acceptable
+    println("⚠️ Low quality - consider improving preprocessing")
+end
+```
+
+## Comparison with RxGMM
+
+| Feature | RxLDA | RxGMM |
+|---------|-------|-------|
+| **Covariance** | Shared (W) | Class-specific (W₁, W₂, ..., Wₖ) |
+| **Flexibility** | Less flexible | More flexible |
+| **Training Speed** | Faster | Slower |
+| **Inference Speed** | Faster | Slightly slower |
+| **Best For** | Well-separated classes | Complex distributions |
+
+<Note>
+**Rule of thumb**: Try RxLDA first for most applications. If accuracy is insufficient or classes have very different covariance structures, try RxGMM.
+</Note>
+
+## Best Practices
+
+1. **Preprocessing is critical**: Ensure proper bandpass filtering, artifact removal, and feature extraction before using the model
+2. **Use CSP features**: Common Spatial Patterns work best for Motor Imagery with RxLDA
+3. **Normalize features**: Consider z-score normalization if features have very different scales
+4. **Cross-validation**: Always validate on held-out test data
+5. **Balance classes**: Equal number of trials per class is ideal
+6. **Check quality**: Use `diagnose_preprocessing()` and `assess_trial_quality()` to verify data quality
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="RxGMM Model" icon="brain" href="/models/rxgmm">
+    Learn about RxGMM for more complex distributions
+  </Card>
+  <Card title="Julia SDK Reference" icon="code" href="/api-reference/julia-sdk">
+    Complete SDK API documentation
+  </Card>
+  <Card title="Training Guide" icon="graduation-cap" href="/examples/basic-examples">
+    Detailed training examples
+  </Card>
+  <Card title="Preprocessing" icon="cog" href="/inference-configuration/preprocessing-requirements">
+    Critical preprocessing requirements
+  </Card>
+  <Card title="Calibration" icon="user-check" href="/examples/advanced-applications">
+    Subject-specific calibration guide
+  </Card>
+  <Card title="Code Examples" icon="file-code" href="/examples/code-samples">
+    Complete working examples
+  </Card>
+</CardGroup>
+

@@ -5,7 +5,7 @@ description: "The AI engine for BCI decisions under uncertainty. Turn probabilis
 
 _The AI engine for Brain-Computer Interface applications with reactive probabilistic inference._
 
-Given neural signals and BCI models, Nimbus enables efficient probabilistic inference for real-time brain-computer interfaces. It uses advanced message-passing algorithms to generate ultra-low latency responses that adapt to uncertainty in neural data. Nimbus has been designed with a focus on performance, scalability, and maximum throughput for real-time BCI applications.
+Given neural signals and BCI models, Nimbus enables efficient probabilistic inference for real-time brain-computer interfaces. Built on RxInfer.jl for Bayesian inference, NimbusSDK.jl provides production-ready implementations of RxLDA and RxGMM models. The SDK uses reactive message-passing algorithms to generate ultra-low latency responses that adapt to uncertainty in neural data. Nimbus has been designed with a focus on performance, scalability, and maximum throughput for real-time BCI applications.
 
 ## Why Nimbus BCI
 
@@ -19,7 +19,7 @@ Popular traditional BCI methods rely on deterministic classification approaches 
 - **Limited adaptability**: Cannot adjust to changing brain states or signal quality
 - **Scalability issues**: Performance degrades with multi-channel, high-bandwidth data
 
-Nimbus aims to solve these challenges by providing **ultra-low latency probabilistic inference** (sub-20ms) that handles uncertainty naturally, adapts to changing conditions, and scales to thousands of neural channels while maintaining explainable, FDA-ready outputs.
+Nimbus aims to solve these challenges by providing **ultra-low latency probabilistic inference** (sub-20ms) that handles uncertainty naturally, adapts to changing conditions, and scales to thousands of neural channels while maintaining explainable, FDA-ready outputs. The NimbusSDK.jl Julia package provides two powerful Bayesian models (RxLDA and RxGMM) with batch and streaming inference capabilities.
 
 <Card
   title="Get started with Nimbus"
@@ -92,11 +92,11 @@ Nimbus is designed to serve the full spectrum of neurotechnology applications.
     Provide real-time processing for next-generation invasive interfaces and research platforms.
   </Card>
   <Card
-    title="API Integration"
-    icon="plug"
-    href="/api-reference/introduction"
+    title="Julia SDK"
+    icon="code"
+    href="/api-reference/julia-sdk"
   >
-    Integrate with existing BCI hardware and software through comprehensive APIs.
+    Production-ready Julia SDK with RxLDA and RxGMM models, batch and streaming inference, and comprehensive API integration.
   </Card>
 </Columns>
 

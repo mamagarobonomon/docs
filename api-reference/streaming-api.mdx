@@ -1,16 +1,20 @@
 ---
-title: "Streaming API"
-description: "Real-time BCI processing with WebSocket connections"
+title: "Streaming Inference"
+description: "Real-time chunk-by-chunk BCI processing with NimbusSDK.jl"
 icon: "wave-square"
 ---
 
-# Streaming API
+# Streaming Inference
 
-The Nimbus Streaming API enables real-time, continuous processing of neural signals with sub-20ms latency. Using WebSocket connections, you can stream EEG data and receive immediate BCI predictions for responsive applications.
+NimbusSDK.jl provides **client-side streaming inference** for real-time BCI applications. Process EEG data chunk-by-chunk with automatic aggregation and quality assessment.
+
+<Note>
+Streaming inference runs **locally on your machine** using the Julia SDK. This is different from a server-based WebSocket API - all processing happens client-side for maximum performance and privacy.
+</Note>
 
 ## Overview
 
-The Streaming API is designed for:
+Streaming inference is ideal for:
 - **Real-time BCI control** (cursor movement, prosthetics)
 - **Live neurofeedback** applications
 - **Continuous monitoring** systems
@@ -18,555 +22,398 @@ The Streaming API is designed for:
 
 ### Key Features
 
-- **Ultra-low latency**: Sub-20ms processing time
-- **Continuous processing**: No need to batch samples
-- **Adaptive buffering**: Automatic buffer management
-- **Quality monitoring**: Real-time signal quality metrics
-- **Error recovery**: Automatic reconnection and state recovery
+- **Chunk-by-chunk processing**: Process data as it arrives
+- **Weighted aggregation**: Automatic voting across chunks
+- **Quality assessment**: Real-time confidence monitoring
+- **Low latency**: <10ms per chunk processing
+- **Local processing**: No network calls required
 
-## Getting Started
+## Basic Streaming Example
 
-### 1. Initialize Streaming Session
+```julia
+using NimbusSDK
 
-First, create a streaming session to get your WebSocket URL:
+# Step 1: Authenticate and load model
+NimbusSDK.authenticate("your-api-key")
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
 
-```bash
-curl -X POST "https://api.nimbusbci.com/v1/streaming/sessions" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "motor-imagery-classifier",
-    "config": {
-      "buffer_size_ms": 1000,
-      "update_interval_ms": 50,
-      "confidence_threshold": 0.6,
-      "channels": ["C3", "C4", "Cz"],
-      "sampling_rate": 250
-    }
-  }'
-```
+# Step 2: Initialize streaming session
+# Define chunk size: 250 samples = 1 second at 250 Hz
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4,
+    chunk_size = 250  # CRITICAL: Set chunk size for streaming
+)
 
-#### Response
+session = init_streaming(model, metadata)
 
-```json
-{
-  "session_id": "stream_1234567890abcdef",
-  "websocket_url": "wss://stream.nimbusbci.com/v1/stream_1234567890abcdef",
-  "model": "motor-imagery-classifier",
-  "config": {
-    "buffer_size_ms": 1000,
-    "update_interval_ms": 50,
-    "confidence_threshold": 0.6,
-    "channels": ["C3", "C4", "Cz"],
-    "sampling_rate": 250
-  },
-  "status": "initialized",
-  "expires_at": "2024-01-01T12:00:00Z"
-}
-```
-
-### 2. Connect to WebSocket
-
-Connect to the WebSocket URL using your preferred WebSocket client:
-
-```javascript
-const ws = new WebSocket('wss://stream.nimbusbci.com/v1/stream_1234567890abcdef');
-
-ws.onopen = function() {
-    console.log('Connected to Nimbus streaming');
-};
-
-ws.onmessage = function(event) {
-    const data = JSON.parse(event.data);
-    handleStreamingResult(data);
-};
-
-ws.onerror = function(error) {
-    console.error('WebSocket error:', error);
-};
-```
-
-### 3. Send EEG Data
-
-Send EEG samples in real-time:
-
-```javascript
-// Send single sample
-function sendEEGSample(eegSample) {
-    const message = {
-        type: 'eeg_sample',
-        data: {
-            sample: eegSample,  // Array of channel values
-            timestamp: Date.now(),
-            sample_id: generateSampleId()
-        }
-    };
-    ws.send(JSON.stringify(message));
-}
-
-// Example: Send samples at 250 Hz
-setInterval(() => {
-    const sample = getNextEEGSample(); // Your data acquisition function
-    sendEEGSample(sample);
-}, 4); // 4ms = 250 Hz
-```
-
-### 4. Receive Predictions
-
-Handle real-time predictions:
-
-```javascript
-function handleStreamingResult(data) {
-    switch(data.type) {
-        case 'prediction':
-            console.log(`Prediction: ${data.result.class}`);
-            console.log(`Confidence: ${data.result.confidence}`);
-            updateBCIInterface(data.result);
-            break;
-            
-        case 'signal_quality':
-            updateSignalQuality(data.quality);
-            break;
-            
-        case 'error':
-            handleStreamingError(data.error);
-            break;
-    }
-}
-```
-
-## Message Types
-
-### Client Messages (You → Nimbus)
-
-#### EEG Sample
-
-Send individual EEG samples:
-
-```json
-{
-  "type": "eeg_sample",
-  "data": {
-    "sample": [1.2, -0.8, 0.3],
-    "timestamp": 1640995200000,
-    "sample_id": "sample_001"
-  }
-}
-```
-
-#### EEG Batch
-
-Send multiple samples at once:
-
-```json
-{
-  "type": "eeg_batch",
-  "data": {
-    "samples": [
-      [1.2, -0.8, 0.3],
-      [1.1, -0.9, 0.2],
-      [1.0, -0.7, 0.4]
-    ],
-    "timestamps": [1640995200000, 1640995200004, 1640995200008],
-    "batch_id": "batch_001"
-  }
-}
-```
-
-#### Configuration Update
-
-Update streaming parameters:
-
-```json
-{
-  "type": "config_update",
-  "data": {
-    "confidence_threshold": 0.8,
-    "update_interval_ms": 25
-  }
-}
-```
-
-#### Control Messages
-
-```json
-{
-  "type": "control",
-  "action": "pause"  // "pause", "resume", "reset_buffer"
-}
-```
-
-### Server Messages (Nimbus → You)
-
-#### Prediction Result
-
-```json
-{
-  "type": "prediction",
-  "timestamp": 1640995200000,
-  "result": {
-    "class": "left_hand",
-    "confidence": 0.87,
-    "probabilities": {
-      "left_hand": 0.87,
-      "right_hand": 0.08,
-      "rest": 0.05
-    },
-    "latency_ms": 15,
-    "buffer_samples": 250
-  }
-}
-```
-
-#### Signal Quality
-
-```json
-{
-  "type": "signal_quality",
-  "timestamp": 1640995200000,
-  "quality": {
-    "overall": 0.92,
-    "channels": {
-      "C3": 0.89,
-      "C4": 0.94,
-      "Cz": 0.93
-    },
-    "artifacts_detected": 2,
-    "noise_level": 0.08
-  }
-}
-```
-
-#### Buffer Status
-
-```json
-{
-  "type": "buffer_status",
-  "timestamp": 1640995200000,
-  "status": {
-    "size": 1000,
-    "filled": 250,
-    "utilization": 0.25,
-    "oldest_sample_age_ms": 1000
-  }
-}
-```
-
-#### Error Message
-
-```json
-{
-  "type": "error",
-  "timestamp": 1640995200000,
-  "error": {
-    "code": "invalid_sample_rate",
-    "message": "Sample rate mismatch: expected 250 Hz, got 500 Hz",
-    "recoverable": true
-  }
-}
-```
-
-## Python SDK Integration
-
-### Basic Streaming
-
-```python
-from nimbus_bci import StreamingClient
-import asyncio
-
-async def stream_bci_data():
-    client = StreamingClient(api_key='your_api_key')
+# Step 3: Process chunks as they arrive
+for chunk in eeg_stream()
+    # chunk is Array{Float64, 2} with shape (n_features × chunk_size)
+    result = process_chunk(session, chunk)
     
-    # Create streaming session
-    session = await client.create_session(
-        model='motor-imagery-classifier',
-        config={
-            'buffer_size_ms': 1000,
-            'update_interval_ms': 50,
-            'channels': ['C3', 'C4', 'Cz'],
-            'sampling_rate': 250
-        }
-    )
-    
-    # Define event handlers
-    @session.on('prediction')
-    async def handle_prediction(data):
-        print(f"Prediction: {data['result']['class']}")
-        print(f"Confidence: {data['result']['confidence']:.2f}")
-    
-    @session.on('signal_quality')
-    async def handle_quality(data):
-        print(f"Signal quality: {data['quality']['overall']:.2f}")
-    
-    # Connect and start streaming
-    await session.connect()
-    
-    # Send data continuously
-    while True:
-        sample = await get_eeg_sample()  # Your data source
-        await session.send_sample(sample)
-        await asyncio.sleep(0.004)  # 250 Hz
+    println("Chunk prediction: $(result.prediction) " *
+            "(confidence: $(round(result.confidence, digits=3)))")
+end
 
-# Run the streaming client
-asyncio.run(stream_bci_data())
+# Step 4: Finalize trial with weighted voting
+final_result = finalize_trial(session; method=:weighted_vote)
+println("✓ Final prediction: $(final_result.prediction)")
 ```
 
-### Advanced Streaming with Buffer Management
+## Complete Motor Imagery Streaming Pipeline
 
-```python
-from nimbus_bci import AdvancedStreamingClient
-import numpy as np
+```julia
+using NimbusSDK
 
-class BCIStreamProcessor:
-    def __init__(self, api_key):
-        self.client = AdvancedStreamingClient(api_key)
-        self.buffer = []
-        self.predictions = []
-        
-    async def start_streaming(self):
-        session = await self.client.create_session(
-            model='motor-imagery-classifier',
-            config={
-                'buffer_size_ms': 2000,
-                'update_interval_ms': 25,
-                'confidence_threshold': 0.7,
-                'adaptive_threshold': True
-            }
-        )
-        
-        # Set up event handlers
-        session.on('prediction', self.handle_prediction)
-        session.on('buffer_status', self.handle_buffer_status)
-        session.on('error', self.handle_error)
-        
-        await session.connect()
-        
-        # Start data acquisition loop
-        await self.data_acquisition_loop(session)
+# Initialize
+NimbusSDK.authenticate("your-api-key")
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4,
+    chunk_size = 250  # 1 second chunks
+)
+
+session = init_streaming(model, metadata)
+
+# Simulate real-time EEG stream
+function simulate_eeg_stream()
+    # In practice, this would come from your EEG hardware
+    for trial in 1:20
+        for chunk_idx in 1:4  # 4 seconds total, 4 chunks
+            chunk = randn(16, 250)  # 16 features × 250 samples
+            yield chunk
+        end
+    end
+end
+
+# Process streaming data
+for chunk in simulate_eeg_stream()
+    result = process_chunk(session, chunk)
     
-    async def handle_prediction(self, data):
-        prediction = data['result']
-        self.predictions.append(prediction)
-        
-        # Implement your BCI control logic
-        if prediction['confidence'] > 0.8:
-            await self.execute_bci_command(prediction['class'])
-    
-    async def handle_buffer_status(self, data):
-        status = data['status']
-        if status['utilization'] > 0.9:
-            print("Warning: Buffer nearly full")
-    
-    async def handle_error(self, data):
-        error = data['error']
-        if error['recoverable']:
-            print(f"Recoverable error: {error['message']}")
-            await asyncio.sleep(1)  # Brief pause before continuing
-        else:
-            raise Exception(f"Fatal streaming error: {error['message']}")
-    
-    async def data_acquisition_loop(self, session):
-        while True:
-            try:
-                # Get batch of samples for efficiency
-                samples = await self.get_eeg_batch(batch_size=10)
-                await session.send_batch(samples)
-                await asyncio.sleep(0.04)  # 25 Hz batch rate
-                
-            except Exception as e:
-                print(f"Data acquisition error: {e}")
-                await asyncio.sleep(0.1)
+    # Implement your real-time control logic here
+    if result.prediction == 1 && result.confidence > 0.7
+        println("🔄 Moving cursor left (confidence: $(result.confidence))")
+    elseif result.prediction == 2 && result.confidence > 0.7
+        println("🔄 Moving cursor right (confidence: $(result.confidence))")
+    end
+end
+
+# Get final trial result
+final = finalize_trial(session; method=:weighted_vote)
+println("\n✓ Trial complete: Class $(final.prediction), Confidence: $(final.confidence)")
 ```
 
-## Configuration Options
+## Aggregation Methods
 
-### Session Configuration
+Streaming uses multiple chunks per trial and aggregates them into a final prediction.
 
-```json
-{
-  "model": "motor-imagery-classifier",
-  "config": {
-    "buffer_size_ms": 1000,
-    "update_interval_ms": 50,
-    "confidence_threshold": 0.6,
-    "channels": ["C3", "C4", "Cz"],
-    "sampling_rate": 250,
-    "preprocessing": {
-      "filter": {"low": 1, "high": 40},
-      "artifact_removal": true,
-      "normalization": "zscore"
-    },
-    "adaptive_threshold": true,
-    "quality_monitoring": true,
-    "auto_reconnect": true
-  }
-}
+### Weighted Vote (Recommended)
+
+Weights chunks by confidence:
+
+```julia
+final_result = finalize_trial(session; method=:weighted_vote)
 ```
 
-### Performance Tuning
+**How it works:**
+- Each chunk gets a vote weighted by its confidence
+- Class with highest weighted vote wins
+- More reliable than majority vote
 
-| Parameter | Description | Recommended Value |
-|-----------|-------------|-------------------|
-| `buffer_size_ms` | Buffer duration | 1000-2000ms |
-| `update_interval_ms` | Prediction frequency | 25-100ms |
-| `batch_size` | Samples per batch | 5-20 samples |
-| `confidence_threshold` | Minimum confidence | 0.6-0.8 |
+### Majority Vote
+
+Simple majority across all chunks:
+
+```julia
+final_result = finalize_trial(session; method=:majority_vote)
+```
+
+### Example: 4-Chunk Trial
+
+```julia
+# Chunk 1: Class 1, confidence 0.7
+# Chunk 2: Class 1, confidence 0.8
+# Chunk 3: Class 2, confidence 0.6
+# Chunk 4: Class 1, confidence 0.9
+
+# Weighted vote: Class 1 (0.7 + 0.8 + 0.9 = 2.4) > Class 2 (0.6)
+# Majority vote: Class 1 (3 votes) > Class 2 (1 vote)
+```
+
+## Quality Assessment
+
+Monitor trial quality in real-time:
+
+```julia
+results = process_chunk(session, chunk)
+
+# Check if chunk should be rejected
+if should_reject_trial(results.confidence, 0.7)
+    println("⚠️ Low confidence chunk - consider rejection")
+end
+
+# Get final quality assessment
+final = finalize_trial(session)
+quality = assess_trial_quality([final])
+
+if !quality.confidence_acceptable
+    println("⚠️ Final trial quality insufficient")
+end
+```
+
+## Streaming Session Lifecycle
+
+### 1. Initialize Session
+
+```julia
+session = init_streaming(model, metadata)
+# Session is ready to process chunks
+```
+
+### 2. Process Chunks
+
+```julia
+for chunk in data_stream
+    result = process_chunk(session, chunk)
+    # Handle real-time predictions
+end
+```
+
+### 3. Finalize Trial
+
+```julia
+final = finalize_trial(session; method=:weighted_vote)
+# Get aggregate prediction for the entire trial
+```
+
+### 4. Reset for Next Trial
+
+```julia
+# Start a new trial with the same session
+# (session automatically resets after finalize_trial)
+```
+
+## Configuration
+
+### Chunk Size
+
+Set `chunk_size` in metadata to enable streaming:
+
+```julia
+metadata = BCIMetadata(
+    # ... other fields ...
+    chunk_size = 250  # Samples per chunk
+)
+```
+
+**Recommendations:**
+- **Motor Imagery**: 250-500 samples (1-2 seconds at 250 Hz)
+- **P300**: 200-250 samples (0.8-1 seconds at 250 Hz)
+- **SSVEP**: 500-1000 samples (2-4 seconds at 250 Hz)
+
+### Number of Chunks per Trial
+
+Control how many chunks aggregate into one trial:
+
+```julia
+# Example: 4-second motor imagery trial
+# If chunk_size = 250 (1 second), then:
+# - 4 chunks total
+# - Trial duration = 4 seconds
+
+# Process all chunks
+for chunk in 1:4
+    result = process_chunk(session, get_chunk(chunk))
+end
+
+# Get final result
+final = finalize_trial(session)
+```
+
+## Performance
+
+### Latency
+
+| Operation | Typical Latency |
+|-----------|-----------------|
+| Single chunk processing | 5-10 ms |
+| Aggregation (4 chunks) | <1 ms |
+| Total trial latency | 20-40 ms |
+
+### Throughput
+
+- **At 250 Hz**: Process one chunk every second
+- **4 chunks per trial**: ~4 second trials
+- **Overhead**: Minimal (<1 ms per chunk)
+
+## Real-Time BCI Control Example
+
+```julia
+using NimbusSDK
+
+# Setup streaming
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+session = init_streaming(model, metadata)
+
+# Real-time cursor control
+function handle_cursor_control(result)
+    pred = result.prediction
+    conf = result.confidence
+    
+    if conf > 0.7
+        if pred == 1
+            move_cursor_left()
+        elseif pred == 2
+            move_cursor_right()
+        elseif pred == 3
+            move_cursor_up()
+        elseif pred == 4
+            move_cursor_down()
+        end
+    end
+end
+
+# Continuous processing loop
+while true
+    chunk = await_next_eeg_chunk()  # Your data acquisition
+    result = process_chunk(session, chunk)
+    handle_cursor_control(result)
+    
+    # Check trial end condition
+    if is_trial_complete()
+        final = finalize_trial(session)
+        println("Trial complete: $(final.prediction)")
+        # Reset for next trial
+    end
+end
+```
+
+## Comparison: Batch vs Streaming
+
+### Batch Inference
+
+```julia
+# Process all data at once (offline)
+data = BCIData(features, metadata, labels)  # All trials at once
+results = predict_batch(model, data)
+```
+
+**Best for:**
+- Offline analysis
+- Research datasets
+- Multiple trials at once
+
+### Streaming Inference
+
+```julia
+# Process chunk by chunk (online)
+session = init_streaming(model, metadata)
+for chunk in stream
+    result = process_chunk(session, chunk)
+end
+final = finalize_trial(session)
+```
+
+**Best for:**
+- Real-time control
+- Live feedback
+- Continuous monitoring
 
 ## Error Handling
 
-### Connection Errors
-
-```javascript
-ws.onerror = function(error) {
-    console.error('WebSocket error:', error);
-    
-    // Implement reconnection logic
-    setTimeout(() => {
-        reconnectWebSocket();
-    }, 5000);
-};
-
-ws.onclose = function(event) {
-    if (event.code !== 1000) {  // Not a normal closure
-        console.log('Connection lost, attempting to reconnect...');
-        reconnectWebSocket();
-    }
-};
-```
-
-### Data Quality Issues
-
-```javascript
-function handleStreamingResult(data) {
-    if (data.type === 'signal_quality') {
-        const quality = data.quality.overall;
-        
-        if (quality < 0.5) {
-            showQualityWarning('Poor signal quality detected');
-        } else if (quality < 0.7) {
-            showQualityWarning('Signal quality could be improved');
-        }
-    }
-}
-```
-
-### Buffer Management
-
-```javascript
-function handleBufferStatus(data) {
-    const status = data.status;
-    
-    if (status.utilization > 0.9) {
-        // Buffer nearly full - reduce data rate temporarily
-        adjustSamplingRate(200);  // Reduce from 250 Hz to 200 Hz
-    } else if (status.utilization < 0.3) {
-        // Buffer underutilized - can increase data rate
-        adjustSamplingRate(250);  // Back to normal rate
-    }
-}
+```julia
+try
+    result = process_chunk(session, chunk)
+catch e
+    if isa(e, DataValidationError)
+        @error "Invalid chunk data" size(chunk)
+    elseif isa(e, ModelCompatibilityError)
+        @error "Model incompatible with streaming config"
+        # Try batch mode instead
+    else
+        rethrow(e)
+    end
+end
 ```
 
 ## Best Practices
 
-### Data Transmission
+### 1. Optimal Chunk Size
 
-**Optimize Sample Rate:**
-- Use 250 Hz for most BCI applications
-- Consider 500 Hz only for high-frequency applications
-- Batch samples for network efficiency
+Choose chunk size based on your paradigm:
 
-**Buffer Management:**
-- Monitor buffer utilization
-- Adjust buffer size based on network latency
-- Implement adaptive buffering for variable networks
+```julia
+# Motor Imagery: 1-2 seconds
+chunk_size = 250  # 1 second at 250 Hz
 
-**Quality Monitoring:**
-- Check signal quality regularly
-- Implement automatic artifact detection
-- Provide user feedback on signal quality
+# P300: 1 second
+chunk_size = 250
 
-### Network Optimization
-
-**Connection Management:**
-- Implement automatic reconnection
-- Use connection pooling for multiple sessions
-- Monitor connection health
-
-**Bandwidth Optimization:**
-- Compress data when possible
-- Use efficient data formats
-- Batch samples appropriately
-
-## Use Cases
-
-### Real-time Cursor Control
-
-```python
-class CursorController:
-    def __init__(self):
-        self.cursor_position = [0, 0]
-        self.movement_speed = 10
-    
-    async def handle_prediction(self, data):
-        prediction = data['result']
-        
-        if prediction['confidence'] > 0.7:
-            if prediction['class'] == 'left_hand':
-                self.cursor_position[0] -= self.movement_speed
-            elif prediction['class'] == 'right_hand':
-                self.cursor_position[0] += self.movement_speed
-            
-            # Update cursor position on screen
-            update_cursor_display(self.cursor_position)
+# SSVEP: 2-4 seconds
+chunk_size = 500  # 2 seconds at 250 Hz
 ```
 
-### Neurofeedback Training
+### 2. Confidence Thresholds
 
-```python
-class NeurofeedbackTrainer:
-    def __init__(self):
-        self.target_state = 'relaxed'
-        self.feedback_history = []
-    
-    async def handle_prediction(self, data):
-        prediction = data['result']
-        
-        # Calculate feedback based on desired state
-        if prediction['class'] == self.target_state:
-            feedback_value = prediction['confidence']
-        else:
-            feedback_value = 1.0 - prediction['confidence']
-        
-        self.feedback_history.append(feedback_value)
-        
-        # Provide visual/audio feedback
-        update_feedback_display(feedback_value)
+Set appropriate thresholds for your application:
+
+```julia
+# For safety-critical applications
+threshold = 0.8
+
+# For research/exploration
+threshold = 0.6
+
+if result.confidence < threshold
+    # Reject or ask for user confirmation
+end
+```
+
+### 3. Quality Monitoring
+
+Monitor signal quality:
+
+```julia
+# Use preprocessing diagnostics
+report = diagnose_preprocessing(data)
+
+if report.quality_score < 0.7
+    @warn "Signal quality low: $(report.recommendations)"
+end
 ```
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Webhook Integration" icon="webhook" href="/api-reference/webhook-integration">
-    Set up webhooks for event-driven applications
+  <Card title="Batch Processing" icon="list" href="/inference-configuration/batch-processing">
+    Offline batch inference for research data
   </Card>
-  <Card title="Python SDK" icon="python" href="/api-reference/python-sdk">
-    Use the Python SDK for easier streaming integration
+  <Card title="Julia SDK Reference" icon="code" href="/api-reference/julia-sdk">
+    Complete SDK API documentation
   </Card>
-  <Card title="Real-time Examples" icon="code" href="/examples/code-samples">
-    Complete real-time BCI implementation examples
+  <Card title="Real-time Setup" icon="rocket" href="/inference-configuration/real-time-setup">
+    Configure real-time processing
   </Card>
-  <Card title="Performance Tuning" icon="gauge" href="/core-concepts/real-time-processing">
-    Optimize for sub-20ms latency
+  <Card title="Code Examples" icon="file-code" href="/examples/code-samples">
+    Complete working examples
   </Card>
 </CardGroup>
 
 ## Support
 
-Need help with streaming integration?
+Need help with streaming inference?
 
 - **Email**: hello@nimbusbci.com
-- **Real-time Support**: Available for enterprise customers
-- **Documentation**: Comprehensive guides and examples
-- **Community**: Join our developer community
+- **Documentation**: https://docs.nimbusbci.com
+- **SDK Repository**: https://github.com/nimbusbci/NimbusSDK.jl
 
-The Streaming API is designed for production use with enterprise-grade reliability and performance.
+Streaming inference is designed for production use with enterprise-grade performance and reliability.

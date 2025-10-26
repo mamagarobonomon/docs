@@ -1,0 +1,431 @@
+---
+title: "Preprocessing Integration"
+description: "Complete guides for integrating NimbusSDK with MNE-Python, EEGLAB, and OpenVibe"
+icon: "link"
+---
+
+# Preprocessing Integration Guide
+
+Complete workflows for preprocessing EEG data with external tools and using the features in NimbusSDK.jl.
+
+<Tip>
+**New to preprocessing?** Start with [Preprocessing Requirements](/inference-configuration/preprocessing-requirements) for an overview before diving into specific tools.
+</Tip>
+
+## Integration Options
+
+| Tool | Language | Difficulty | Best For |
+|------|----------|------------|----------|
+| **MNE-Python** | Python | Easy | Complete workflows, research |
+| **EEGLAB** | MATLAB/GUI | Medium | Visual inspection, ICA |
+| **OpenVibe** | GUI | Easy | Real-time preprocessing |
+
+## MNE-Python Integration
+
+Complete pipeline for Motor Imagery preprocessing with MNE-Python.
+
+### Installation
+
+```bash
+pip install mne scipy scikit-learn numpy matplotlib
+```
+
+### Complete Motor Imagery Pipeline
+
+```python
+import mne
+import numpy as np
+from scipy.io import savemat
+from mne.decoding import CSP
+from mne.preprocessing import ICA
+
+# Load raw EEG data
+raw = mne.io.read_raw_brainvision('motor_imagery.vhdr', preload=True)
+
+# Step 1: Set channel locations (if available)
+# raw.set_montage('standard_1020')
+
+# Step 2: Bandpass filter (8-30 Hz for motor imagery)
+raw.filter(8.0, 30.0, method='iir', picks='eeg')
+
+# Step 3: Remove artifacts with ICA
+ica = ICA(n_components=15, random_state=42, max_iter='auto')
+ica.fit(raw)
+
+# Identify and exclude bad components (eye blinks, muscle)
+ica.exclude = []  # You'll identify these by inspecting ica.plot_components()
+# Example: ica.exclude = [0, 1]  # First two components are eye blinks
+
+raw_clean = ica.apply(raw)
+
+# Step 4: Find events
+events = mne.find_events(raw_clean, stim_channel='STI')
+
+# Create event mapping (adjust based on your setup)
+event_id = {
+    'Left Hand': 1,
+    'Right Hand': 2,
+    'Feet': 3,
+    'Tongue': 4
+}
+
+# Step 5: Epoch data (0-4 seconds post-cue)
+epochs = mne.Epochs(
+    raw_clean,
+    events,
+    event_id=event_id,
+    tmin=0,
+    tmax=4.0,
+    baseline=None,
+    preload=True
+)
+
+# Step 6: Extract CSP features
+# Get data for CSP (epochs × channels × time)
+X = epochs.get_data()  # (n_epochs, n_channels, n_times)
+y = epochs.events[:, -1]
+
+# Train CSP
+csp = CSP(n_components=8, transform_into='csp_space', reg='shrinkage')
+X_csp = csp.fit_transform(X, y)  # (n_epochs, n_components, n_times)
+
+# Step 7: Format for NimbusSDK.jl
+# NimbusSDK expects: (n_features × n_samples × n_trials)
+# From MNE we have: (n_trials, n_components, n_times)
+# Need to: transpose to (n_components, n_times, n_trials)
+X_csp_julia = np.transpose(X_csp, (1, 2, 0))
+
+# Step 8: Save to .mat for Julia
+savemat('motor_imagery_features.mat', {
+    'features': X_csp_julia,  # (16, 1000, 40) - 16 features, 1 second, 40 trials
+    'labels': y,              # [1, 2, 3, 4, 1, 2, ...]
+    'channels': epochs.ch_names,
+    'sampling_rate': epochs.info['sfreq']
+})
+
+print("✓ Preprocessing complete!")
+print(f"  Features: {X_csp_julia.shape[0]} features × {X_csp_julia.shape[1]} samples × {X_csp_julia.shape[2]} trials")
+print(f"  Labels: {len(np.unique(y))} classes")
+```
+
+### Loading in Julia
+
+```julia
+using NimbusSDK, MAT
+
+# Load features
+data = matread("motor_imagery_features.mat")
+features = data["features"]  # Should be (16, 1000, 40)
+labels = vec(Int.(data["labels"]))
+
+println("Loaded: $(size(features))")
+println("Classes: $(unique(labels))")
+
+# Create BCIData
+metadata = BCIMetadata(
+    sampling_rate = data["sampling_rate"],
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4,
+    chunk_size = nothing
+)
+
+bci_data = BCIData(features, metadata, labels)
+
+# Authenticate and run inference
+NimbusSDK.authenticate("your-api-key")
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+results = predict_batch(model, bci_data)
+
+println("Predictions: ", results.predictions)
+println("Mean confidence: ", mean(results.confidences))
+```
+
+### P300 Detection Pipeline
+
+```python
+import mne
+import numpy as np
+from scipy.io import savemat
+
+# Load and filter for P300 (0.5-10 Hz)
+raw = mne.io.read_raw_brainvision('p300_data.vhdr', preload=True)
+raw.filter(0.5, 10.0, method='iir')
+
+# ICA artifact removal
+ica = ICA(n_components=15, random_state=42)
+ica.fit(raw)
+ica.exclude = [0, 1]  # Eye blinks
+raw_clean = ica.apply(raw)
+
+# Events
+events = mne.find_events(raw_clean)
+event_id = {'Target': 1, 'Non-target': 2}
+
+# Epoch around stimulus (-0.2 to 0.8 seconds)
+epochs = mne.Epochs(
+    raw_clean,
+    events,
+    event_id=event_id,
+    tmin=-0.2,
+    tmax=0.8,
+    baseline=(-0.2, 0),
+    preload=True
+)
+
+# Extract ERP amplitudes
+X = epochs.get_data()  # (n_epochs, n_channels, n_times)
+y = epochs.events[:, -1]
+
+# Average across time window for each channel
+X_erp = np.mean(X, axis=2)  # (n_epochs, n_channels)
+
+# Save for Julia (transform to expected shape)
+X_erp_julia = X_erp.T  # (n_channels, n_epochs)
+
+savemat('p300_features.mat', {
+    'features': X_erp_julia,
+    'labels': y
+})
+```
+
+## EEGLAB Integration
+
+EEGLAB provides powerful ICA and visualization tools.
+
+### MATLAB Pipeline
+
+```matlab
+% Load dataset
+EEG = pop_loadset('motor_imagery_data.set');
+
+% Step 1: Bandpass filter (8-30 Hz)
+EEG = pop_eegfiltnew(EEG, 8, 30, [], [], 0, 0, 'fir', 'onepass-zerophase');
+
+% Step 2: Run ICA
+EEG = pop_runica(EEG, 'icatype', 'runica');
+
+% Step 3: Inspect components and remove artifacts
+% Use EEGLAB GUI: EEGLAB > Tools > Inspect components
+% Mark bad components for rejection
+
+EEG = pop_subcomp(EEG, bad_components, 0);  % Remove bad components
+
+% Step 4: Create epochs
+EEG = pop_epoch(EEG, {'1', '2', '3', '4'}, [0 4], 'newname', 'epoched');
+
+% Step 5: Save for CSP extraction (use external tool or Python)
+pop_saveset(EEG, 'filename', 'epoched_data.set');
+
+% Export to Python for CSP
+pop_exportbids(EEG, 'output', 'bids_export');  % Or use pop_eeglab2mne
+```
+
+### Alternative: Direct CSP in MATLAB
+
+```matlab
+% Use BCILAB for CSP feature extraction
+% BCILAB is an EEGLAB extension for BCI analysis
+
+% Install BCILAB
+cd ~/eeglab/plugins
+wget('http://www.bcilab.org/download/bcilab.zip')
+unzip('bcilab.zip')
+
+% Use BCILAB CSP
+[sources, patterns, eigenvalues] = proc_multiclass_csp(EEG.data, ...
+    EEG.epoch(:, :, labels), 'classes', [1, 2, 3, 4], 'ncomp', 8);
+
+% Extract CSP features
+csp_features = proc_spatialfilter(EEG.data, patterns);
+features = reshape(csp_features, 16, size(csp_features, 2), size(csp_features, 3));
+```
+
+## OpenVibe Integration
+
+OpenVibe provides GUI-based real-time preprocessing.
+
+### OpenVibe Scenario for Motor Imagery
+
+1. **Signal Acquisition** → Connect to your EEG device
+2. **Temporal Filter** → 8-30 Hz bandpass for motor imagery
+3. **Spatial Filter** → Common Average Reference (CAR)
+4. **Spatial Filter** → CSP (requires training with labeled data first)
+5. **Feature Extraction** → Log-variance of CSP
+6. **Generic Stream Writer** → Save to CSV or stream directly
+
+### Exporting from OpenVibe
+
+```python
+import pandas as pd
+import numpy as np
+
+# OpenVibe exports as CSV
+df = pd.read_csv('openvibe_output.csv')
+
+# Assuming format: Time, Channel1, Channel2, ..., Label
+features_raw = df.iloc[:, 1:-1].values.T  # Transpose to (channels × samples)
+labels = df['Label'].values
+
+# Reshape for NimbusSDK (if you have trial boundaries)
+# You'll need to segment based on labels
+features_segmented = segment_by_labels(features_raw, labels)
+# Result: (n_features, n_samples_per_trial, n_trials)
+
+# Save for Julia
+import scipy.io as sio
+sio.savemat('openvibe_features.mat', {
+    'features': features_segmented,
+    'labels': labels
+})
+```
+
+## Data Shape Transformation
+
+**Critical**: Different tools output different shapes. Always verify:
+
+### MNE-Python → Julia
+
+```python
+# MNE: (n_epochs, n_components, n_times)
+features_mne  # (40, 8, 1000)
+
+# Julia SDK expects: (n_features × n_samples × n_trials)
+features_julia = np.transpose(features_mne, (1, 2, 0))  # (8, 1000, 40)
+```
+
+### EEGLAB/MATLAB → Julia
+
+```matlab
+% MATLAB: (channels, samples, epochs)
+features_matlab  % (16, 1000, 40)
+
+% Already correct for Julia! No transformation needed
+```
+
+### OpenVibe CSV → Julia
+
+```python
+# CSV: Time series with labels
+df = pd.read_csv('data.csv')
+
+# Convert to trials (segment by label changes)
+features_julia = segment_to_trials(df)  # (n_features, n_samples, n_trials)
+```
+
+## Quality Checks
+
+### Python Preprocessing Check
+
+```python
+def check_preprocessing_quality(features, labels):
+    """Check data quality before saving for Julia"""
+    
+    # Check shape
+    assert features.ndim == 3, "Features must be 3D: (features, samples, trials)"
+    n_features, n_samples, n_trials = features.shape
+    
+    # Check for NaN/Inf
+    assert not np.any(np.isnan(features)), "Features contain NaN values"
+    assert not np.any(np.isinf(features)), "Features contain Inf values"
+    
+    # Check labels
+    assert len(labels) == n_trials, "Labels must match number of trials"
+    assert labels.min() >= 1, "Labels must be 1-indexed (start at 1)"
+    assert labels.max() <= len(np.unique(labels)), "Labels must be consecutive"
+    
+    # Check value ranges (not too large)
+    assert np.abs(features).max() < 1e6, "Features have suspiciously large values"
+    
+    print("✓ All quality checks passed!")
+    print(f"  Shape: ({n_features}, {n_samples}, {n_trials})")
+    print(f"  Classes: {np.unique(labels)}")
+    print(f"  Range: [{features.min():.3f}, {features.max():.3f}]")
+    
+    return True
+
+# Use it
+check_preprocessing_quality(X_csp_julia, y)
+```
+
+### Julia Loading Check
+
+```julia
+using NimbusSDK
+
+# Load and validate
+data = matread("features.mat")
+features = data["features"]
+labels = Int.(vec(data["labels"]))
+
+println("Loaded shape: ", size(features))
+println("Labels: ", unique(labels))
+
+# Check with SDK
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = size(features, 1),
+    n_classes = length(unique(labels))
+)
+
+bci_data = BCIData(features, metadata, labels)
+
+# Run diagnostics
+report = diagnose_preprocessing(bci_data)
+if !isempty(report.errors)
+    @error "Issues found: $(report.errors)"
+end
+
+println("Quality score: ", round(report.quality_score * 100, digits=1), "%")
+```
+
+## Common Issues and Solutions
+
+### Issue 1: Wrong Data Shape
+
+**Error:** `Dimension mismatch: expected (n_features, n_samples, n_trials), got (trials, features, samples)`
+
+**Solution:**
+```python
+# Transpose from MNE format to Julia format
+features_julia = np.transpose(features_mne, (1, 2, 0))
+```
+
+### Issue 2: Labels Start at Zero
+
+**Error:** Labels must be 1-indexed
+
+**Solution:**
+```python
+# MNE labels start at 0, Julia expects 1-indexed
+labels_julia = labels + 1
+```
+
+### Issue 3: Mixed Data Types
+
+**Error:** Type mismatch
+
+**Solution:**
+```julia
+# In Julia, ensure proper types
+features = Float64.(data["features"])
+labels = Int.(vec(data["labels"]))
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Preprocessing Requirements" icon="cog" href="/inference-configuration/preprocessing-requirements">
+    Complete preprocessing guide and requirements
+  </Card>
+  <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
+    SDK API reference
+  </Card>
+  <Card title="Code Examples" icon="file-code" href="/examples/code-samples">
+    Full working examples
+  </Card>
+</CardGroup>
+

@@ -11,9 +11,13 @@ Build your first brain-computer interface application in just a few steps. This 
 ## Prerequisites
 
 Before you begin, make sure you have:
-- **Python 3.8+** installed on your system
+- **Julia 1.9+** installed on your system
 - **Basic understanding** of EEG data and BCI concepts
-- **Neural data** to test with (we'll provide sample data if needed)
+- **Preprocessed features** (CSP, bandpower, etc.) - see [preprocessing requirements](/inference-configuration/preprocessing-requirements)
+
+<Tip>
+**Important**: NimbusSDK.jl expects **preprocessed features**, not raw EEG data. You must apply bandpass filtering, artifact removal, and feature extraction (e.g., CSP) before using the SDK.
+</Tip>
 
 ## Step 1: Get Your API Key
 
@@ -25,261 +29,259 @@ Before you begin, make sure you have:
 API keys are typically issued within 24 hours. Include details about your BCI application, expected data volume, and timeline in your request.
 </Note>
 
-## Step 2: Install the Python SDK
+## Step 2: Install NimbusSDK.jl
 
-Install the Nimbus BCI Python SDK using pip:
+Add the Nimbus registry and install the SDK:
 
-```bash
-pip install nimbus-bci
+```julia
+using Pkg
+
+# Add Nimbus registry (one-time setup)
+Pkg.Registry.add("https://github.com/nimbusbci/NimbusRegistry")
+
+# Install NimbusSDK
+Pkg.add("NimbusSDK")
 ```
 
 <Tip>
-We recommend using a virtual environment to avoid package conflicts:
-```bash
-python -m venv nimbus-env
-source nimbus-env/bin/activate  # On Windows: nimbus-env\Scripts\activate
-pip install nimbus-bci
+If you don't have access to the Nimbus registry, you can install from source:
+```julia
+Pkg.add("https://github.com/nimbusbci/NimbusSDK.jl")
 ```
 </Tip>
 
 ## Step 3: Your First BCI Inference
 
-Create a new Python file and run your first BCI inference:
+Create a new Julia script and run your first BCI inference:
 
-```python
-import os
-import numpy as np
-from nimbus_bci import NimbusClient
+```julia
+using NimbusSDK
 
-# Initialize the client with your API key
-client = NimbusClient(api_key=os.getenv('NIMBUS_API_KEY'))
+# Step 1: Authenticate with your API key
+NimbusSDK.authenticate("your-api-key-here")
 
-# Generate sample EEG data (or use your own)
-# 1 second of data at 250 Hz, 4 channels (C3, C4, Cz, Fz)
-eeg_data = np.random.randn(250, 4)
-channels = ['C3', 'C4', 'Cz', 'Fz']
+# Step 2: Load a pre-trained RxLDA model
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+println("✓ Model loaded: $(get_n_features(model)) features, $(get_n_classes(model)) classes")
 
-# Perform motor imagery classification
-result = client.inference(
-    model='motor-imagery-classifier',
-    eeg_data=eeg_data,
-    channels=channels,
-    sampling_rate=250
+# Step 3: Prepare your preprocessed CSP features
+# Shape: (n_features × n_samples × n_trials)
+# Example: 16 CSP features × 250 samples × 20 trials
+n_features = 16
+n_samples = 250  # 1 second at 250 Hz
+n_trials = 20
+
+# Generate sample CSP features (in practice, load from your preprocessing)
+features = randn(n_features, n_samples, n_trials)
+labels = rand(1:4, n_trials)  # Random labels for demo
+
+# Create BCIData with metadata
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = n_features,
+    n_classes = 4,
+    chunk_size = nothing  # Batch mode
 )
 
-# Print the results
-print(f"🧠 Prediction: {result.prediction.class_name}")
-print(f"📊 Confidence: {result.prediction.confidence:.2f}")
-print(f"⚡ Latency: {result.latency_ms}ms")
-print(f"📈 All probabilities: {result.prediction.probabilities}")
+data = BCIData(features, metadata, labels)
+
+# Step 4: Run batch inference
+println("Running batch inference...")
+results = predict_batch(model, data; iterations=10)
+
+# Step 5: Analyze results
+println("\n✓ Results:")
+println("  Mean confidence: $(round(mean(results.confidences), digits=3))")
+println("  Accuracy: $(round(100 * sum(results.predictions .== labels) / length(labels), digits=1))%")
+println("  ITR: $(round(calculate_ITR(
+    sum(results.predictions .== labels) / length(labels),
+    4,
+    4.0
+), digits=1)) bits/minute")
 ```
 
-### Set Your API Key
+### Required Format for Features
 
-```bash
-# Set your API key as an environment variable
-export NIMBUS_API_KEY="your_api_key_here"
+NimbusSDK expects features in a specific format:
+- **Dimensions**: `(n_features × n_samples × n_trials)`
+- **Feature types**: CSP (recommended), bandpower, ERP amplitudes
+- **Preprocessing**: Must be applied before using SDK
 
-# Or create a .env file
-echo "NIMBUS_API_KEY=your_api_key_here" > .env
-```
+<Note>
+**Critical**: You must preprocess your EEG data before using NimbusSDK. The SDK does NOT process raw EEG - it requires extracted features. See [Preprocessing Guide](/inference-configuration/preprocessing-requirements) for details.
+</Note>
 
-### Run Your First Inference
+## Step 4: Training Your Own Model
 
-```bash
-python your_bci_app.py
-```
+Train a custom RxLDA model on your labeled data:
 
-**Expected Output:**
-```
-🧠 Prediction: left_hand
-📊 Confidence: 0.87
-⚡ Latency: 15ms
-📈 All probabilities: {'left_hand': 0.87, 'right_hand': 0.08, 'rest': 0.05}
-```
+```julia
+using NimbusSDK
 
-## Step 4: Try Different BCI Models
+# Authenticate
+NimbusSDK.authenticate("your-api-key")
 
-Explore other available models:
+# Prepare training data (features already preprocessed!)
+train_features = load_your_csp_features()  # (n_features × n_samples × n_trials)
+train_labels = load_your_labels()         # Vector of integers: 1, 2, 3, 4, ...
 
-<AccordionGroup>
-  <Accordion icon="brain" title="P300 Speller">
-    Perfect for communication applications:
-    ```python
-    # P300 event-related potential detection
-    result = client.inference(
-        model='p300-speller',
-        eeg_data=eeg_epoch,  # 800ms epoch around stimulus
-        channels=['Fz', 'Cz', 'Pz', 'Oz'],
-        sampling_rate=250
-    )
-    print(f"P300 detected: {result.prediction.class_name}")
-    ```
-  </Accordion>
-  
-  <Accordion icon="wave-square" title="SSVEP Control">
-    High-speed visual BCI control:
-    ```python
-    # Steady-state visual evoked potential
-    result = client.inference(
-        model='ssvep-classifier',
-        eeg_data=eeg_data,
-        channels=['O1', 'Oz', 'O2'],
-        sampling_rate=250
-    )
-    print(f"Target frequency: {result.prediction.class_name}")
-    ```
-  </Accordion>
-  
-  <Accordion icon="heart" title="Neurofeedback">
-    Real-time brain state monitoring:
-    ```python
-    # Alpha/theta neurofeedback
-    result = client.inference(
-        model='neurofeedback-alpha',
-        eeg_data=eeg_data,
-        channels=['C3', 'C4', 'Cz'],
-        sampling_rate=250
-    )
-    print(f"Relaxation level: {result.prediction.confidence:.2f}")
-    ```
-  </Accordion>
-</AccordionGroup>
-
-## Step 5: Real-Time Processing
-
-For continuous BCI applications, use the streaming API:
-
-```python
-from nimbus_bci import RealTimeProcessor
-import time
-
-# Initialize real-time processor
-processor = RealTimeProcessor(
-    client=client,
-    model='motor-imagery-classifier',
-    config={
-        'buffer_size': 1000,
-        'update_interval_ms': 50,
-        'confidence_threshold': 0.6
-    }
+train_data = BCIData(
+    train_features,
+    BCIMetadata(
+        sampling_rate = 250.0,
+        paradigm = :motor_imagery,
+        feature_type = :csp,
+        n_features = 16,
+        n_classes = 4,
+        chunk_size = nothing
+    ),
+    train_labels  # Required for training!
 )
 
-# Define callback for predictions
-def on_prediction(result):
-    print(f"Real-time: {result.prediction.class_name} ({result.prediction.confidence:.2f})")
+# Train the model
+println("Training RxLDA model...")
+model = train_model(
+    RxLDAModel,
+    train_data;
+    iterations = 50,        # Number of inference iterations
+    showprogress = true,    # Show training progress
+    name = "my_custom_model",
+    description = "4-class motor imagery with CSP"
+)
+
+# Save the trained model
+save_model(model, "my_custom_model.jld2")
+
+# Use for inference
+test_data = BCIData(test_features, metadata)
+results = predict_batch(model, test_data)
+```
+
+## Step 5: Streaming Inference
+
+For real-time applications, use streaming inference:
+
+```julia
+using NimbusSDK
+
+# Authenticate and load model
+NimbusSDK.authenticate("your-api-key")
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+# Initialize streaming session (1 second chunks at 250 Hz)
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4,
+    chunk_size = 250  # 1 second chunks
+)
+
+session = init_streaming(model, metadata)
+
+# Process chunks as they arrive
+for trial in your_eeg_stream()
+    # Process one chunk
+    chunk_result = process_chunk(session, trial)
     
-    # Your BCI control logic here
-    if result.prediction.class_name == 'left_hand' and result.prediction.confidence > 0.8:
-        print("🔄 Moving cursor left")
-    elif result.prediction.class_name == 'right_hand' and result.prediction.confidence > 0.8:
-        print("🔄 Moving cursor right")
-
-# Start real-time processing
-processor.start(callback=on_prediction)
-
-# Simulate continuous data acquisition
-for i in range(100):
-    # In a real application, this would come from your EEG device
-    new_sample = np.random.randn(4)  # 4 channels
-    processor.add_sample(new_sample)
-    time.sleep(0.004)  # 250 Hz sampling rate
-
-processor.stop()
+    println("Chunk prediction: $(chunk_result.prediction) " *
+            "(confidence: $(round(chunk_result.confidence, digits=3)))")
+    
+    # Finalize trial with weighted voting across all chunks
+    if is_trial_complete(trial)
+        final_result = finalize_trial(session; method=:weighted_vote)
+        println("✓ Final prediction: $(final_result.prediction)")
+        
+        # Check quality
+        if should_reject_trial(final_result.confidence, 0.7)
+            println("⚠️ Low confidence - trial rejected")
+        end
+    end
+end
 ```
+
+## Available Models
+
+NimbusSDK includes two Bayesian inference models:
+
+### RxLDA (Linear Discriminant Analysis)
+- **Shared covariance** across classes
+- Fast inference and training
+- Best for well-separated classes
+- Typical training time: 10-30 seconds (50 iterations, 100 trials)
+
+### RxGMM (Gaussian Mixture Model)
+- **Class-specific covariances**
+- More flexible, handles overlapping distributions
+- Better for complex class structures
+- Slightly slower than RxLDA
+
+<Note>
+Both models use **RxInfer.jl** for efficient variational Bayesian inference with reactive message passing.
+</Note>
+
+## Next Steps
+
+Now that you have NimbusSDK running, explore these advanced features:
+
+<CardGroup cols={2}>
+  <Card title="Julia SDK Reference" icon="code" href="/api-reference/julia-sdk">
+    Complete SDK documentation with all functions and types
+  </Card>
+  <Card title="RxLDA Model" icon="brain" href="/models/rxlda">
+    Learn about the RxLDA model in detail
+  </Card>
+  <Card title="RxGMM Model" icon="brain" href="/models/rxgmm">
+    Learn about the RxGMM model in detail
+  </Card>
+  <Card title="Preprocessing Guide" icon="cog" href="/inference-configuration/preprocessing-requirements">
+    Critical guide on preparing your EEG data
+  </Card>
+  <Card title="Batch Processing" icon="list" href="/inference-configuration/batch-processing">
+    Process multiple trials efficiently
+  </Card>
+  <Card title="Streaming Inference" icon="wave-square" href="/inference-configuration/real-time-setup">
+    Real-time chunk-by-chunk processing
+  </Card>
+</CardGroup>
 
 ## Common Use Cases
 
 <CardGroup cols={2}>
-  <Card title="Motor Imagery Control" icon="gamepad" href="/examples/basic-examples">
-    Control cursors, wheelchairs, or prosthetics with imagined movements
+  <Card title="Motor Imagery BCI" icon="gamepad" href="/examples/basic-examples">
+    Control devices with imagined movements using CSP features
   </Card>
-  
-  <Card title="P300 Communication" icon="keyboard" href="/models/hmm-brain-states">
-    Build spelling interfaces and communication devices
+  <Card title="P300 Speller" icon="keyboard" href="/examples/advanced-applications">
+    Communication interfaces using event-related potentials
   </Card>
-  
-  <Card title="Neurofeedback Training" icon="chart-line" href="/examples/industry-use-cases">
-    Create meditation apps and cognitive training systems
+  <Card title="SSVEP Control" icon="wave-square" href="/examples/advanced-applications">
+    High-speed visual BCI with steady-state responses
   </Card>
-  
-  <Card title="SSVEP Gaming" icon="gamepad" href="/examples/advanced-applications">
-    High-speed BCI gaming and entertainment applications
+  <Card title="Neurofeedback" icon="chart-line" href="/examples/advanced-applications">
+    Real-time brain state monitoring and training
   </Card>
 </CardGroup>
-
-## Next Steps
-
-Now that you have Nimbus BCI running, explore these advanced features:
-
-<CardGroup cols={2}>
-  <Card title="Model Specification" icon="code" href="/model-specification">
-    Learn how to build custom BCI models
-  </Card>
-  
-  <Card title="Streaming API" icon="wave-square" href="/api-reference/streaming-api">
-    Real-time processing with WebSocket connections
-  </Card>
-  
-  <Card title="Batch Processing" icon="list" href="/inference-configuration/batch-processing">
-    Process large datasets efficiently
-  </Card>
-  
-  <Card title="Error Handling" icon="shield" href="/inference-configuration/error-handling">
-    Build robust production BCI systems
-  </Card>
-</CardGroup>
-
-## Sample Data & Examples
-
-<AccordionGroup>
-  <Accordion icon="download" title="Download Sample EEG Data">
-    Get started with pre-recorded EEG data:
-    ```python
-    from nimbus_bci.datasets import load_sample_data
-    
-    # Load motor imagery sample data
-    eeg_data, labels, channels = load_sample_data('motor_imagery')
-    
-    # Run inference on sample data
-    result = client.inference(
-        model='motor-imagery-classifier',
-        eeg_data=eeg_data[0],  # First trial
-        channels=channels,
-        sampling_rate=250
-    )
-    ```
-  </Accordion>
-  
-  <Accordion icon="github" title="Example Applications">
-    Check out complete example applications:
-    - **Cursor Control**: Real-time cursor movement with motor imagery
-    - **P300 Speller**: Communication interface using event-related potentials
-    - **Neurofeedback**: Meditation and relaxation training app
-    - **SSVEP Game**: High-speed BCI gaming interface
-    
-    Find all examples in our [GitHub repository](https://github.com/nimbusbci/examples).
-  </Accordion>
-</AccordionGroup>
 
 ## Troubleshooting
 
 <AccordionGroup>
   <Accordion icon="exclamation-triangle" title="Common Issues">
     **API Key Issues:**
-    - Ensure your API key is set correctly: `echo $NIMBUS_API_KEY`
-    - Check for typos in the key
+    - Ensure your API key is set correctly
     - Contact hello@nimbusbci.com if your key isn't working
     
     **Data Format Issues:**
-    - EEG data should be numpy arrays with shape (samples, channels)
-    - Sampling rate should match your actual data
-    - Channel names should match the model requirements
+    - Features must be in shape: `(n_features × n_samples × n_trials)`
+    - Ensure you've applied preprocessing (filtering, artifact removal, feature extraction)
+    - No NaN or Inf values in data
     
-    **Network Issues:**
-    - Check your internet connection
-    - Verify firewall settings allow HTTPS traffic
-    - Try the inference with a smaller data sample first
+    **Model Loading Issues:**
+    - Check that you have a valid model name
+    - Ensure your internet connection is working (for pre-trained models)
+    - Verify API key is authenticated
   </Accordion>
   
   <Accordion icon="question-circle" title="Getting Help">
@@ -287,13 +289,14 @@ Now that you have Nimbus BCI running, explore these advanced features:
     
     - **Email**: hello@nimbusbci.com for technical support
     - **Documentation**: Browse our comprehensive guides
-    - **Examples**: Check out working code samples
-    - **Community**: Join our developer community
+    - **Examples**: Check out working code samples in the SDK
+    - **API Documentation**: See [Julia SDK Reference](/api-reference/julia-sdk)
     
     When reporting issues, please include:
-    - Your Python version and OS
+    - Your Julia version and OS
     - The exact error message
     - A minimal code example that reproduces the issue
+    - Your data shape and preprocessing steps
   </Accordion>
 </AccordionGroup>
 
@@ -301,11 +304,12 @@ Now that you have Nimbus BCI running, explore these advanced features:
 
 <Tip>
 **Optimize for Production:**
-- Use batch inference for multiple samples
-- Implement proper error handling and retries
-- Monitor API usage and latency
-- Cache model information locally
+- Use batch inference for multiple trials (more efficient than streaming)
+- Implement proper error handling with try-catch blocks
+- Monitor API usage and quotas
+- Cache model information locally after loading
 - Use appropriate confidence thresholds for your application
+- Check preprocessing quality with `diagnose_preprocessing()`
 </Tip>
 
-Congratulations! 🎉 You've successfully set up Nimbus BCI and run your first brain-computer interface inference. You're now ready to build powerful BCI applications with sub-20ms latency and enterprise-grade reliability.
+Congratulations! 🎉 You've successfully set up NimbusSDK.jl and run your first brain-computer interface inference. You're now ready to build powerful BCI applications with sub-20ms latency and production-ready Bayesian inference.

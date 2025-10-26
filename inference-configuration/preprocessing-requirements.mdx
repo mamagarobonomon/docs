@@ -1,0 +1,409 @@
+---
+title: "Preprocessing Requirements"
+description: "Critical guide on preparing EEG data for NimbusSDK.jl - the SDK expects preprocessed features, not raw EEG"
+icon: "cog"
+---
+
+# Preprocessing Requirements for NimbusSDK
+
+**⚠️ CRITICAL**: NimbusSDK.jl expects **preprocessed features**, NOT raw EEG data. You MUST apply bandpass filtering, artifact removal, and feature extraction before using the SDK.
+
+## Overview
+
+The NimbusSDK works with extracted features (CSP, bandpower, etc.), not raw EEG signals. This preprocessing is essential for accurate inference.
+
+### Quick Checklist ✅
+
+Before using NimbusSDK, verify:
+
+- [ ] **Bandpass filtered** - Paradigm-appropriate frequency band applied
+- [ ] **Artifacts removed** - Eye blinks, muscle activity removed
+- [ ] **Epoched correctly** - Segmented into trials with proper timing
+- [ ] **Features extracted** - CSP/bandpower extracted (not raw channels!)
+- [ ] **Format correct** - `(n_features × n_samples × n_trials)` shape
+- [ ] **No NaN/Inf** - Clean numerical data
+- [ ] **Labels (if training)** - Integer labels `1, 2, 3, ..., n_classes`
+
+## Required Preprocessing Steps
+
+### 1. Bandpass Filter
+
+Remove noise and focus on relevant frequencies:
+
+| BCI Paradigm | Frequency Band | Why |
+|--------------|----------------|-----|
+| **Motor Imagery** | **8-30 Hz** | Mu (8-13 Hz) and Beta (13-30 Hz) rhythms |
+| **P300** | **0.5-10 Hz** | Slow event-related potentials |
+| **SSVEP** | **Target ± 2 Hz** | Steady-state frequency response |
+
+<Note>
+**Motor Imagery Example**: Filter at 8-30 Hz to capture mu (8-13 Hz) and beta (13-30 Hz) rhythms, which modulate during motor imagery tasks.
+</Note>
+
+### 2. Artifact Removal
+
+Clean up physiological and environmental artifacts:
+
+- **ICA** (Independent Component Analysis) - most common, recommended
+- **Regression** - if you have EOG channels
+- **ASR** (Artifact Subspace Reconstruction) - automatic removal
+
+<Tip>
+**Best Practice**: Use ICA to identify and remove eye blinks, eye movements, muscle activity, and cardiac artifacts. Most preprocessing tools (MNE-Python, EEGLAB) provide ICA implementations.
+</Tip>
+
+### 3. Epoching
+
+Segment continuous EEG into trials:
+
+| Paradigm | Epoch Window | Duration |
+|----------|--------------|----------|
+| **Motor Imagery** | 0-4 seconds post-cue | 4 seconds |
+| **P300** | -0.2 to 0.8 seconds post-stimulus | 1 second |
+| **SSVEP** | 2-4 seconds steady-state window | 2-4 seconds |
+
+### 4. Feature Extraction
+
+Convert filtered epochs to features:
+
+| Feature Type | Best For | Output Dimension Example |
+|--------------|----------|--------------------------|
+| **CSP** (Common Spatial Patterns) | Motor Imagery | 16 features (8 components × 2) |
+| **Bandpower** | SSVEP, general | n_channels × n_bands |
+| **ERP Amplitude** | P300 | n_channels × n_timepoints |
+
+<Warning>
+**Critical Mistake**: Do NOT use raw EEG channels directly. You must extract features first.
+</Warning>
+
+## Data Format Requirements
+
+### Shape: (n_features × n_samples × n_trials)
+
+NimbusSDK expects data in this specific format:
+
+```julia
+# Example: 16 CSP features, 1 second of data at 250 Hz, 20 trials
+features = randn(16, 250, 20)
+
+# Corresponding metadata
+metadata = BCIMetadata(
+    sampling_rate = 250.0,        # Hz
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,              # Must match first dimension
+    n_classes = 4,
+    chunk_size = nothing
+)
+
+# Create BCIData
+data = BCIData(features, metadata, labels)
+```
+
+### Common Format Mistakes ❌
+
+**Mistake 1**: Using raw EEG instead of features
+
+```julia
+# WRONG - Raw EEG channels
+features = raw_eeg  # (32 channels × 1000 samples × 100 trials)
+```
+
+```julia
+# CORRECT - Extracted CSP features
+csp_features = extract_csp(raw_eeg)  # (16 features × 1000 samples × 100 trials)
+```
+
+**Mistake 2**: Wrong data shape
+
+```julia
+# WRONG - Python CSP from MNE gives (trials × features × samples)
+features_from_python  # (20 × 16 × 1000)
+```
+
+```julia
+# CORRECT - NimbusSDK expects (features × samples × trials)
+features = permutedims(features_from_python, (2, 3, 1))  # (16 × 1000 × 20)
+```
+
+## Motor Imagery Preprocessing Example
+
+### Using MNE-Python
+
+```python
+import mne
+import numpy as np
+from scipy.io import savemat
+
+# Load and filter raw data (8-30 Hz for motor imagery)
+raw = mne.io.read_raw_brainvision('data.vhdr', preload=True)
+raw.filter(8.0, 30.0, method='iir')  # Step 1: Bandpass
+
+# Remove artifacts with ICA
+ica = mne.preprocessing.ICA(n_components=15, random_state=42)
+ica.fit(raw)
+ica.exclude = [0, 1]  # Eye blink components
+raw_clean = ica.apply(raw)  # Step 2: Artifact removal
+
+# Epoch data
+events = mne.find_events(raw)
+epochs = mne.Epochs(raw_clean, events, tmin=0, tmax=4.0, preload=True)  # Step 3: Epoch
+
+# Extract CSP features
+from mne.decoding import CSP
+csp = CSP(n_components=8, transform_into='csp_space', reg='shrinkage')
+X = epochs.get_data()  # (n_epochs, n_channels, n_times)
+y = epochs.events[:, -1]
+
+# Apply CSP
+X_csp = csp.fit_transform(X, y)  # (n_epochs, n_components, n_times)
+
+# Save for Julia (transpose to correct shape)
+X_csp_julia = np.transpose(X_csp, (1, 2, 0))  # (features, samples, trials)
+savemat('features.mat', {
+    'features': X_csp_julia,
+    'labels': y
+})
+```
+
+### Loading in Julia
+
+```julia
+using NimbusSDK, MAT
+
+# Load features
+data = matread("features.mat")
+features = data["features"]  # Should be (16, 1000, 20)
+
+# Verify shape
+@assert size(features) == (16, 1000, 20)  # (n_features, n_samples, n_trials)
+
+# Create BCIData
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4,
+    chunk_size = nothing
+)
+
+data = BCIData(features, metadata, Int.(vec(data["labels"])))
+
+# Use for inference
+results = predict_batch(model, data)
+```
+
+## Preprocessing Quality Diagnosis
+
+Use SDK's built-in diagnostics to check preprocessing:
+
+```julia
+using NimbusSDK
+
+# Check your preprocessing quality
+report = diagnose_preprocessing(data)
+
+if !isempty(report.errors)
+    @error "Preprocessing issues found: $(report.errors)"
+end
+
+println("Quality score: $(round(report.quality_score * 100, digits=1))%")
+
+if !isempty(report.recommendations)
+    println("Recommendations:")
+    for rec in report.recommendations
+        println("  • ", rec)
+    end
+end
+```
+
+## Minimum Requirements by Paradigm
+
+### Motor Imagery
+
+**Required:**
+- Bandpass: 8-30 Hz
+- Feature: CSP (recommended) or bandpower
+- Epoch: 0-4 seconds post-cue
+- Trials: 50-100 per class minimum for training
+
+**Example:**
+- 16 CSP features (8 components × 2)
+- 250 samples at 250 Hz (1 second window)
+- 20-40 trials per class
+
+### P300
+
+**Required:**
+- Bandpass: 0.5-10 Hz
+- Feature: ERP amplitude or bandpower
+- Epoch: -0.2 to 0.8 seconds post-stimulus
+- Trials: 200+ (typically averaged)
+
+**Example:**
+- 4 channels (Fz, Cz, Pz, Oz)
+- 250 samples at 250 Hz
+- Many trials (P300 benefits from averaging)
+
+### SSVEP
+
+**Required:**
+- Bandpass: Target frequencies ± 2 Hz
+- Feature: Canonical correlation or bandpower
+- Epoch: 2-4 seconds steady-state window
+- Trials: 50+ per target frequency
+
+**Example:**
+- 3 channels (O1, Oz, O2)
+- 250 samples at 250 Hz
+- 50 trials per target frequency
+
+## Integration with Tools
+
+### MNE-Python
+
+See complete integration guide:
+- Load data: `mne.io.read_raw_*()`
+- Filter: `raw.filter()`
+- ICA: `mne.preprocessing.ICA()`
+- Epoch: `mne.Epochs()`
+- CSP: `mne.decoding.CSP()`
+- Export to .mat for Julia
+
+### EEGLAB (MATLAB)
+
+```matlab
+% Load and filter
+EEG = pop_loadset('data.set');
+EEG = pop_eegfiltnew(EEG, 8, 30);  % Bandpass
+
+% ICA
+EEG = pop_runica(EEG);
+EEG = pop_subcomp(EEG, [1, 2], 0);  % Remove artifacts
+
+% Epoch
+EEG = pop_epoch(EEG, {'1', '2', '3', '4'}, [0 4]);
+
+% For CSP, use BCILAB or export to Python
+save('eeglab_data.mat', 'EEG');
+```
+
+Then use MNE-Python or custom CSP implementation.
+
+### OpenVibe
+
+1. **Signal Acquisition** → Connect to EEG hardware
+2. **Temporal Filter** → Set to 8-30 Hz (Motor Imagery)
+3. **Spatial Filter** → Add CSP box (train with labeled data)
+4. **Feature Extraction** → Log-variance
+5. **Generic Stream Writer** → Export to CSV
+
+Load CSV in Julia and reshape to correct format.
+
+## Common Mistakes
+
+### ❌ Using Raw EEG
+
+```julia
+# WRONG - This will cause errors!
+raw_eeg = load_eeg_data()  # (channels × samples × trials)
+data = BCIData(raw_eeg, metadata)  # ❌ Incorrect format
+```
+
+### ✅ Using Preprocessed Features
+
+```julia
+# CORRECT - Extract features first
+csp_features = extract_csp(raw_eeg)  # (features × samples × trials)
+data = BCIData(csp_features, metadata)  # ✅ Correct
+```
+
+### ❌ Wrong Frequency Band
+
+```python
+# WRONG - P300 band for Motor Imagery
+raw.filter(0.5, 10.)  # P300 frequencies
+```
+
+```python
+# CORRECT - Motor Imagery requires mu/beta bands
+raw.filter(8., 30.)  # Motor Imagery frequencies
+```
+
+### ❌ Skipping Artifact Removal
+
+```python
+# WRONG - No artifact removal
+epochs = mne.Epochs(raw, events)
+```
+
+```python
+# CORRECT - Remove artifacts first
+ica.apply(raw)
+epochs = mne.Epochs(raw_clean, events)
+```
+
+## Validation Checklist
+
+Before using data with NimbusSDK, run:
+
+```julia
+using NimbusSDK
+
+# Validate data
+is_valid, errors = validate_data(data)
+
+if !is_valid
+    @error "Data validation failed: $(errors)"
+    for err in errors
+        println("  - ", err)
+    end
+end
+
+# Check model compatibility
+if !check_model_compatibility(model, data)
+    @error "Model incompatible with data dimensions"
+end
+
+# Diagnose preprocessing
+report = diagnose_preprocessing(data)
+println("Preprocessing quality: $(round(report.quality_score * 100, digits=1))%")
+```
+
+## Need Help?
+
+### Preprocessing Support
+
+- **MNE-Python Forum**: https://mne.discourse.group/
+- **EEGLAB Documentation**: https://sccn.ucsd.edu/eeglab/
+- **Integration Guide**: See [Development > Preprocessing Integration](/development/preprocessing-integration)
+- **SDK Examples**: Check `examples/` directory in NimbusSDK.jl
+
+### Contact Us
+
+- **Email**: hello@nimbusbci.com
+- **Documentation**: https://docs.nimbusbci.com
+- **SDK Repository**: https://github.com/nimbusbci/NimbusSDK.jl
+
+<Tip>
+**Pro Tip**: Start with the Motor Imagery preprocessing examples. They're the most comprehensive and well-documented in MNE-Python. Once you understand the pipeline, adapt it for other paradigms.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Preprocessing Integration" icon="link" href="/development/preprocessing-integration">
+    Complete guide for MNE-Python, EEGLAB, OpenVibe
+  </Card>
+  <Card title="Julia SDK Reference" icon="code" href="/api-reference/julia-sdk">
+    Full SDK API documentation
+  </Card>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Get started with NimbusSDK after preprocessing
+  </Card>
+  <Card title="Code Examples" icon="file-code" href="/examples/code-samples">
+    Working code examples with preprocessing
+  </Card>
+</CardGroup>
+

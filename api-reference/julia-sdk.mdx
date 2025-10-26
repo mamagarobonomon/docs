@@ -1,0 +1,567 @@
+---
+title: "Julia SDK"
+description: "Complete reference for NimbusSDK.jl - Bayesian BCI inference with RxLDA and RxGMM"
+icon: "code"
+---
+
+# NimbusSDK.jl - Julia SDK Reference
+
+The NimbusSDK.jl Julia package provides production-ready Bayesian inference for Brain-Computer Interface (BCI) applications. Built on **RxInfer.jl**, it offers two models (RxLDA and RxGMM) with batch and streaming inference capabilities.
+
+## Installation
+
+```julia
+using Pkg
+
+# Add Nimbus registry (one-time setup)
+Pkg.Registry.add("https://github.com/nimbusbci/NimbusRegistry")
+
+# Install NimbusSDK
+Pkg.add("NimbusSDK")
+```
+
+### Requirements
+
+- Julia ≥ 1.9
+- RxInfer.jl ≥ 2.12
+- Preprocessed EEG features (CSP, bandpower, etc.) - **not raw EEG**
+- Valid API key for authentication
+
+## Quick Start
+
+```julia
+using NimbusSDK
+
+# Authenticate
+NimbusSDK.authenticate("your-api-key")
+
+# Load model
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+# Prepare data
+data = BCIData(features, metadata, labels)
+
+# Run inference
+results = predict_batch(model, data)
+```
+
+## Authentication
+
+### authenticate()
+
+Initialize the SDK with an API key. Validates the key remotely and caches credentials locally.
+
+```julia
+authenticate(api_key::String; offline_mode::Bool=false) -> AuthSession
+```
+
+**Parameters:**
+- `api_key::String` - Your NimbusSDK API key
+- `offline_mode::Bool` - If true, skip remote validation and use cached credentials
+
+**Example:**
+```julia
+using NimbusSDK
+
+session = NimbusSDK.authenticate("nbci_live_...")
+# SDK is now authenticated and ready to use
+```
+
+### invalidate_session()
+
+Clear the current authentication session and cached credentials.
+
+```julia
+invalidate_session()
+```
+
+## Models
+
+NimbusSDK provides two Bayesian inference models:
+
+### RxLDAModel
+
+Linear Discriminant Analysis with shared precision matrix. Fast inference with good performance for well-separated classes.
+
+**Fields:**
+- `means::Vector{Vector{Float64}}` - Class means [m1, m2, ..., mk]
+- `precisions::Vector{Matrix{Float64}}` - Class precision matrices
+- `global_precision::Matrix{Float64}` - Shared precision matrix
+- `metadata::ModelMetadata` - Model metadata
+
+### RxGMMModel
+
+Gaussian Mixture Model with class-specific covariance matrices. More flexible, handles overlapping distributions.
+
+**Fields:**
+- `means::Vector{Vector{Float64}}` - Class means [m1, m2, ..., mk]
+- `precisions::Vector` - Vector of precision matrices or Wishart distributions
+- `metadata::ModelMetadata` - Model metadata
+
+### load_model()
+
+Load a pre-trained or custom model.
+
+```julia
+load_model(ModelType, model_name::String) -> Model
+load_model(ModelType, filepath::String) -> Model
+```
+
+**Parameters:**
+- `ModelType` - `RxLDAModel` or `RxGMMModel`
+- `model_name::String` - Model identifier or filepath
+
+**Example:**
+```julia
+# Load from Nimbus model zoo
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+# Load custom model
+model = load_model(RxLDAModel, "my_model.jld2")
+```
+
+### save_model()
+
+Save a trained or loaded model to disk.
+
+```julia
+save_model(model, filepath::String)
+```
+
+**Parameters:**
+- `model` - `RxLDAModel` or `RxGMMModel`
+- `filepath::String` - File path to save model (typically `.jld2` format)
+
+### train_model()
+
+Train a new model on labeled data.
+
+```julia
+train_model(
+    ModelType,
+    train_data::BCIData;
+    iterations::Int = 50,
+    showprogress::Bool = false,
+    name::String = "untitled_model",
+    description::String = ""
+) -> Model
+```
+
+**Parameters:**
+- `ModelType` - `RxLDAModel` or `RxGMMModel`
+- `train_data::BCIData` - Labeled training data (must include labels!)
+- `iterations::Int` - Number of inference iterations (default: 50)
+- `showprogress::Bool` - Show training progress (default: false)
+- `name::String` - Model name (default: "untitled_model")
+- `description::String` - Model description (default: "")
+
+**Example:**
+```julia
+model = train_model(
+    RxLDAModel,
+    train_data;
+    iterations = 50,
+    showprogress = true,
+    name = "my_motor_imagery_model",
+    description = "4-class motor imagery with CSP"
+)
+```
+
+### calibrate_model()
+
+Fine-tune a pre-trained model with subject-specific data (faster than training from scratch).
+
+```julia
+calibrate_model(
+    base_model,
+    calib_data::BCIData;
+    iterations::Int = 20
+) -> Model
+```
+
+**Parameters:**
+- `base_model` - Pre-trained model to calibrate
+- `calib_data::BCIData` - Calibration data with labels
+- `iterations::Int` - Number of calibration iterations (default: 20)
+
+**Example:**
+```julia
+base_model = load_model(RxLDAModel, "motor_imagery_baseline_v1")
+personalized_model = calibrate_model(base_model, calib_data; iterations=20)
+```
+
+## Data Structures
+
+### BCIData
+
+Container for BCI data with features, metadata, and optional labels.
+
+```julia
+struct BCIData
+    features::Array{Float64, 3}  # (n_features × n_samples × n_trials)
+    metadata::BCIMetadata
+    labels::Union{Nothing, Vector{Int}}  # Optional labels for training/evaluation
+end
+```
+
+**Example:**
+```julia
+data = BCIData(
+    csp_features,  # (16, 250, 20) - 16 features, 250 samples, 20 trials
+    BCIMetadata(...),
+    labels  # [1, 2, 3, 4, 1, 2, ...] - trial labels (1-indexed)
+)
+```
+
+### BCIMetadata
+
+Metadata describing the BCI data properties.
+
+```julia
+struct BCIMetadata
+    sampling_rate::Float64       # Hz (e.g., 250.0)
+    paradigm::Symbol             # :motor_imagery, :p300, :ssvep, :custom
+    feature_type::Symbol         # :csp, :bandpower, :erp, :custom
+    n_features::Int              # Number of features (e.g., 16 for CSP)
+    n_classes::Int               # Number of classes (e.g., 4)
+    chunk_size::Union{Nothing, Int}  # For streaming: samples per chunk
+    model_name::String           # Model identifier
+    description::String          # Model description
+end
+```
+
+**Example:**
+```julia
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4,
+    chunk_size = nothing  # Batch mode
+)
+```
+
+## Inference Functions
+
+### predict_batch()
+
+Perform batch inference on multiple trials.
+
+```julia
+predict_batch(
+    model,
+    data::BCIData;
+    iterations::Int = 10
+) -> BatchResult
+```
+
+**Parameters:**
+- `model` - `RxLDAModel` or `RxGMMModel`
+- `data::BCIData` - Data to predict (labels optional)
+- `iterations::Int` - Number of inference iterations (default: 10)
+
+**Returns:**
+```julia
+struct BatchResult
+    predictions::Vector{Int}       # Predicted class for each trial
+    confidences::Vector{Float64}  # Confidence (max posterior) for each trial
+    posteriors::Array{Float64, 2} # Full posterior distributions (n_classes × n_trials)
+    inference_id::String          # Unique inference identifier
+end
+```
+
+**Example:**
+```julia
+results = predict_batch(model, data)
+
+println("Predictions: ", results.predictions)
+println("Mean confidence: ", mean(results.confidences))
+
+# Calculate accuracy if labels available
+accuracy = sum(results.predictions .== data.labels) / length(data.labels)
+println("Accuracy: $(round(accuracy * 100, digits=1))%")
+```
+
+### init_streaming()
+
+Initialize a streaming session for chunk-by-chunk inference.
+
+```julia
+init_streaming(model, metadata::BCIMetadata) -> StreamingSession
+```
+
+**Parameters:**
+- `model` - Loaded model
+- `metadata::BCIMetadata` - Metadata with `chunk_size` set
+
+**Returns:** `StreamingSession` for processing chunks
+
+**Example:**
+```julia
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4,
+    chunk_size = 250  # 1 second chunks at 250 Hz
+)
+
+session = init_streaming(model, metadata)
+```
+
+### process_chunk()
+
+Process a single chunk of data during streaming.
+
+```julia
+process_chunk(session, chunk::Array{Float64, 2}) -> StreamingResult
+```
+
+**Parameters:**
+- `session::StreamingSession` - Active streaming session
+- `chunk::Array{Float64, 2}` - Chunk data (n_features × chunk_size)
+
+**Returns:**
+```julia
+struct StreamingResult
+    prediction::Int           # Predicted class
+    confidence::Float64       # Confidence (max posterior)
+    posterior::Vector{Float64} # Full posterior distribution
+end
+```
+
+**Example:**
+```julia
+for chunk in eeg_stream
+    result = process_chunk(session, chunk)
+    println("Prediction: $(result.prediction), Confidence: $(result.confidence)")
+end
+```
+
+### finalize_trial()
+
+Finalize a trial by aggregating results from all processed chunks.
+
+```julia
+finalize_trial(
+    session::StreamingSession;
+    method::Symbol = :weighted_vote
+) -> StreamingResult
+```
+
+**Parameters:**
+- `session::StreamingSession` - Active streaming session
+- `method::Symbol` - Aggregation method (`:weighted_vote`, `:majority_vote`)
+
+**Returns:** Final aggregated result for the trial
+
+**Example:**
+```julia
+# Process trial
+for chunk in trial_chunks
+    process_chunk(session, chunk)
+end
+
+# Get final prediction
+final_result = finalize_trial(session; method=:weighted_vote)
+println("Trial prediction: $(final_result.prediction)")
+```
+
+## Utility Functions
+
+### calculate_ITR()
+
+Calculate Information Transfer Rate (ITR) in bits/minute.
+
+```julia
+calculate_ITR(accuracy::Float64, n_classes::Int, trial_duration::Float64) -> Float64
+```
+
+**Parameters:**
+- `accuracy::Float64` - Classification accuracy (0.0 to 1.0)
+- `n_classes::Int` - Number of classes
+- `trial_duration::Float64` - Trial duration in seconds
+
+**Example:**
+```julia
+accuracy = 0.85
+n_classes = 4
+trial_duration = 4.0  # seconds
+
+itr = calculate_ITR(accuracy, n_classes, trial_duration)
+println("ITR: $(round(itr, digits=1)) bits/minute")
+```
+
+### should_reject_trial()
+
+Check if a trial should be rejected based on confidence threshold.
+
+```julia
+should_reject_trial(confidence::Float64, threshold::Float64 = 0.7) -> Bool
+```
+
+### assess_trial_quality()
+
+Assess the quality of inference results.
+
+```julia
+assess_trial_quality(result::BatchResult) -> TrialQuality
+```
+
+**Returns:**
+```julia
+struct TrialQuality
+    overall_score::Float64
+    confidence_acceptable::Bool
+    recommendation::String
+end
+```
+
+### diagnose_preprocessing()
+
+Diagnose preprocessing quality and provide recommendations.
+
+```julia
+diagnose_preprocessing(data::BCIData) -> PreprocessingReport
+```
+
+**Returns:**
+```julia
+struct PreprocessingReport
+    quality_score::Float64
+    errors::Vector{String}
+    warnings::Vector{String}
+    recommendations::Vector{String}
+end
+```
+
+**Example:**
+```julia
+report = diagnose_preprocessing(data)
+
+if !isempty(report.errors)
+    @error "Preprocessing issues: $(report.errors)"
+end
+
+println("Quality score: $(round(report.quality_score * 100, digits=1))%")
+```
+
+## Performance Metrics
+
+### BCIPerformanceMetrics
+
+Container for BCI performance metrics.
+
+```julia
+struct BCIPerformanceMetrics
+    accuracy::Float64
+    information_transfer_rate::Float64  # bits/minute
+    mean_confidence::Float64
+    mean_latency_ms::Float64
+end
+```
+
+### OnlinePerformanceTracker
+
+Track performance metrics in real-time.
+
+```julia
+struct OnlinePerformanceTracker
+    window_size::Int
+    # ... internal state
+end
+
+OnlinePerformanceTracker(; window_size::Int = 50) -> tracker
+
+update_and_report!(tracker, prediction, true_label, confidence) -> metrics
+get_metrics(tracker, n_classes, trial_duration) -> BCIPerformanceMetrics
+```
+
+**Example:**
+```julia
+tracker = OnlinePerformanceTracker(window_size=50)
+
+for (pred, true_lbl, conf) in results
+    metrics = update_and_report!(tracker, pred, true_lbl, conf)
+    println("Running accuracy: $(round(metrics.accuracy * 100, digits=1))%")
+end
+
+full_metrics = get_metrics(tracker, n_classes=4, trial_duration=4.0)
+println("ITR: $(full_metrics.information_transfer_rate) bits/min")
+```
+
+## Error Handling
+
+Common exceptions:
+
+- `AuthenticationError` - Invalid or expired API key
+- `DataValidationError` - Invalid data format or dimensions
+- `ModelCompatibilityError` - Model incompatible with data
+- `QuotaExceededError` - API quota limit exceeded
+
+```julia
+try
+    results = predict_batch(model, data)
+catch e
+    if isa(e, DataValidationError)
+        @error "Data validation failed" error_msg(e)
+    elseif isa(e, AuthenticationError)
+        @error "Authentication failed - check API key"
+    else
+        @error "Inference failed" e
+    end
+end
+```
+
+## Configuration
+
+### Model Compatibility
+
+Check if a model is compatible with your data:
+
+```julia
+is_compatible(model, metadata::BCIMetadata) -> Bool
+check_model_compatibility(model, data::BCIData) -> Bool
+```
+
+### Data Validation
+
+Validate data before inference:
+
+```julia
+validate_data(data::BCIData) -> (Bool, Vector{String})
+```
+
+Returns validation status and any error messages.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="RxLDA Model" icon="brain" href="/models/rxlda">
+    Detailed documentation for RxLDA
+  </Card>
+  <Card title="RxGMM Model" icon="brain" href="/models/rxgmm">
+    Detailed documentation for RxGMM
+  </Card>
+  <Card title="Preprocessing Guide" icon="cog" href="/inference-configuration/preprocessing-requirements">
+    How to prepare your EEG data
+  </Card>
+  <Card title="Batch Processing" icon="list" href="/inference-configuration/batch-processing">
+    Efficient offline batch inference
+  </Card>
+  <Card title="Streaming Inference" icon="wave-square" href="/inference-configuration/real-time-setup">
+    Real-time chunk-by-chunk processing
+  </Card>
+  <Card title="Code Examples" icon="code" href="/examples/code-samples">
+    Complete working examples
+  </Card>
+</CardGroup>
+
+## Support
+
+- **Email**: hello@nimbusbci.com
+- **Documentation**: https://docs.nimbusbci.com
+- **GitHub**: https://github.com/nimbusbci/NimbusSDK.jl
+
