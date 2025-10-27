@@ -1,747 +1,660 @@
 ---
 title: "Error Handling"
 description: "Implement robust error recovery for production BCI applications"
-icon: "circle"
+icon: "shield"
 ---
 
 # Error Handling for BCI Systems
 
-Robust error handling is critical for BCI applications, especially in medical and assistive technology contexts where system failures can have serious consequences. Nimbus provides comprehensive error handling mechanisms to ensure reliable operation under various failure conditions.
+Robust error handling is critical for BCI applications, especially in medical and assistive technology contexts where system failures can have serious consequences. NimbusSDK provides comprehensive validation and error detection to ensure reliable operation.
 
-## Types of BCI Errors
+## Error Categories
 
-BCI systems face unique error conditions that require specialized handling:
+### Authentication Errors
 
-### Hardware Errors
+Common authentication-related issues:
 
-<Columns cols={2}>
-  <Card title="Signal Acquisition" icon="signal">
-    - Electrode disconnection
-    - Amplifier saturation
-    - ADC overflow
-    - Sampling rate drift
-  </Card>
-  <Card title="Communication" icon="wifi">
-    - Bluetooth disconnection
-    - USB device removal
-    - Network interruption
-    - Data packet loss
-  </Card>
-  <Card title="Power Issues" icon="battery">
-    - Low battery warnings
-    - Power supply fluctuations
-    - Device overheating
-    - Sudden shutdowns
-  </Card>
-  <Card title="Mechanical" icon="cog">
-    - Headset displacement
-    - Cable damage
-    - Connector wear
-    - Physical interference
-  </Card>
-</Columns>
+```julia
+using NimbusSDK
 
-### Signal Quality Errors
+# 1. Invalid API Key Format
+try
+    NimbusSDK.authenticate("short_key")  # Too short
+catch e
+    # Error: "Invalid API key format. API keys must be at least 20 characters."
+    println("Authentication failed: Please check your API key")
+end
 
-Neural signals are inherently noisy and variable:
+# 2. Expired Credentials (Offline Mode)
+try
+    NimbusSDK.authenticate("your-api-key"; offline_mode=true)
+catch e
+    # Error: "Cached credentials have expired. Please authenticate online."
+    println("Please reconnect to the internet to renew your license")
+end
 
-```python
-# Signal quality error detection
-class SignalQualityError(nimbus.BCIError):
-    """Raised when signal quality drops below acceptable levels"""
-    
-    def __init__(self, quality_score, threshold, affected_channels):
-        self.quality_score = quality_score
-        self.threshold = threshold
-        self.affected_channels = affected_channels
-        super().__init__(f"Signal quality {quality_score:.2f} below threshold {threshold:.2f}")
-
-# Example usage
-try:
-    signal_quality = nimbus.assess_signal_quality(eeg_data)
-    if signal_quality.overall_score < quality_threshold:
-        raise SignalQualityError(
-            quality_score=signal_quality.overall_score,
-            threshold=quality_threshold,
-            affected_channels=signal_quality.poor_channels
-        )
-except SignalQualityError as e:
-    # Handle poor signal quality
-    await handle_signal_quality_issue(e)
+# 3. Missing Cached Credentials
+try
+    NimbusSDK.authenticate("your-api-key"; offline_mode=true)
+catch e
+    # Error: "Offline mode requested but no cached credentials found..."
+    println("You must authenticate online at least once")
+end
 ```
 
-### Processing Errors
+**Best Practice: Handle Auth Errors Gracefully**
 
-Computational and algorithmic failures:
-
-```python
-# Processing error hierarchy
-class ProcessingError(nimbus.BCIError):
-    """Base class for processing errors"""
-    pass
-
-class InferenceError(ProcessingError):
-    """Errors during probabilistic inference"""
-    pass
-
-class ConvergenceError(InferenceError):
-    """Algorithm failed to converge"""
-    pass
-
-class NumericalError(ProcessingError):
-    """Numerical instability or overflow"""
-    pass
-
-class ModelError(ProcessingError):
-    """Model-related errors"""
-    pass
-```
-
-## Error Detection Strategies
-
-### Proactive Monitoring
-
-Detect issues before they cause failures:
-
-```python
-# Comprehensive monitoring system
-monitor = nimbus.BCIMonitor(
-    # Signal monitoring
-    signal_checks={
-        'amplitude_range': (1, 100),      # μV
-        'frequency_content': (0.5, 40),   # Hz
-        'impedance_threshold': 50000,     # Ω
-        'artifact_level': 0.3             # normalized
-    },
-    
-    # System monitoring
-    system_checks={
-        'cpu_usage': 0.8,                 # 80% max
-        'memory_usage': 0.9,              # 90% max
-        'gpu_temperature': 85,            # °C
-        'processing_latency': 20          # ms
-    },
-    
-    # Model monitoring
-    model_checks={
-        'prediction_confidence': 0.5,     # minimum
-        'prediction_stability': 0.8,      # consistency
-        'calibration_drift': 0.1          # maximum drift
-    }
-)
-
-# Start monitoring
-await monitor.start()
-```
-
-### Real-time Validation
-
-Validate data and predictions in real-time:
-
-```python
-# Real-time validation pipeline
-validator = nimbus.RealTimeValidator([
-    # Data validation
-    nimbus.DataValidator(
-        checks=['range', 'continuity', 'noise_level'],
-        auto_correct=True
-    ),
-    
-    # Feature validation
-    nimbus.FeatureValidator(
-        checks=['dimensionality', 'distribution', 'correlation'],
-        tolerance=0.1
-    ),
-    
-    # Prediction validation
-    nimbus.PredictionValidator(
-        checks=['confidence', 'consistency', 'plausibility'],
-        temporal_smoothing=True
-    )
-])
-
-# Validate in processing pipeline
-async def validated_inference(eeg_sample):
-    try:
-        # Validate input
-        validated_sample = await validator.validate_input(eeg_sample)
+```julia
+function safe_authenticate(api_key::String; retry_offline::Bool=true)
+    try
+        # Try online authentication
+        NimbusSDK.authenticate(api_key; offline_mode=false)
+        println("✓ Authenticated successfully")
+        return true
+    catch e
+        @warn "Online authentication failed" exception=e
         
-        # Process
-        result = await bci_system.infer(validated_sample)
-        
-        # Validate output
-        validated_result = await validator.validate_output(result)
-        
-        return validated_result
-        
-    except nimbus.ValidationError as e:
-        # Handle validation failure
-        return await handle_validation_error(e)
-```
-
-## Error Recovery Mechanisms
-
-### Graceful Degradation
-
-Maintain functionality when components fail:
-
-```python
-# Graceful degradation system
-class GracefulDegradation:
-    def __init__(self):
-        self.degradation_levels = {
-            'full_performance': {
-                'channels': 64,
-                'sample_rate': 1000,
-                'features': 'all',
-                'latency_target': 15
-            },
-            'reduced_channels': {
-                'channels': 32,
-                'sample_rate': 1000,
-                'features': 'essential',
-                'latency_target': 20
-            },
-            'minimal_operation': {
-                'channels': 8,
-                'sample_rate': 250,
-                'features': 'basic',
-                'latency_target': 50
-            },
-            'emergency_mode': {
-                'channels': 4,
-                'sample_rate': 125,
-                'features': 'minimal',
-                'latency_target': 100
-            }
-        }
-    
-    async def handle_degradation(self, error_type, severity):
-        if severity == 'high':
-            await self.switch_to_level('minimal_operation')
-        elif severity == 'critical':
-            await self.switch_to_level('emergency_mode')
-        else:
-            await self.switch_to_level('reduced_channels')
-    
-    async def switch_to_level(self, level):
-        config = self.degradation_levels[level]
-        await bci_system.reconfigure(config)
-        logger.warning(f"Switched to degradation level: {level}")
-```
-
-### Automatic Recovery
-
-Implement automatic recovery procedures:
-
-```python
-# Automatic recovery system
-class AutoRecovery:
-    def __init__(self):
-        self.recovery_strategies = {
-            'signal_loss': self.recover_signal_loss,
-            'processing_error': self.recover_processing_error,
-            'hardware_failure': self.recover_hardware_failure,
-            'model_drift': self.recover_model_drift
-        }
-        
-        self.max_retries = 3
-        self.backoff_strategy = 'exponential'
-    
-    async def recover_signal_loss(self, error):
-        """Recover from signal acquisition problems"""
-        # Step 1: Check hardware connections
-        await self.check_hardware_connections()
-        
-        # Step 2: Restart signal acquisition
-        await self.restart_signal_acquisition()
-        
-        # Step 3: Recalibrate if necessary
-        if error.duration > 30:  # seconds
-            await self.trigger_recalibration()
-    
-    async def recover_processing_error(self, error):
-        """Recover from processing failures"""
-        # Step 1: Clear processing buffers
-        await bci_system.clear_buffers()
-        
-        # Step 2: Reset processing state
-        await bci_system.reset_processing_state()
-        
-        # Step 3: Switch to backup model if available
-        if hasattr(error, 'model_failure'):
-            await self.switch_to_backup_model()
-    
-    async def recover_hardware_failure(self, error):
-        """Recover from hardware issues"""
-        # Step 1: Switch to backup hardware
-        backup_device = await self.find_backup_device()
-        if backup_device:
-            await self.switch_to_device(backup_device)
-        else:
-            # Step 2: Graceful degradation
-            await self.enable_graceful_degradation()
-```
-
-### Retry Mechanisms
-
-Implement intelligent retry logic:
-
-```python
-# Retry configuration
-retry_config = nimbus.RetryConfig(
-    # Basic retry settings
-    max_retries=3,
-    base_delay=0.1,  # seconds
-    max_delay=2.0,   # seconds
-    backoff_factor=2.0,
-    
-    # Retry conditions
-    retry_on=[
-        nimbus.TemporaryError,
-        nimbus.NetworkError,
-        nimbus.ResourceError
-    ],
-    
-    # Don't retry on
-    no_retry_on=[
-        nimbus.ConfigurationError,
-        nimbus.AuthenticationError,
-        nimbus.HardwareError
-    ],
-    
-    # Jitter to avoid thundering herd
-    jitter=True,
-    jitter_max=0.1
-)
-
-# Retry decorator
-@nimbus.retry(retry_config)
-async def robust_inference(eeg_data):
-    """Inference with automatic retry on transient failures"""
-    return await bci_system.infer(eeg_data)
-```
-
-## Error Handling Patterns
-
-### Circuit Breaker Pattern
-
-Prevent cascading failures:
-
-```python
-# Circuit breaker for BCI processing
-class BCICircuitBreaker:
-    def __init__(self, failure_threshold=5, recovery_timeout=30):
-        self.failure_threshold = failure_threshold
-        self.recovery_timeout = recovery_timeout
-        self.failure_count = 0
-        self.last_failure_time = None
-        self.state = 'closed'  # closed, open, half_open
-    
-    async def call(self, func, *args, **kwargs):
-        if self.state == 'open':
-            if self.should_attempt_reset():
-                self.state = 'half_open'
-            else:
-                raise nimbus.CircuitBreakerOpenError("Circuit breaker is open")
-        
-        try:
-            result = await func(*args, **kwargs)
-            await self.on_success()
-            return result
-            
-        except Exception as e:
-            await self.on_failure()
-            raise
-    
-    async def on_success(self):
-        self.failure_count = 0
-        self.state = 'closed'
-    
-    async def on_failure(self):
-        self.failure_count += 1
-        self.last_failure_time = time.time()
-        
-        if self.failure_count >= self.failure_threshold:
-            self.state = 'open'
-            logger.warning("Circuit breaker opened due to repeated failures")
+        if retry_offline
+            println("Attempting offline mode...")
+            try
+                NimbusSDK.authenticate(api_key; offline_mode=true)
+                println("✓ Using cached credentials")
+                return true
+            catch offline_error
+                @error "Offline authentication failed" exception=offline_error
+                return false
+            end
+        end
+        return false
+    end
+end
 
 # Usage
-circuit_breaker = BCICircuitBreaker()
-
-async def protected_inference(eeg_data):
-    return await circuit_breaker.call(bci_system.infer, eeg_data)
+if !safe_authenticate("your-api-key")
+    println("❌ Cannot proceed without authentication")
+    exit(1)
+end
 ```
 
-### Bulkhead Pattern
+### Data Validation Errors
 
-Isolate critical components:
+NimbusSDK validates data before inference to catch common issues:
 
-```python
-# Resource isolation for BCI components
-class BCIBulkhead:
-    def __init__(self):
-        # Separate resource pools for different components
-        self.signal_processing_pool = asyncio.Semaphore(4)
-        self.feature_extraction_pool = asyncio.Semaphore(2)
-        self.classification_pool = asyncio.Semaphore(2)
-        self.output_processing_pool = asyncio.Semaphore(1)
-    
-    async def process_signal(self, eeg_data):
-        async with self.signal_processing_pool:
-            return await signal_processor.process(eeg_data)
-    
-    async def extract_features(self, processed_signal):
-        async with self.feature_extraction_pool:
-            return await feature_extractor.extract(processed_signal)
-    
-    async def classify(self, features):
-        async with self.classification_pool:
-            return await classifier.classify(features)
-    
-    async def process_output(self, classification):
-        async with self.output_processing_pool:
-            return await output_processor.process(classification)
+```julia
+using NimbusSDK
+
+# 1. NaN or Inf values
+bad_features = randn(16, 250, 10)
+bad_features[5, 100, 3] = NaN  # Inject NaN
+
+try
+    data = BCIData(bad_features, metadata)
+    # Error: "Data contains NaN values. Please clean your data before inference."
+catch e
+    println("Data validation failed: Clean your data")
+    # Fix: Remove or interpolate NaN values
+    clean_features = replace_nan_with_mean(bad_features)
+end
+
+# 2. Dimension mismatches
+wrong_dim_features = randn(16, 250, 10, 2)  # 4D instead of 3D
+
+try
+    data = BCIData(wrong_dim_features, metadata)
+    # Error: "Features must be 2D or 3D array, got 4D"
+catch e
+    println("Dimension error: Expected 2D or 3D array")
+end
+
+# 3. Feature dimension mismatch
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    n_features = 16,  # Expects 16 features
+    n_classes = 4
+)
+features = randn(8, 250, 10)  # Only 8 features!
+
+try
+    data = BCIData(features, metadata)
+    model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+    results = predict_batch(model, data)
+    # Error: "Data has 8 features but model expects 16 features"
+catch e
+    println("Feature dimension mismatch: Check your preprocessing")
+end
 ```
 
-## Medical Device Error Handling
+**Best Practice: Pre-validation Function**
 
-### Safety-Critical Error Handling
-
-For medical BCI applications:
-
-```python
-# Medical-grade error handling
-class MedicalErrorHandler:
-    def __init__(self):
-        self.safety_state = 'normal'
-        self.error_log = []
-        self.alert_system = MedicalAlertSystem()
+```julia
+function validate_bci_data(features, metadata)
+    errors = String[]
+    warnings = String[]
     
-    async def handle_critical_error(self, error):
-        """Handle errors that could affect patient safety"""
-        # Immediate safety response
-        await self.enter_safe_state()
-        
-        # Alert medical staff
-        await self.alert_system.send_critical_alert(error)
-        
-        # Log for regulatory compliance
-        await self.log_critical_error(error)
-        
-        # Attempt recovery only if safe
-        if self.is_recovery_safe(error):
-            await self.attempt_recovery(error)
-        else:
-            await self.require_manual_intervention()
+    # Check for NaN/Inf
+    if any(isnan.(features))
+        push!(errors, "Data contains NaN values")
+    end
+    if any(isinf.(features))
+        push!(errors, "Data contains Inf values")
+    end
     
-    async def enter_safe_state(self):
-        """Enter a known safe state"""
-        self.safety_state = 'safe'
-        
-        # Stop all active commands
-        await bci_system.stop_all_commands()
-        
-        # Switch to passive monitoring mode
-        await bci_system.switch_to_monitoring_mode()
-        
-        # Enable manual override
-        await bci_system.enable_manual_override()
+    # Check dimensions
+    if ndims(features) < 2 || ndims(features) > 3
+        push!(errors, "Features must be 2D or 3D, got $(ndims(features))D")
+    end
+    
+    # Check feature dimension
+    actual_features = size(features, 1)
+    if actual_features != metadata.n_features
+        push!(errors, "Feature count mismatch: $actual_features vs $(metadata.n_features)")
+    end
+    
+    # Check for suspicious statistics
+    feature_std = std(features)
+    if feature_std < 1e-10
+        push!(warnings, "Very small std dev ($feature_std) - data may not be scaled")
+    end
+    if feature_std > 1e6
+        push!(warnings, "Very large std dev ($feature_std) - consider normalization")
+    end
+    
+    # Report issues
+    if !isempty(errors)
+        println("❌ Validation Errors:")
+        for err in errors
+            println("  • $err")
+        end
+        return false
+    end
+    
+    if !isempty(warnings)
+        println("⚠️  Validation Warnings:")
+        for warn in warnings
+            println("  • $warn")
+        end
+    end
+    
+    return true
+end
+
+# Usage
+if validate_bci_data(features, metadata)
+    data = BCIData(features, metadata)
+    results = predict_batch(model, data)
+else
+    println("Fix data issues before inference")
+end
 ```
 
-### Regulatory Compliance
+### Model Compatibility Errors
 
-Ensure error handling meets regulatory requirements:
+```julia
+using NimbusSDK
 
-```python
-# FDA-compliant error logging
-class RegulatoryErrorLogger:
-    def __init__(self):
-        self.audit_trail = []
-        self.error_database = ErrorDatabase()
-    
-    async def log_error(self, error, context):
-        """Log error with full audit trail"""
-        error_record = {
-            'timestamp': datetime.utcnow().isoformat(),
-            'error_type': type(error).__name__,
-            'error_message': str(error),
-            'severity': error.severity,
-            'context': context,
-            'system_state': await self.capture_system_state(),
-            'user_id': context.get('user_id'),
-            'session_id': context.get('session_id'),
-            'device_serial': await self.get_device_serial(),
-            'software_version': nimbus.__version__,
-            'recovery_action': error.recovery_action,
-            'resolution_time': None  # Updated when resolved
-        }
-        
-        # Store in audit trail
-        self.audit_trail.append(error_record)
-        
-        # Store in database
-        await self.error_database.store(error_record)
-        
-        # Generate regulatory report if required
-        if error.severity in ['critical', 'major']:
-            await self.generate_regulatory_report(error_record)
-```
+# Load a 4-class motor imagery model
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
 
-## User Communication
-
-### Error Messages
-
-Provide clear, actionable error messages:
-
-```python
-# User-friendly error messages
-class UserErrorCommunicator:
-    def __init__(self):
-        self.message_templates = {
-            'signal_quality': {
-                'title': "Signal Quality Issue",
-                'message': "The brain signal quality is poor. Please check that the headset is properly positioned and electrodes are making good contact.",
-                'actions': ["Adjust headset", "Check electrode gel", "Retry calibration"],
-                'severity': 'warning'
-            },
-            'hardware_disconnected': {
-                'title': "Hardware Disconnected",
-                'message': "The BCI device has been disconnected. Please check the connection and try again.",
-                'actions': ["Check USB/Bluetooth connection", "Restart device", "Contact support"],
-                'severity': 'error'
-            },
-            'processing_error': {
-                'title': "Processing Error",
-                'message': "There was an error processing your brain signals. The system is attempting to recover automatically.",
-                'actions': ["Please wait", "Try again in a moment", "Contact support if persistent"],
-                'severity': 'warning'
-            }
-        }
-    
-    async def communicate_error(self, error_type, context=None):
-        """Send user-appropriate error message"""
-        template = self.message_templates.get(error_type)
-        if template:
-            await self.display_error_message(template, context)
-        else:
-            await self.display_generic_error(error_type)
-    
-    async def display_error_message(self, template, context):
-        """Display formatted error message to user"""
-        message = {
-            'title': template['title'],
-            'message': template['message'],
-            'actions': template['actions'],
-            'severity': template['severity'],
-            'timestamp': datetime.now().isoformat(),
-            'context': context
-        }
-        
-        # Send to UI
-        await ui_system.display_error(message)
-        
-        # Log user notification
-        logger.info(f"User notified of error: {template['title']}")
-```
-
-### Progress Communication
-
-Keep users informed during error recovery:
-
-```python
-# Recovery progress communication
-class RecoveryProgressCommunicator:
-    async def communicate_recovery_progress(self, recovery_process):
-        """Provide real-time recovery progress updates"""
-        async for step in recovery_process:
-            progress_message = {
-                'step': step.name,
-                'progress': step.progress_percent,
-                'message': step.user_message,
-                'estimated_time': step.estimated_completion_time
-            }
-            
-            await ui_system.update_recovery_progress(progress_message)
-            
-            # Provide audio feedback for accessibility
-            if step.progress_percent in [25, 50, 75, 100]:
-                await audio_system.play_progress_sound(step.progress_percent)
-```
-
-## Testing Error Handling
-
-### Error Injection Testing
-
-Test error handling with controlled failures:
-
-```python
-# Error injection for testing
-class ErrorInjector:
-    def __init__(self):
-        self.injection_rules = []
-    
-    def inject_signal_loss(self, duration=5.0, channels=None):
-        """Inject signal loss for testing"""
-        rule = {
-            'type': 'signal_loss',
-            'duration': duration,
-            'channels': channels or 'all',
-            'trigger_time': time.time() + 1.0
-        }
-        self.injection_rules.append(rule)
-    
-    def inject_processing_error(self, error_type, probability=0.1):
-        """Inject processing errors randomly"""
-        rule = {
-            'type': 'processing_error',
-            'error_type': error_type,
-            'probability': probability
-        }
-        self.injection_rules.append(rule)
-    
-    async def check_and_inject(self):
-        """Check if any errors should be injected"""
-        current_time = time.time()
-        
-        for rule in self.injection_rules[:]:
-            if rule['type'] == 'signal_loss':
-                if current_time >= rule['trigger_time']:
-                    await self.simulate_signal_loss(rule)
-                    self.injection_rules.remove(rule)
-            
-            elif rule['type'] == 'processing_error':
-                if random.random() < rule['probability']:
-                    await self.simulate_processing_error(rule)
-
-# Usage in tests
-async def test_signal_loss_recovery():
-    injector = ErrorInjector()
-    injector.inject_signal_loss(duration=10.0, channels=[1, 2, 3])
-    
-    # Start BCI system
-    await bci_system.start()
-    
-    # Monitor recovery
-    recovery_successful = await monitor_recovery_process()
-    assert recovery_successful
-```
-
-### Chaos Engineering
-
-Test system resilience:
-
-```python
-# Chaos engineering for BCI systems
-class BCIChaosEngineer:
-    def __init__(self):
-        self.chaos_experiments = [
-            self.random_hardware_disconnection,
-            self.random_signal_degradation,
-            self.random_processing_delays,
-            self.random_memory_pressure,
-            self.random_network_issues
-        ]
-    
-    async def run_chaos_experiment(self, duration=300):  # 5 minutes
-        """Run random chaos experiments"""
-        end_time = time.time() + duration
-        
-        while time.time() < end_time:
-            # Choose random experiment
-            experiment = random.choice(self.chaos_experiments)
-            
-            # Run experiment
-            await experiment()
-            
-            # Wait before next experiment
-            await asyncio.sleep(random.uniform(10, 60))
-    
-    async def random_hardware_disconnection(self):
-        """Randomly disconnect hardware briefly"""
-        await hardware_manager.simulate_disconnection(
-            duration=random.uniform(1, 5)
-        )
-    
-    async def random_signal_degradation(self):
-        """Randomly degrade signal quality"""
-        await signal_processor.inject_noise(
-            level=random.uniform(0.1, 0.5),
-            duration=random.uniform(5, 30)
-        )
-```
-
-## Best Practices
-
-### Error Handling Guidelines
-
-<Tip>
-**Fail Fast, Recover Gracefully**: Detect errors quickly but provide smooth recovery experiences for users.
-</Tip>
-
-1. **Layered Error Handling**: Implement error handling at multiple levels (hardware, processing, application)
-2. **Graceful Degradation**: Maintain partial functionality when possible
-3. **User Communication**: Provide clear, actionable error messages
-4. **Logging and Monitoring**: Comprehensive error logging for debugging and compliance
-5. **Testing**: Regular testing of error scenarios and recovery procedures
-
-### Production Deployment
-
-```python
-# Production error handling configuration
-production_error_config = nimbus.ErrorHandlingConfig(
-    # Logging
-    log_level='WARNING',
-    log_rotation=True,
-    log_retention_days=90,
-    
-    # Monitoring
-    error_monitoring=True,
-    alert_thresholds={
-        'error_rate': 0.01,      # 1% error rate
-        'critical_errors': 1,    # Any critical error
-        'recovery_time': 30      # seconds
-    },
-    
-    # Recovery
-    auto_recovery=True,
-    max_recovery_attempts=3,
-    recovery_timeout=60,
-    
-    # User experience
-    user_notifications=True,
-    progress_updates=True,
-    graceful_degradation=True,
-    
-    # Compliance
-    audit_logging=True,
-    regulatory_reporting=True,
-    data_retention_policy='7_years'
+# But provide 2-class data
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    n_features = 16,
+    n_classes = 2  # Wrong!
 )
 
-# Apply configuration
-nimbus.configure_error_handling(production_error_config)
+try
+    results = predict_batch(model, data)
+    # Error: "Data has 2 classes but model expects 4 classes"
+catch e
+    println("Class count mismatch: Use the correct model for your data")
+end
 ```
+
+**Best Practice: Check Compatibility Before Inference**
+
+```julia
+function check_compatibility(data::BCIData, model)
+    # Get model requirements
+    model_features = get_n_features(model)
+    model_classes = get_n_classes(model)
+    
+    # Compare
+    compatible = true
+    
+    if data.metadata.n_features != model_features
+        @error "Feature mismatch" data=data.metadata.n_features model=model_features
+        compatible = false
+    end
+    
+    if data.metadata.n_classes != model_classes
+        @error "Class count mismatch" data=data.metadata.n_classes model=model_classes
+        compatible = false
+    end
+    
+    return compatible
+end
+
+# Usage
+if check_compatibility(data, model)
+    results = predict_batch(model, data)
+else
+    println("Model and data are incompatible")
+end
+```
+
+### Training Errors
+
+```julia
+using NimbusSDK
+
+# 1. Missing labels
+features = randn(16, 250, 50)
+metadata = BCIMetadata(...)
+data = BCIData(features, metadata)  # No labels!
+
+try
+    model = train_model(RxLDAModel, data)
+    # Error: "Training requires labeled data. Please provide labels in BCIData."
+catch e
+    println("Training requires labeled data")
+end
+
+# Fix: Provide labels
+labels = rand(1:4, 50)
+data_with_labels = BCIData(features, metadata, labels)
+model = train_model(RxLDAModel, data_with_labels)  # ✓ Works
+```
+
+### Streaming Errors
+
+```julia
+using NimbusSDK
+
+# 1. Chunk size mismatch
+metadata = BCIMetadata(
+    chunk_size = 250,  # Expects 250 samples per chunk
+    # ... other params
+)
+
+session = init_streaming(model, metadata)
+
+# But provide wrong-sized chunk
+wrong_chunk = randn(16, 125)  # Only 125 samples!
+
+try
+    result = process_chunk(session, wrong_chunk)
+    # Warning: "Chunk size mismatch" expected=250 actual=125
+catch e
+    println("Chunk size mismatch")
+end
+
+# 2. Feature dimension mismatch
+wrong_features_chunk = randn(8, 250)  # Only 8 features instead of 16!
+
+try
+    result = process_chunk(session, wrong_features_chunk)
+    # Error: "Chunk feature dimension (8) does not match metadata (16)"
+catch e
+    println("Feature dimension mismatch in chunk")
+end
+```
+
+**Best Practice: Validate Chunks Before Processing**
+
+```julia
+function safe_process_chunk(session, chunk, metadata)
+    # Validate chunk dimensions
+    n_features, n_samples = size(chunk)
+    
+    if n_features != metadata.n_features
+        @error "Feature dimension mismatch" expected=metadata.n_features actual=n_features
+        return nothing
+    end
+    
+    if !isnothing(metadata.chunk_size) && n_samples != metadata.chunk_size
+        @warn "Chunk size mismatch" expected=metadata.chunk_size actual=n_samples
+    end
+    
+    # Check for invalid values
+    if any(isnan.(chunk)) || any(isinf.(chunk))
+        @error "Chunk contains NaN or Inf values"
+        return nothing
+    end
+    
+    # Process chunk
+    try
+        result = process_chunk(session, chunk)
+        return result
+    catch e
+        @error "Chunk processing failed" exception=e
+        return nothing
+    end
+end
+
+# Usage in streaming loop
+for raw_chunk in eeg_stream
+    result = safe_process_chunk(session, raw_chunk, metadata)
+    
+    if !isnothing(result)
+        handle_prediction(result)
+    else
+        # Handle failed chunk
+        @warn "Skipping invalid chunk"
+    end
+end
+```
+
+## Warnings vs Errors
+
+NimbusSDK distinguishes between critical errors (throws exceptions) and warnings (logs but continues):
+
+### Errors (Execution Stops)
+- **NaN/Inf in data**: Cannot perform inference
+- **Dimension mismatches**: Incompatible with model
+- **Missing labels**: Cannot train without labels
+- **Invalid API key format**: Authentication fails
+
+### Warnings (Execution Continues)
+- **Low sampling rate**: Below recommended 250 Hz
+- **Very high sampling rate**: Unusually high (>10 kHz)
+- **Small/large feature std dev**: Potentially poor scaling
+- **Chunk size mismatch**: Unexpected chunk size
+- **Paradigm mismatch**: Data paradigm doesn't match model
+- **Large feature range**: Recommend standardization
+
+**Example: Handling Warnings**
+
+```julia
+using NimbusSDK
+using Logging
+
+# Configure logging to capture warnings
+logger = ConsoleLogger(stdout, Logging.Warn)
+
+with_logger(logger) do
+    # Low sampling rate triggers warning but continues
+    metadata = BCIMetadata(
+        sampling_rate = 128.0,  # Low!
+        n_features = 16,
+        n_classes = 4
+    )
+    # Warning: "Low sampling rate detected (128.0 Hz). Recommend ≥ 250 Hz..."
+    
+    data = BCIData(features, metadata)
+    results = predict_batch(model, data)  # Still works, but accuracy may suffer
+end
+```
+
+## Preprocessing Diagnostics
+
+Use built-in diagnostics to identify data quality issues:
+
+```julia
+using NimbusSDK
+
+# Collect a diagnostic trial
+features = collect_your_eeg_trial()  # Your acquisition code
+metadata = BCIMetadata(...)
+data = BCIData(features, metadata)
+
+# Run diagnostics
+report = diagnose_preprocessing(data)
+
+# Check quality
+println("Quality Score: $(round(report.quality_score * 100, digits=1))%")
+
+if report.quality_score < 0.7
+    println("\n⚠️  Data quality issues detected:")
+    
+    # Show warnings
+    if !isempty(report.warnings)
+        for warning in report.warnings
+            println("  • $warning")
+        end
+    end
+    
+    # Show recommendations
+    if !isempty(report.recommendations)
+        println("\nRecommendations:")
+        for rec in report.recommendations
+            println("  • $rec")
+        end
+    end
+    
+    # Decide whether to proceed
+    if report.quality_score < 0.5
+        println("\n❌ Quality too low - cannot proceed")
+        exit(1)
+    else
+        println("\n⚠️  Proceeding with caution")
+    end
+else
+    println("✓ Data quality is acceptable")
+end
+```
+
+## Production Error Handling Pattern
+
+Complete error handling for production systems:
+
+```julia
+using NimbusSDK
+using Logging
+
+function production_bci_inference(api_key::String, model_name::String, 
+                                  features::Array, metadata::BCIMetadata)
+    # 1. Authentication
+    try
+        NimbusSDK.authenticate(api_key)
+    catch e
+        @error "Authentication failed" exception=e
+        return nothing
+    end
+    
+    # 2. Load model
+    local model
+    try
+        model = load_model(RxLDAModel, model_name)
+    catch e
+        @error "Failed to load model" model_name exception=e
+        return nothing
+    end
+    
+    # 3. Validate data
+    if !validate_bci_data(features, metadata)
+        @error "Data validation failed"
+        return nothing
+    end
+    
+    # 4. Create BCIData
+    local data
+    try
+        data = BCIData(features, metadata)
+    catch e
+        @error "Failed to create BCIData" exception=e
+        return nothing
+    end
+    
+    # 5. Check compatibility
+    if !check_compatibility(data, model)
+        @error "Model-data incompatibility"
+        return nothing
+    end
+    
+    # 6. Run inference
+    local results
+    try
+        results = predict_batch(model, data)
+    catch e
+        @error "Inference failed" exception=e
+        return nothing
+    end
+    
+    # 7. Validate results
+    if mean(results.confidences) < 0.5
+        @warn "Low average confidence" mean_conf=mean(results.confidences)
+    end
+    
+    return results
+end
+
+# Usage
+results = production_bci_inference(
+    "your-api-key",
+    "motor_imagery_4class_v1",
+    features,
+    metadata
+)
+
+if !isnothing(results)
+    println("✓ Inference successful")
+    println("Accuracy: $(evaluate_accuracy(results))")
+else
+    println("❌ Inference pipeline failed - check logs")
+end
+```
+
+## Streaming Error Recovery
+
+Robust streaming with automatic recovery:
+
+```julia
+using NimbusSDK
+
+function robust_streaming_session(model, metadata, eeg_stream; 
+                                  max_consecutive_errors::Int=10)
+    session = init_streaming(model, metadata)
+    error_count = 0
+    total_chunks = 0
+    successful_chunks = 0
+    
+    for (i, raw_chunk) in enumerate(eeg_stream)
+        total_chunks += 1
+        
+        try
+            # Validate chunk dimensions
+            if size(raw_chunk, 1) != metadata.n_features
+                throw(DimensionMismatch("Feature count mismatch"))
+            end
+            
+            # Process chunk
+            result = process_chunk(session, raw_chunk)
+            
+            # Success - reset error counter
+            error_count = 0
+            successful_chunks += 1
+            
+            # Handle result
+            handle_bci_command(result)
+            
+        catch e
+            error_count += 1
+            @warn "Chunk processing failed" chunk=i exception=e
+            
+            if error_count >= max_consecutive_errors
+                @error "Too many consecutive errors - aborting session" 
+                break
+            end
+            
+            # Skip this chunk and continue
+            continue
+        end
+        
+        # Report progress periodically
+        if total_chunks % 100 == 0
+            success_rate = successful_chunks / total_chunks
+            println("Processed $total_chunks chunks ($(round(success_rate*100, digits=1))% success)")
+        end
+    end
+    
+    # Final report
+    println("\n=== Session Complete ===")
+    println("Total chunks: $total_chunks")
+    println("Successful: $successful_chunks")
+    println("Failed: $(total_chunks - successful_chunks)")
+end
+
+# Usage
+robust_streaming_session(model, metadata, eeg_stream)
+```
+
+## Logging Configuration
+
+Configure logging for different environments:
+
+```julia
+using Logging
+
+# Development: Verbose logging
+dev_logger = ConsoleLogger(stdout, Logging.Debug)
+
+# Production: Errors and warnings only
+prod_logger = ConsoleLogger(stdout, Logging.Warn)
+
+# Custom: Log to file
+function create_file_logger(path::String)
+    io = open(path, "w")
+    return ConsoleLogger(io, Logging.Info)
+end
+
+# Use logger
+global_logger(prod_logger)
+
+# Or use for specific blocks
+with_logger(dev_logger) do
+    # Detailed logging for this section
+    results = predict_batch(model, data)
+end
+```
+
+## Troubleshooting Guide
+
+### Common Issues and Solutions
+
+| Issue | Symptom | Solution |
+|-------|---------|----------|
+| **NaN in predictions** | `results.predictions` contains NaN | Check input data for NaN/Inf values |
+| **Very low confidence** | All confidences < 0.3 | Run `diagnose_preprocessing()` - likely feature extraction issue |
+| **Dimension errors** | "Feature dimension mismatch" | Verify `n_features` matches your preprocessing output |
+| **Class mismatch** | "Model expects X classes" | Use correct model or verify your label encoding (1-indexed!) |
+| **Slow first inference** | First prediction takes seconds | Normal JIT compilation - run warmup inferences |
+| **Authentication fails** | Cannot validate API key | Check internet connection or use offline mode |
+| **Chunk size warnings** | "Chunk size mismatch" | Ensure all chunks have consistent size matching `chunk_size` |
+
+## Best Practices Summary
+
+<Card title="Error Handling Checklist" icon="check">
+  ✅ **Always validate data** before inference  
+  ✅ **Check compatibility** between model and data  
+  ✅ **Handle authentication errors** gracefully with offline fallback  
+  ✅ **Pre-allocate buffers** in real-time loops to avoid errors  
+  ✅ **Use try-catch** around critical operations  
+  ✅ **Log warnings** but continue execution when safe  
+  ✅ **Implement retry logic** for transient failures  
+  ✅ **Run preprocessing diagnostics** when confidence is low  
+  ✅ **Monitor error rates** in production systems  
+  ✅ **Test error paths** during development  
+</Card>
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Real-time Setup" icon="cog" href="/inference-configuration/real-time-setup">
-    Configure optimal real-time performance
+  <Card title="Batch Processing" icon="layers" href="/inference-configuration/batch-processing">
+    Robust batch inference patterns
   </Card>
   <Card title="Streaming Inference" icon="signal" href="/inference-configuration/streaming-inference">
-    Learn about continuous data processing
+    Real-time error recovery
   </Card>
-  <Card title="Examples" icon="list" href="/examples/basic-examples">
-    See error handling in practice
+  <Card title="Preprocessing Diagnostics" icon="stethoscope" href="/development/preprocessing-integration">
+    Debug data quality issues
   </Card>
-  <Card title="API Reference" icon="code" href="/api-reference/introduction">
-    Explore error handling APIs
+  <Card title="Code Examples" icon="code" href="/examples/code-samples">
+    Working error handling examples
   </Card>
 </CardGroup>
 
 ---
 
 <Note>
-**Next**: Explore practical [examples](/examples/basic-examples) of Nimbus BCI applications with robust error handling.
+**Tip**: Use `diagnose_preprocessing()` as your first debugging step when predictions are unexpectedly poor or confidence is low.
 </Note>

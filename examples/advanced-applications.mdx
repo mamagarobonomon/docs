@@ -1,546 +1,637 @@
 ---
 title: "Advanced BCI Applications"
-description: "Sophisticated probabilistic models for complex brain-computer interface scenarios"
+description: "Sophisticated BCI applications using NimbusSDK RxLDA and RxGMM models"
 icon: "cog"
 ---
 
 # Advanced BCI Applications
 
-This section demonstrates sophisticated probabilistic modeling techniques for complex BCI scenarios, including multi-modal sensor fusion, decision-making under uncertainty, and adaptive control systems.
+This section demonstrates sophisticated applications of NimbusSDK for complex BCI scenarios. All examples use the actual RxLDA and RxGMM models with real Julia SDK code.
 
-## Nonlinear Sensor Fusion for Multi-Modal BCI
+## Cross-Subject Model Training
 
-Modern BCI systems often combine multiple sensor modalities (EEG, EMG, eye tracking, IMU) to achieve robust performance. This example shows how to fuse heterogeneous sensor data with nonlinear relationships.
+Train models that generalize across multiple subjects.
 
-### Problem Setup
+### Multi-Subject Training Dataset
 
-Different sensor modalities provide complementary information about user intent, but they operate at different time scales and have complex, nonlinear relationships. We use a hierarchical model to fuse these signals optimally.
+```julia
+using NimbusSDK
 
-```python
-@model
-def multimodal_bci_fusion(eeg_data, emg_data, eye_data, imu_data):
-    """
-    Nonlinear sensor fusion for robust BCI control
-    
-    Args:
-        eeg_data: EEG signals [channels x time] - cortical activity
-        emg_data: EMG signals [muscles x time] - muscle activity  
-        eye_data: Eye tracking [x, y, pupil] - visual attention
-        imu_data: IMU data [accel, gyro] - head/body movement
-    """
-    
-    # Latent user intent (what the user wants to do)
-    user_intent_dim = 3  # [move_x, move_y, select]
-    
-    for t in range(len(eeg_data[0])):
-        if t == 0:
-            user_intent[t] ~ MultivariateNormal(
-                mean=np.zeros(user_intent_dim),
-                covariance=np.eye(user_intent_dim)
-            )
-        else:
-            # Intent evolves smoothly over time
-            user_intent[t] ~ MultivariateNormal(
-                mean=0.9 * user_intent[t-1],  # Temporal smoothing
-                covariance=0.1 * np.eye(user_intent_dim)
-            )
-        
-        # EEG observation model (cortical signals)
-        eeg_spatial_filters ~ MultivariateNormal(
-            mean=np.zeros((len(eeg_data), user_intent_dim)),
-            covariance=np.eye(len(eeg_data))
-        )
-        
-        eeg_features[t] = eeg_spatial_filters @ user_intent[t]
-        
-        for ch in range(len(eeg_data)):
-            eeg_data[ch][t] ~ Normal(
-                mean=eeg_features[t][ch],
-                variance=eeg_noise_variance
-            )
-        
-        # EMG observation model (muscle activation)
-        # Nonlinear relationship: EMG = sigmoid(intent * muscle_weights)
-        emg_weights ~ MultivariateNormal(
-            mean=np.zeros((len(emg_data), user_intent_dim)),
-            covariance=np.eye(len(emg_data))
-        )
-        
-        emg_activation[t] = sigmoid(emg_weights @ user_intent[t])
-        
-        for muscle in range(len(emg_data)):
-            emg_data[muscle][t] ~ Normal(
-                mean=emg_activation[t][muscle],
-                variance=emg_noise_variance
-            )
-        
-        # Eye tracking model (visual attention)
-        eye_sensitivity ~ Normal(mean=1.0, variance=0.1)
-        
-        # Eye position relates to intended cursor movement
-        eye_data[t][0] ~ Normal(  # x-position
-            mean=eye_sensitivity * user_intent[t][0],
-            variance=eye_noise_variance
-        )
-        eye_data[t][1] ~ Normal(  # y-position  
-            mean=eye_sensitivity * user_intent[t][1],
-            variance=eye_noise_variance
-        )
-        
-        # Pupil dilation relates to selection intent
-        eye_data[t][2] ~ Normal(  # pupil diameter
-            mean=baseline_pupil + pupil_gain * user_intent[t][2],
-            variance=pupil_noise_variance
-        )
-        
-        # IMU model (head movement compensation)
-        head_movement_coupling ~ Normal(mean=0.1, variance=0.05)
-        
-        for axis in range(len(imu_data)):
-            imu_data[axis][t] ~ Normal(
-                mean=head_movement_coupling * user_intent[t][axis % user_intent_dim],
-                variance=imu_noise_variance
-            )
+NimbusSDK.authenticate("your-api-key")
+
+# Collect data from multiple subjects
+subjects = ["S001", "S002", "S003", "S004", "S005"]
+all_features = []
+all_labels = []
+
+for subject_id in subjects
+    println("Loading subject $subject_id...")
+    subj_features, subj_labels = load_subject_data(subject_id)
+    push!(all_features, subj_features)
+    push!(all_labels, subj_labels)
+end
+
+# Concatenate all subject data
+combined_features = cat(all_features..., dims=3)
+combined_labels = vcat(all_labels...)
+
+println("\nCombined dataset:")
+println("  Total trials: $(size(combined_features, 3))")
+println("  Features: $(size(combined_features, 1))")
+println("  Subjects: $(length(subjects))")
+
+# Train cross-subject model
+train_data = BCIData(
+    combined_features,
+    BCIMetadata(
+        sampling_rate = 250.0,
+        paradigm = :motor_imagery,
+        feature_type = :csp,
+        n_features = 16,
+        n_classes = 4
+    ),
+    combined_labels
+)
+
+cross_subject_model = train_model(
+    RxLDAModel,  # or RxGMMModel for more flexibility
+    train_data;
+    iterations = 75,  # More iterations for larger dataset
+    showprogress = true,
+    name = "cross_subject_5subj",
+    description = "Motor imagery trained on 5 subjects"
+)
+
+save_model(cross_subject_model, "cross_subject_model.jld2")
 ```
 
-### BCI Application: Adaptive Wheelchair Control
+### Transfer to New Subject
 
-```python
-class AdaptiveWheelchairBCI:
-    def __init__(self):
-        self.fusion_model = multimodal_bci_fusion()
-        self.calibration_data = {}
-        self.adaptation_rate = 0.1
-        
-    def calibrate_sensors(self, calibration_session):
-        """Calibrate sensor fusion weights for individual user"""
-        
-        # Collect data during structured calibration tasks
-        eeg_cal = calibration_session['eeg']
-        emg_cal = calibration_session['emg'] 
-        eye_cal = calibration_session['eye']
-        imu_cal = calibration_session['imu']
-        true_intents = calibration_session['intended_movements']
-        
-        # Learn sensor-specific parameters
-        result = self.fusion_model.infer(
-            eeg_data=eeg_cal,
-            emg_data=emg_cal,
-            eye_data=eye_cal,
-            imu_data=imu_cal,
-            target='user_intent'
-        )
-        
-        # Store calibrated parameters
-        self.calibration_data = {
-            'eeg_filters': result.eeg_spatial_filters,
-            'emg_weights': result.emg_weights,
-            'eye_sensitivity': result.eye_sensitivity,
-            'noise_levels': result.noise_variances
-        }
+Use cross-subject model as baseline for new subjects:
+
+```julia
+using NimbusSDK
+
+# Load cross-subject baseline
+baseline = load_model(RxLDAModel, "cross_subject_model.jld2")
+
+# Collect minimal calibration from new subject (Subject 006)
+new_subj_calib = collect_calibration_trials(
+    subject_id="S006",
+    trials_per_class=12  # Only 12 trials per class needed!
+)
+
+# Calibrate for new subject
+personalized = calibrate_model(
+    baseline,
+    new_subj_calib;
+    iterations = 20
+)
+
+# Test on new subject
+test_data_new = load_subject_test_data("S006")
+results = predict_batch(personalized, test_data_new)
+
+accuracy = sum(results.predictions .== test_data_new.labels) / length(test_data_new.labels)
+println("New subject accuracy: $(round(accuracy * 100, digits=1))%")
+println("(With only 48 calibration trials total!)")
+```
+
+## Hybrid BCI: Combining Multiple Paradigms
+
+Combine motor imagery and P300 for robust control.
+
+### Dual-Paradigm System
+
+```julia
+using NimbusSDK
+
+NimbusSDK.authenticate("your-api-key")
+
+# Load both models
+mi_model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+p300_model = load_model(RxLDAModel, "p300_binary_v1")
+
+struct HybridBCIResult
+    mi_prediction::Int
+    mi_confidence::Float64
+    p300_confirmed::Bool
+    p300_confidence::Float64
+    final_action::Union{Int, Nothing}
+end
+
+function hybrid_inference(mi_trial, p300_trial)
+    """
+    Combined motor imagery + P300 for high-confidence control
+    """
     
-    def fuse_sensors_realtime(self, sensor_window):
-        """Real-time sensor fusion for wheelchair control"""
-        
-        # Extract sensor data
-        eeg = sensor_window['eeg']
-        emg = sensor_window['emg']
-        eye = sensor_window['eye'] 
-        imu = sensor_window['imu']
-        
-        # Perform sensor fusion
-        result = self.fusion_model.infer(
-            eeg_data=eeg,
-            emg_data=emg,
-            eye_data=eye,
-            imu_data=imu,
-            target='user_intent'
-        )
-        
-        # Extract fused intent estimate
-        intent = result.mean[-1]  # Most recent time point
-        confidence = 1.0 / result.variance[-1]
-        
-        # Convert to wheelchair commands
-        move_x = intent[0] * confidence[0]
-        move_y = intent[1] * confidence[1] 
-        select = intent[2] * confidence[2]
-        
-        # Safety thresholding
-        if confidence.mean() < 0.5:
-            # Low confidence - stop movement
-            return {'velocity': [0, 0], 'action': 'stop'}
-        
-        return {
-            'velocity': [move_x, move_y],
-            'action': 'select' if select > 0.7 else 'navigate',
-            'confidence': confidence.mean()
-        }
+    # Motor imagery: Determine intended direction
+    mi_results = predict_batch(mi_model, mi_trial)
+    mi_pred = mi_results.predictions[1]
+    mi_conf = mi_results.confidences[1]
     
-    def adapt_online(self, sensor_data, user_feedback):
-        """Continuously adapt fusion model based on user feedback"""
+    # P300: Confirm intention
+    p300_results = predict_batch(p300_model, p300_trial)
+    p300_confirmed = p300_results.predictions[1] == 1  # Target detected
+    p300_conf = p300_results.confidences[1]
+    
+    # Decision logic: Require both high confidence
+    final_action = nothing
+    if mi_conf > 0.75 && p300_confirmed && p300_conf > 0.75
+        final_action = mi_pred
+    end
+    
+    return HybridBCIResult(
+        mi_pred,
+        mi_conf,
+        p300_confirmed,
+        p300_conf,
+        final_action
+    )
+end
+
+# Example usage: Wheelchair control
+function hybrid_wheelchair_control()
+    while is_active()
+        # Collect motor imagery trial (direction intent)
+        mi_trial = collect_mi_trial()
         
-        if user_feedback['correction_needed']:
-            # User had to manually correct the system
-            # Reduce weights for poorly performing sensors
+        # Collect P300 confirmation trial
+        p300_trial = collect_p300_confirmation()
+        
+        result = hybrid_inference(mi_trial, p300_trial)
+        
+        if !isnothing(result.final_action)
+            println("✓ Confirmed action: $(result.final_action)")
+            execute_wheelchair_command(result.final_action)
+        else
+            println("⚠️  Low confidence - no action")
+            println("  MI: $(round(result.mi_confidence, digits=2))")
+            println("  P300: $(result.p300_confirmed) ($(round(result.p300_confidence, digits=2)))")
+        end
+    end
+end
+```
+
+## Continuous Control with Smoothing
+
+Implement smooth continuous control for cursor/prosthetics.
+
+### Exponential Moving Average
+
+```julia
+using NimbusSDK
+
+# Setup streaming
+session = init_streaming(model, metadata)
+
+# Smoothing parameters
+struct MovingAverageFilter
+    predictions::Vector{Int}
+    confidences::Vector{Float64}
+    alpha::Float64  # Smoothing factor (0-1)
+    window_size::Int
+end
+
+function smooth_prediction(filter::MovingAverageFilter, new_pred::Int, new_conf::Float64)
+    push!(filter.predictions, new_pred)
+    push!(filter.confidences, new_conf)
+    
+    # Keep only recent window
+    if length(filter.predictions) > filter.window_size
+        popfirst!(filter.predictions)
+        popfirst!(filter.confidences)
+    end
+    
+    # Weighted voting by confidence
+    class_scores = zeros(4)
+    for (pred, conf) in zip(filter.predictions, filter.confidences)
+        class_scores[pred] += conf
+    end
+    
+    # Smoothed prediction
+    smoothed_pred = argmax(class_scores)
+    smoothed_conf = maximum(class_scores) / sum(class_scores)
+    
+    return (prediction=smoothed_pred, confidence=smoothed_conf)
+end
+
+# Real-time control with smoothing
+filter = MovingAverageFilter(Int[], Float64[], 0.7, 5)
+
+for chunk in eeg_stream
+    # Get raw prediction
+    raw_result = process_chunk(session, chunk)
+    
+    # Apply smoothing
+    smoothed = smooth_prediction(filter, raw_result.prediction, raw_result.confidence)
+    
+    # Execute smoothed command
+    if smoothed.confidence > 0.7
+        execute_smooth_control(smoothed.prediction, smoothed.confidence)
+    end
+end
+```
+
+### Velocity-Based Control
+
+Control velocity instead of discrete actions:
+
+```julia
+using NimbusSDK
+
+function velocity_control(model, eeg_stream)
+    session = init_streaming(model, metadata)
+    
+    velocity = [0.0, 0.0]  # [vx, vy]
+    max_velocity = 1.0
+    acceleration = 0.1
+    friction = 0.95
+    
+    for chunk in eeg_stream
+        result = process_chunk(session, chunk)
+        
+        if result.confidence > 0.7
+            # Map predictions to velocity changes
+            if result.prediction == 1  # Left
+                velocity[1] -= acceleration * result.confidence
+            elseif result.prediction == 2  # Right
+                velocity[1] += acceleration * result.confidence
+            elseif result.prediction == 3  # Up
+                velocity[2] += acceleration * result.confidence
+            elseif result.prediction == 4  # Down
+                velocity[2] -= acceleration * result.confidence
+            end
+        end
+        
+        # Apply friction
+        velocity .*= friction
+        
+        # Clamp velocity
+        velocity = clamp.(velocity, -max_velocity, max_velocity)
+        
+        # Update position
+        update_cursor_velocity(velocity)
+    end
+end
+```
+
+## Adaptive Learning During Use
+
+Update model parameters online based on implicit feedback.
+
+### Online Model Adaptation
+
+```julia
+using NimbusSDK
+
+# Start with baseline model
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+# Collect online data with implicit labels
+online_features = []
+online_labels = []
+
+adaptation_interval = 20  # Adapt every 20 trials
+
+for trial_idx in 1:200
+    # Collect trial
+    trial_features = collect_trial()
+    
+    # Get prediction
+    trial_data = BCIData(trial_features, metadata)
+    result = predict_batch(model, trial_data)
+    
+    # Implicit labeling: Assume high-confidence predictions are correct
+    if result.confidences[1] > 0.85
+        push!(online_features, trial_features)
+        push!(online_labels, result.predictions[1])
+        
+        println("Trial $trial_idx: Confident prediction added to adaptation set")
+    end
+    
+    # Periodic adaptation
+    if trial_idx % adaptation_interval == 0 && length(online_labels) >= 10
+        println("\n=== Adapting model at trial $trial_idx ===")
+        
+        # Create adaptation dataset
+        adapt_features = cat(online_features..., dims=3)
+        adapt_data = BCIData(adapt_features, metadata, online_labels)
+        
+        # Calibrate with online data
+        model = calibrate_model(model, adapt_data; iterations=15)
+        
+        println("Model adapted with $(length(online_labels)) trials")
+        
+        # Clear buffer (or keep sliding window)
+        online_features = online_features[end-10:end]
+        online_labels = online_labels[end-10:end]
+    end
+end
+```
+
+## Multi-Session Experiment Design
+
+Run systematic experiments across multiple sessions.
+
+### Experiment Framework
+
+```julia
+using NimbusSDK
+using Dates
+
+struct ExperimentSession
+    session_id::String
+    subject_id::String
+    date::DateTime
+    model_type::Symbol  # :rxlda or :rxgmm
+    n_trials::Int
+    results::Union{Nothing, BatchResult}
+    accuracy::Union{Nothing, Float64}
+    itr::Union{Nothing, Float64}
+end
+
+function run_experiment_session(
+    subject_id::String,
+    session_id::String,
+    model_type::Symbol,
+    n_trials::Int
+)
+    println("\n" * "="^60)
+    println("Experiment Session: $session_id")
+    println("Subject: $subject_id")
+    println("Model: $model_type")
+    println("Date: $(Dates.now())")
+    println("="^60)
+    
+    # Authenticate
+    NimbusSDK.authenticate("your-api-key")
+    
+    # Load appropriate model
+    model = if model_type == :rxlda
+        load_model(RxLDAModel, "motor_imagery_4class_v1")
+    else
+        load_model(RxGMMModel, "motor_imagery_4class_gmm_v1")
+    end
+    
+    # Collect data
+    println("\nCollecting $n_trials trials...")
+    features, labels = collect_experiment_trials(n_trials)
+    
+    data = BCIData(
+        features,
+        BCIMetadata(
+            sampling_rate = 250.0,
+            paradigm = :motor_imagery,
+            feature_type = :csp,
+            n_features = 16,
+            n_classes = 4
+        ),
+        labels
+    )
+    
+    # Run inference
+    println("Running inference...")
+    results = predict_batch(model, data)
+    
+    # Calculate metrics
+    accuracy = sum(results.predictions .== labels) / length(labels)
+    itr = calculate_ITR(accuracy, 4, 4.0)
+    
+    println("\n" * "="^60)
+    println("Session Results")
+    println("="^60)
+    println("Accuracy: $(round(accuracy * 100, digits=1))%")
+    println("ITR: $(round(itr, digits=1)) bits/minute")
+    println("Mean confidence: $(round(mean(results.confidences), digits=3))")
+    println("="^60)
+    
+    # Return session data
+    return ExperimentSession(
+        session_id,
+        subject_id,
+        Dates.now(),
+        model_type,
+        n_trials,
+        results,
+        accuracy,
+        itr
+    )
+end
+
+# Run multi-session experiment
+function run_multi_session_experiment()
+    subjects = ["S001", "S002", "S003"]
+    sessions = []
+    
+    for subject in subjects
+        # Session 1: RxLDA baseline
+        session1 = run_experiment_session(
+            subject,
+            "$(subject)_session1_rxlda",
+            :rxlda,
+            80
+        )
+        push!(sessions, session1)
+        
+        # Session 2: RxGMM comparison
+        session2 = run_experiment_session(
+            subject,
+            "$(subject)_session2_rxgmm",
+            :rxgmm,
+            80
+        )
+        push!(sessions, session2)
+    end
+    
+    # Aggregate results
+    println("\n\n" * "="^60)
+    println("Experiment Summary")
+    println("="^60)
+    
+    for session in sessions
+        println("\n$(session.session_id):")
+        println("  Accuracy: $(round(session.accuracy * 100, digits=1))%")
+        println("  ITR: $(round(session.itr, digits=1)) bits/min")
+    end
+    
+    # Statistical analysis
+    rxlda_accs = [s.accuracy for s in sessions if s.model_type == :rxlda]
+    rxgmm_accs = [s.accuracy for s in sessions if s.model_type == :rxgmm]
+    
+    println("\n" * "="^60)
+    println("Model Comparison")
+    println("="^60)
+    println("RxLDA mean accuracy: $(round(mean(rxlda_accs) * 100, digits=1))% ± $(round(std(rxlda_accs) * 100, digits=1))%")
+    println("RxGMM mean accuracy: $(round(mean(rxgmm_accs) * 100, digits=1))% ± $(round(std(rxgmm_accs) * 100, digits=1))%")
+    
+    return sessions
+end
+```
+
+## Error Recovery and Robustness
+
+Handle errors and maintain reliable operation.
+
+### Automatic Retry with Fallback
+
+```julia
+using NimbusSDK
+
+function robust_inference(model, data; max_retries=3)
+    """
+    Inference with automatic retry and fallback
+    """
+    
+    for attempt in 1:max_retries
+        try
+            results = predict_batch(model, data)
             
-            intended_action = user_feedback['intended_action']
-            actual_action = user_feedback['system_action']
+            # Quality check
+            quality = assess_trial_quality(results)
             
-            error = np.array(intended_action) - np.array(actual_action)
+            if quality.confidence_acceptable
+                return (success=true, results=results, attempts=attempt)
+            else
+                @warn "Low quality results" quality.overall_score attempt
+                if attempt < max_retries
+                    println("Retrying...")
+                    continue
+                end
+            end
             
-            # Adaptive weight adjustment
-            for sensor in ['eeg', 'emg', 'eye', 'imu']:
-                sensor_contribution = self.estimate_sensor_contribution(
-                    sensor, sensor_data
-                )
+        catch e
+            @error "Inference failed" exception=e attempt
+            
+            if attempt < max_retries
+                println("Retrying after error...")
+                sleep(0.1)  # Brief pause before retry
+                continue
+            else
+                # All retries exhausted
+                return (success=false, results=nothing, attempts=attempt)
+            end
+        end
+    end
+    
+    # If we get here, all retries failed
+    return (success=false, results=nothing, attempts=max_retries)
+end
+
+# Usage
+result = robust_inference(model, data)
+
+if result.success
+    println("Inference successful after $(result.attempts) attempt(s)")
+    process_results(result.results)
+else
+    println("⚠️  Inference failed after $(result.attempts) attempts")
+    handle_failure()
+end
+```
+
+### Session Health Monitoring
+
+```julia
+using NimbusSDK
+
+struct SessionHealth
+    trial_count::Int
+    success_count::Int
+    failure_count::Int
+    mean_confidence::Float64
+    recent_accuracies::Vector{Float64}
+end
+
+function monitor_session_health(
+    model,
+    eeg_stream;
+    health_window=10
+)
+    health = SessionHealth(0, 0, 0, 0.0, Float64[])
+    
+    for trial in eeg_stream
+        health.trial_count += 1
+        
+        try
+            # Run inference
+            data = BCIData(trial.features, metadata, trial.label)
+            results = predict_batch(model, data)
+            
+            # Update health metrics
+            health.success_count += 1
+            health.mean_confidence = (
+                (health.mean_confidence * (health.success_count - 1) + 
+                 results.confidences[1]) / health.success_count
+            )
+            
+            # Track recent accuracy
+            if !isnothing(trial.label)
+                correct = results.predictions[1] == trial.label
+                push!(health.recent_accuracies, Float64(correct))
                 
-                if np.dot(sensor_contribution, error) > 0:
-                    # Sensor contributed to error - reduce weight
-                    self.calibration_data[f'{sensor}_weights'] *= (1 - self.adaptation_rate)
-                else:
-                    # Sensor helped - increase weight slightly
-                    self.calibration_data[f'{sensor}_weights'] *= (1 + 0.5 * self.adaptation_rate)
-
-# Usage example
-wheelchair_bci = AdaptiveWheelchairBCI()
-
-# Initial calibration
-wheelchair_bci.calibrate_sensors(calibration_session)
-
-# Real-time operation with adaptation
-for sensor_window in real_time_sensors():
-    # Fuse sensor data
-    control_command = wheelchair_bci.fuse_sensors_realtime(sensor_window)
+                if length(health.recent_accuracies) > health_window
+                    popfirst!(health.recent_accuracies)
+                end
+            end
+            
+            # Health checks
+            if health.mean_confidence < 0.6
+                @warn "Mean confidence dropping" health.mean_confidence
+            end
+            
+            if length(health.recent_accuracies) >= health_window
+                recent_acc = mean(health.recent_accuracies)
+                if recent_acc < 0.65
+                    @warn "Recent accuracy low - consider recalibration" recent_acc
+                end
+            end
+            
+        catch e
+            health.failure_count += 1
+            @error "Trial failed" exception=e trial_num=health.trial_count
+            
+            if health.failure_count / health.trial_count > 0.1
+                error("Session failure rate too high - aborting")
+            end
+        end
+        
+        # Periodic health report
+        if health.trial_count % 20 == 0
+            println("\n=== Session Health Report ===")
+            println("Trials: $(health.trial_count)")
+            println("Success rate: $(round(100 * health.success_count / health.trial_count, digits=1))%")
+            println("Mean confidence: $(round(health.mean_confidence, digits=3))")
+            if !isempty(health.recent_accuracies)
+                println("Recent accuracy: $(round(mean(health.recent_accuracies) * 100, digits=1))%")
+            end
+            println("="^30)
+        end
+    end
     
-    # Execute wheelchair movement
-    wheelchair.move(control_command['velocity'])
-    
-    # Get user feedback for adaptation
-    if user_feedback_available():
-        feedback = get_user_feedback()
-        wheelchair_bci.adapt_online(sensor_window, feedback)
+    return health
+end
 ```
-
-<Card title="Multi-Modal Performance" icon="layers">
-  **Accuracy Improvement**: 15-25% over single-modality BCI
-  
-  **Robustness**: Graceful degradation when sensors fail
-  
-  **Adaptation Speed**: Converges in 5-10 correction cycles
-</Card>
-
-## POMDP Control for BCI Decision Making
-
-Partially Observable Markov Decision Processes (POMDPs) are ideal for BCI applications where the user's true intent is hidden and must be inferred from noisy neural signals before making control decisions.
-
-### Problem Setup
-
-The BCI system must make control decisions based on uncertain observations of user intent, balancing between acting quickly and waiting for more information to reduce uncertainty.
-
-```python
-@model
-def bci_pomdp_control(neural_observations, actions, rewards):
-    """
-    POMDP model for BCI control under uncertainty
-    
-    Args:
-        neural_observations: Noisy neural signal measurements
-        actions: Control actions taken by BCI system
-        rewards: User satisfaction/task success feedback
-    """
-    
-    # Hidden user intent states
-    intent_states = ['rest', 'move_left', 'move_right', 'select', 'cancel']
-    num_states = len(intent_states)
-    
-    # Action space for BCI system
-    bci_actions = ['wait', 'move_left', 'move_right', 'select', 'cancel']
-    num_actions = len(bci_actions)
-    
-    # State transition probabilities (user intent dynamics)
-    for s in range(num_states):
-        intent_transition_probs[s] ~ Dirichlet(
-            alpha=np.ones(num_states) + state_persistence_bias[s]
-        )
-    
-    # Observation model (neural signals given intent)
-    for s in range(num_states):
-        observation_means[s] ~ MultivariateNormal(
-            mean=intent_signatures[s],  # Characteristic neural pattern
-            covariance=np.eye(len(neural_features))
-        )
-        
-        observation_precision[s] ~ Gamma(alpha=2.0, beta=1.0)
-    
-    # Reward model (user satisfaction given state-action pairs)
-    for s in range(num_states):
-        for a in range(num_actions):
-            reward_mean[s, a] ~ Normal(mean=0.0, variance=1.0)
-            reward_precision[s, a] ~ Gamma(alpha=2.0, beta=1.0)
-    
-    # Initial belief state
-    belief_state[0] ~ Dirichlet(alpha=np.ones(num_states))
-    
-    # POMDP sequence
-    for t in range(len(neural_observations)):
-        if t == 0:
-            # Initial user intent
-            user_intent[t] ~ Categorical(probs=belief_state[0])
-        else:
-            # Intent transition
-            user_intent[t] ~ Categorical(
-                probs=intent_transition_probs[user_intent[t-1]]
-            )
-        
-        # Neural observation given current intent
-        neural_observations[t] ~ MultivariateNormal(
-            mean=observation_means[user_intent[t]],
-            precision=observation_precision[user_intent[t]]
-        )
-        
-        # BCI action selection (to be optimized)
-        actions[t] ~ Categorical(probs=action_policy[t])
-        
-        # Reward feedback
-        rewards[t] ~ Normal(
-            mean=reward_mean[user_intent[t], actions[t]],
-            precision=reward_precision[user_intent[t], actions[t]]
-        )
-        
-        # Belief state update (Bayesian filtering)
-        belief_state[t+1] = update_belief(
-            belief_state[t],
-            neural_observations[t],
-            actions[t]
-        )
-```
-
-### BCI Application: Smart Prosthetic Hand Control
-
-```python
-class SmartProstheticController:
-    def __init__(self, confidence_threshold=0.8):
-        self.pomdp_model = bci_pomdp_control()
-        self.confidence_threshold = confidence_threshold
-        self.belief_state = np.ones(5) / 5  # Uniform initial belief
-        self.action_history = []
-        
-    def update_belief(self, neural_observation, last_action=None):
-        """Update belief about user intent using Bayesian filtering"""
-        
-        # Likelihood of observation given each intent state
-        likelihoods = []
-        for state in range(5):
-            likelihood = self.compute_observation_likelihood(
-                neural_observation, state
-            )
-            likelihoods.append(likelihood)
-        
-        likelihoods = np.array(likelihoods)
-        
-        # Prior belief (from previous time step + transition model)
-        if last_action is not None:
-            # Account for how actions might influence intent transitions
-            transition_probs = self.get_transition_probabilities(last_action)
-            prior_belief = transition_probs @ self.belief_state
-        else:
-            prior_belief = self.belief_state
-        
-        # Posterior belief (Bayes rule)
-        posterior_belief = prior_belief * likelihoods
-        posterior_belief /= posterior_belief.sum()  # Normalize
-        
-        self.belief_state = posterior_belief
-        return posterior_belief
-    
-    def select_action(self, neural_observation):
-        """Select optimal action using POMDP policy"""
-        
-        # Update belief about user intent
-        belief = self.update_belief(neural_observation)
-        
-        # Compute expected reward for each possible action
-        action_values = []
-        for action in range(5):  # ['wait', 'left', 'right', 'select', 'cancel']
-            expected_reward = 0
-            
-            for state in range(5):
-                # Expected immediate reward
-                immediate_reward = self.get_reward(state, action)
-                
-                # Expected future value (simplified - could use full POMDP solver)
-                future_value = self.estimate_future_value(state, action)
-                
-                expected_reward += belief[state] * (immediate_reward + 0.9 * future_value)
-            
-            action_values.append(expected_reward)
-        
-        # Select action with highest expected value
-        best_action = np.argmax(action_values)
-        confidence = np.max(belief)
-        
-        # Conservative policy: only act if confident
-        if confidence < self.confidence_threshold and best_action != 0:  # 0 = 'wait'
-            return {'action': 'wait', 'confidence': confidence, 'belief': belief}
-        
-        action_names = ['wait', 'move_left', 'move_right', 'select', 'cancel']
-        
-        return {
-            'action': action_names[best_action],
-            'confidence': confidence,
-            'belief': belief,
-            'expected_value': action_values[best_action]
-        }
-    
-    def get_reward(self, state, action):
-        """Reward function for state-action pairs"""
-        
-        # High reward for correct action matching intent
-        if state == action:  # Perfect match
-            return 1.0
-        elif action == 0:  # Waiting is neutral
-            return -0.1  # Small cost for delay
-        else:  # Wrong action
-            return -1.0  # High penalty for incorrect action
-    
-    def learn_from_feedback(self, neural_obs, action_taken, user_feedback):
-        """Update model parameters based on user feedback"""
-        
-        if user_feedback['satisfaction'] < 0.5:
-            # User was dissatisfied - update reward model
-            inferred_intent = np.argmax(self.belief_state)
-            
-            # Reduce expected reward for this state-action pair
-            self.reward_model[inferred_intent, action_taken] *= 0.9
-            
-            # If user corrected the action, learn the true intent
-            if 'corrected_action' in user_feedback:
-                true_intent = user_feedback['corrected_action']
-                
-                # Update observation model to better recognize this intent
-                self.update_observation_model(neural_obs, true_intent)
-
-# Usage for prosthetic hand control
-prosthetic_controller = SmartProstheticController()
-
-for neural_signal in emg_eeg_stream():
-    # Extract relevant features
-    neural_features = extract_control_features(neural_signal)
-    
-    # Select optimal action
-    decision = prosthetic_controller.select_action(neural_features)
-    
-    if decision['action'] != 'wait':
-        # Execute prosthetic action
-        execute_prosthetic_command(decision['action'])
-        
-        # Monitor user satisfaction
-        feedback = monitor_user_satisfaction()
-        prosthetic_controller.learn_from_feedback(
-            neural_features, decision['action'], feedback
-        )
-    
-    # Display confidence to user
-    display_confidence_indicator(decision['confidence'])
-```
-
-<Card title="POMDP Advantages" icon="shield">
-  **Uncertainty Handling**: Explicit modeling of observation uncertainty
-  
-  **Conservative Control**: Waits for confidence before acting
-  
-  **Adaptive Learning**: Improves from user feedback over time
-</Card>
-
-## Hierarchical Gaussian Filter for Multi-Scale BCI
-
-For complex BCI tasks involving multiple time scales (fast motor commands, slow cognitive states), hierarchical models can capture dependencies across temporal scales.
-
-### Problem Setup
-
-```python
-@model
-def hierarchical_bci_filter(neural_data, cognitive_state, motor_state):
-    """
-    Hierarchical model for multi-scale BCI processing
-    
-    Args:
-        neural_data: Multi-channel neural recordings
-        cognitive_state: Slow-changing cognitive variables (attention, fatigue)
-        motor_state: Fast-changing motor intentions
-    """
-    
-    # Cognitive level (slow dynamics - seconds to minutes)
-    cognitive_transition_noise ~ Gamma(alpha=2.0, beta=10.0)  # Low noise
-    
-    for t in range(len(cognitive_state)):
-        if t == 0:
-            cognitive_state[t] ~ MultivariateNormal(
-                mean=np.zeros(cognitive_dim),
-                covariance=np.eye(cognitive_dim)
-            )
-        else:
-            cognitive_state[t] ~ MultivariateNormal(
-                mean=0.99 * cognitive_state[t-1],  # Very slow evolution
-                precision=cognitive_transition_noise * np.eye(cognitive_dim)
-            )
-    
-    # Motor level (fast dynamics - milliseconds to seconds)  
-    motor_transition_noise ~ Gamma(alpha=2.0, beta=1.0)  # Higher noise
-    
-    for t in range(len(motor_state)):
-        if t == 0:
-            motor_state[t] ~ MultivariateNormal(
-                mean=np.zeros(motor_dim),
-                covariance=np.eye(motor_dim)
-            )
-        else:
-            # Motor state influenced by cognitive state
-            cognitive_influence = cognitive_coupling @ cognitive_state[t // cognitive_downsample]
-            
-            motor_state[t] ~ MultivariateNormal(
-                mean=0.8 * motor_state[t-1] + cognitive_influence,
-                precision=motor_transition_noise * np.eye(motor_dim)
-            )
-    
-    # Neural observations (influenced by both levels)
-    for t in range(len(neural_data)):
-        cognitive_contrib = cognitive_spatial_pattern @ cognitive_state[t // cognitive_downsample]
-        motor_contrib = motor_spatial_pattern @ motor_state[t]
-        
-        expected_signal = cognitive_contrib + motor_contrib
-        
-        for ch in range(len(neural_data)):
-            neural_data[ch][t] ~ Normal(
-                mean=expected_signal[ch],
-                variance=observation_noise
-            )
-```
-
-## Performance Comparison
-
-| Model | Accuracy | Latency | Complexity | Best Use Case |
-|-------|----------|---------|------------|---------------|
-| Multi-Modal Fusion | 85-95% | 50-100ms | High | Robust control systems |
-| POMDP Control | 80-90% | 100-200ms | Very High | Safety-critical applications |
-| Hierarchical Filter | 75-85% | 20-50ms | Medium | Multi-scale temporal dynamics |
 
 ## Next Steps
 
 <CardGroup cols={2}>
+  <Card title="Basic Examples" icon="play" href="/examples/basic-examples">
+    Fundamental BCI examples
+  </Card>
+  <Card title="Code Samples" icon="code" href="/examples/code-samples">
+    Complete working code
+  </Card>
   <Card title="Industry Use Cases" icon="briefcase" href="/examples/industry-use-cases">
-    See how these models apply to real-world BCI products
+    Real-world applications
   </Card>
-  <Card title="Custom Development" icon="wrench" href="/development/custom-nodes">
-    Build specialized models for your specific application
-  </Card>
-  <Card title="Performance Optimization" icon="rocket" href="/core-concepts/real-time-processing">
-    Optimize these complex models for real-time performance
-  </Card>
-  <Card title="Research Applications" icon="microscope" href="/examples/research-applications">
-    Explore cutting-edge research applications
+  <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
+    Complete SDK reference
   </Card>
 </CardGroup>
 
-These advanced models demonstrate the power of probabilistic approaches for handling the complexity and uncertainty inherent in brain-computer interfaces. By combining multiple sensor modalities, modeling uncertainty explicitly, and using hierarchical structures, these approaches enable robust, adaptive BCI systems suitable for real-world deployment.
+---
+
+<Note>
+All examples use actual NimbusSDK.jl functions and real RxLDA/RxGMM models. These are production-ready patterns used in real BCI applications.
+</Note>

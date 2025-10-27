@@ -1,719 +1,449 @@
 ---
 title: "Batch Processing"
-description: "Configure offline analysis workflows for BCI research and model training"
+description: "Offline analysis and model training with NimbusSDK batch inference"
 icon: "list"
 ---
 
 # Batch Processing for BCI
 
-While streaming inference handles real-time applications, batch processing is essential for offline analysis, model training, research studies, and comprehensive data analysis. Nimbus provides powerful batch processing capabilities optimized for large-scale BCI datasets.
+Batch processing is essential for offline analysis, model training, research studies, and comprehensive data evaluation. NimbusSDK provides efficient batch inference capabilities optimized for processing multiple trials simultaneously.
 
 ## When to Use Batch Processing
 
 Batch processing is ideal for:
 
-- **Model training and validation**
-- **Offline data analysis and research**
-- **Cross-subject studies and population analysis**
-- **Feature exploration and selection**
-- **Performance benchmarking**
-- **Data preprocessing and cleaning**
+- **Model training and calibration**: Train custom models on labeled data
+- **Offline data analysis**: Analyze recorded BCI sessions
+- **Cross-validation**: Evaluate model performance systematically
+- **Research studies**: Process data from multiple subjects/sessions
+- **Performance benchmarking**: Compare different models or parameters
+- **Quality assessment**: Identify problematic trials or sessions
 
 <Note>
-Batch processing trades real-time responsiveness for computational efficiency and the ability to process large datasets with complex algorithms.
+Batch processing trades real-time responsiveness for computational efficiency. Use streaming inference for online/real-time applications.
 </Note>
 
-## Basic Batch Configuration
+## Basic Batch Inference
 
 ### Simple Batch Setup
 
-```python
-import nimbus
+```julia
+using NimbusSDK
 
-# Configure batch processing
-batch_config = nimbus.BatchConfig(
-    batch_size=32,              # Process 32 trials at once
-    num_workers=4,              # Parallel processing
-    device='gpu',               # Use GPU acceleration
-    precision='float32',        # Standard precision
-    memory_efficient=True       # Optimize for large datasets
+# 1. Authenticate
+NimbusSDK.authenticate("your-api-key")
+
+# 2. Load model
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+# 3. Prepare batch data
+# Features shape: (n_features × n_samples × n_trials)
+features = load_preprocessed_features()  # Your preprocessed CSP/bandpower features
+labels = load_trial_labels()             # Ground truth labels (optional)
+
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4,
+    chunk_size = nothing  # Batch mode (not streaming)
 )
 
-# Create batch processor
-processor = nimbus.BatchProcessor(batch_config)
+data = BCIData(features, metadata, labels)
+
+# 4. Run batch inference
+results = predict_batch(model, data; iterations=10)
+
+# 5. Analyze results
+println("Processed $(length(results.predictions)) trials")
+println("Mean confidence: $(round(mean(results.confidences), digits=3))")
+
+if !isnothing(labels)
+    accuracy = sum(results.predictions .== labels) / length(labels)
+    println("Accuracy: $(round(accuracy * 100, digits=1))%")
+end
 ```
 
-### Dataset Loading
+### Performance Characteristics
 
-Load and prepare BCI datasets:
+**Typical performance:**
+- 200 trials with 16 features: ~5 seconds (~25ms per trial)
+- 1000 trials with 32 features: ~30 seconds (~30ms per trial)
+- Scales linearly with number of trials and features
 
-```python
-# Load dataset
-dataset = nimbus.load_dataset(
-    path='/path/to/bci_data',
-    format='edf',               # EDF, BDF, GDF, etc.
-    subjects=['S01', 'S02', 'S03'],
-    sessions=['session_1', 'session_2'],
+<Tip>
+Batch inference is more efficient than processing trials individually. Process all your trials in one `predict_batch()` call when possible.
+</Tip>
+
+## Training Custom Models
+
+### Basic Model Training
+
+Train a custom model on your own labeled data:
+
+```julia
+using NimbusSDK
+
+# Authenticate
+NimbusSDK.authenticate("your-api-key")
+
+# Prepare training data with labels
+train_features = load_training_features()  # (n_features × n_samples × n_trials)
+train_labels = load_training_labels()      # Vector: [1, 2, 1, 3, 4, ...]
+
+train_data = BCIData(
+    train_features,
+    BCIMetadata(
+        sampling_rate = 250.0,
+        paradigm = :motor_imagery,
+        feature_type = :csp,
+        n_features = 16,
+        n_classes = 4
+    ),
+    train_labels  # Labels required for training!
+)
+
+# Train RxLDA model
+model = train_model(
+    RxLDAModel,
+    train_data;
+    iterations = 50,           # Number of inference iterations
+    showprogress = true,       # Display progress bar
+    name = "my_motor_imagery",
+    description = "Custom 4-class motor imagery with CSP"
+)
+
+# Save trained model
+save_model(model, "my_trained_model.jld2")
+println("✓ Model trained and saved")
+
+# Evaluate on test data
+test_data = BCIData(test_features, metadata, test_labels)
+test_results = predict_batch(model, test_data)
+
+test_accuracy = sum(test_results.predictions .== test_labels) / length(test_labels)
+println("Test accuracy: $(round(test_accuracy * 100, digits=1))%")
+```
+
+### Subject-Specific Calibration
+
+Fine-tune a pre-trained model with subject-specific data:
+
+```julia
+using NimbusSDK
+
+# Load pre-trained baseline model
+base_model = load_model(RxLDAModel, "motor_imagery_baseline_v1")
+
+# Collect calibration data (10-20 trials is often sufficient)
+calib_features = collect_calibration_trials()  # Your function
+calib_labels = [1, 2, 3, 4, 1, 2, 3, 4, ...]  # Labels for calibration
+
+calib_data = BCIData(
+    calib_features,
+    BCIMetadata(
+        sampling_rate = 250.0,
+        paradigm = :motor_imagery,
+        feature_type = :csp,
+        n_features = 16,
+        n_classes = 4
+    ),
+    calib_labels
+)
+
+# Calibrate (faster than training from scratch)
+personalized_model = calibrate_model(
+    base_model,
+    calib_data;
+    iterations = 20  # Fewer iterations needed for calibration
+)
+
+# Save personalized model
+save_model(personalized_model, "subject_001_calibrated.jld2")
+println("✓ Model calibrated for subject")
+```
+
+### Training Best Practices
+
+**Data requirements:**
+- Minimum: 50-100 trials per class
+- Recommended: 200+ trials per class for robust models
+- Calibration: 10-20 trials per class sufficient
+
+**Model selection:**
+- **RxLDA**: Faster, shared covariance, good for well-separated classes
+- **RxGMM**: More flexible, class-specific covariances, better for overlapping classes
+
+**Iteration count:**
+- Training: 50-100 iterations (default: 50)
+- Calibration: 20-30 iterations (default: 20)
+- More iterations = better convergence but slower training
+
+## Cross-Validation
+
+### K-Fold Cross-Validation
+
+Evaluate model performance systematically:
+
+```julia
+using NimbusSDK
+
+# Prepare full dataset
+all_features = load_all_features()
+all_labels = load_all_labels()
+
+# K-fold cross-validation
+k_folds = 5
+n_trials = size(all_features, 3)
+fold_size = div(n_trials, k_folds)
+
+accuracies = Float64[]
+
+for fold in 1:k_folds
+    println("\n=== Fold $fold/$k_folds ===")
     
-    # Preprocessing
-    preprocessing={
-        'bandpass_filter': (0.5, 40),
-        'notch_filter': 50,
-        'rereferencing': 'average',
-        'artifact_removal': 'ica'
-    }
-)
-
-# Split dataset
-train_data, val_data, test_data = dataset.split(
-    train_ratio=0.7,
-    val_ratio=0.15,
-    test_ratio=0.15,
-    stratify=True  # Maintain class balance
-)
-```
-
-## Batch Processing Workflows
-
-### Model Training Workflow
-
-Train BCI models on large datasets:
-
-<AccordionGroup>
-  <Accordion title="Supervised Learning">
-    ```python
-    # Supervised training workflow
-    training_config = nimbus.TrainingConfig(
-        model_type='probabilistic_classifier',
-        algorithm='variational_bayes',
-        
-        # Training parameters
-        max_epochs=100,
-        batch_size=64,
-        learning_rate=0.001,
-        early_stopping=True,
-        patience=10,
-        
-        # Regularization
-        l2_regularization=0.01,
-        dropout_rate=0.2,
-        
-        # Cross-validation
-        cv_folds=5,
-        cv_strategy='stratified'
-    )
+    # Split data
+    test_idx = ((fold-1)*fold_size + 1):(fold*fold_size)
+    train_idx = setdiff(1:n_trials, test_idx)
+    
+    train_features = all_features[:, :, train_idx]
+    train_labels_fold = all_labels[train_idx]
+    test_features = all_features[:, :, test_idx]
+    test_labels_fold = all_labels[test_idx]
     
     # Train model
-    model = processor.train_model(
-        train_data=train_data,
-        val_data=val_data,
-        config=training_config
-    )
-    ```
-  </Accordion>
-  
-  <Accordion title="Unsupervised Learning">
-    ```python
-    # Unsupervised learning for feature discovery
-    unsupervised_config = nimbus.UnsupervisedConfig(
-        method='variational_autoencoder',
-        latent_dimensions=32,
-        
-        # Architecture
-        encoder_layers=[128, 64, 32],
-        decoder_layers=[32, 64, 128],
-        
-        # Training
-        batch_size=128,
-        max_epochs=200,
-        beta=1.0,  # VAE beta parameter
-        
-        # Regularization
-        kl_annealing=True,
-        reconstruction_loss='mse'
-    )
+    train_data = BCIData(train_features, metadata, train_labels_fold)
+    model = train_model(RxLDAModel, train_data; iterations=50)
     
-    # Learn representations
-    representations = processor.learn_representations(
-        data=unlabeled_data,
-        config=unsupervised_config
-    )
-    ```
-  </Accordion>
-  
-  <Accordion title="Transfer Learning">
-    ```python
-    # Transfer learning from pre-trained models
-    transfer_config = nimbus.TransferConfig(
-        base_model='pretrained_motor_imagery',
-        
-        # Fine-tuning strategy
-        freeze_layers=['feature_extractor'],
-        fine_tune_layers=['classifier'],
-        
-        # Training parameters
-        initial_lr=0.0001,
-        fine_tune_lr=0.00001,
-        warmup_epochs=5,
-        
-        # Domain adaptation
-        domain_adaptation=True,
-        adaptation_method='coral'
-    )
+    # Test model
+    test_data = BCIData(test_features, metadata, test_labels_fold)
+    results = predict_batch(model, test_data)
     
-    # Transfer and fine-tune
-    adapted_model = processor.transfer_learning(
-        source_model=pretrained_model,
-        target_data=new_subject_data,
-        config=transfer_config
-    )
-    ```
-  </Accordion>
-</AccordionGroup>
+    accuracy = sum(results.predictions .== test_labels_fold) / length(test_labels_fold)
+    push!(accuracies, accuracy)
+    println("Fold accuracy: $(round(accuracy * 100, digits=1))%")
+end
 
-### Analysis Workflows
-
-Comprehensive BCI data analysis:
-
-```python
-# Analysis workflow configuration
-analysis_config = nimbus.AnalysisConfig(
-    analyses=[
-        'spectral_analysis',
-        'connectivity_analysis',
-        'source_localization',
-        'classification_analysis',
-        'statistical_testing'
-    ],
-    
-    # Statistical parameters
-    significance_level=0.05,
-    multiple_comparisons='fdr',
-    bootstrap_iterations=1000,
-    
-    # Visualization
-    generate_plots=True,
-    plot_format='svg',
-    save_results=True
-)
-
-# Run comprehensive analysis
-results = processor.analyze_dataset(
-    dataset=dataset,
-    config=analysis_config
-)
+# Overall results
+mean_acc = mean(accuracies)
+std_acc = std(accuracies)
+println("\n=== Cross-Validation Results ===")
+println("Mean accuracy: $(round(mean_acc * 100, digits=1))% ± $(round(std_acc * 100, digits=1))%")
 ```
 
-## Advanced Batch Features
+## Performance Metrics
 
-### Parallel Processing
+### Information Transfer Rate (ITR)
 
-Leverage multiple cores and GPUs:
+Calculate BCI communication rate:
 
-```python
-# Multi-GPU batch processing
-parallel_config = nimbus.ParallelConfig(
-    # GPU configuration
-    gpus=[0, 1, 2, 3],          # Use 4 GPUs
-    gpu_memory_fraction=0.8,     # Use 80% of GPU memory
-    
-    # CPU configuration
-    cpu_workers=16,              # CPU worker processes
-    cpu_threads_per_worker=2,    # Threads per worker
-    
-    # Data loading
-    data_loader_workers=8,       # Parallel data loading
-    prefetch_factor=2,           # Prefetch batches
-    pin_memory=True,             # Pin memory for GPU transfer
-    
-    # Load balancing
-    dynamic_batching=True,       # Adjust batch sizes dynamically
-    load_balancing='round_robin'
-)
+```julia
+using NimbusSDK
 
-# Create parallel processor
-parallel_processor = nimbus.ParallelBatchProcessor(parallel_config)
+# Run inference
+results = predict_batch(model, data)
+
+# Calculate accuracy
+accuracy = sum(results.predictions .== labels) / length(labels)
+
+# Calculate ITR (bits/minute)
+n_classes = 4
+trial_duration = 4.0  # seconds
+
+itr = calculate_ITR(accuracy, n_classes, trial_duration)
+
+println("Accuracy: $(round(accuracy * 100, digits=1))%")
+println("ITR: $(round(itr, digits=1)) bits/minute")
 ```
 
-### Memory Optimization
+### Online Performance Tracking
 
-Handle large datasets efficiently:
+Track metrics across trials:
 
-```python
-# Memory-efficient processing
-memory_config = nimbus.MemoryConfig(
-    # Dataset handling
-    lazy_loading=True,           # Load data on demand
-    memory_mapping=True,         # Use memory mapping
-    chunk_size='1GB',            # Process in chunks
-    
-    # Caching strategy
-    cache_preprocessed=True,     # Cache preprocessing results
-    cache_location='/tmp/nimbus_cache',
-    cache_size_limit='10GB',
-    
-    # Memory monitoring
-    memory_monitoring=True,
-    memory_threshold=0.9,        # 90% memory usage limit
-    garbage_collection='aggressive',
-    
-    # Optimization
-    gradient_checkpointing=True, # Trade compute for memory
-    mixed_precision=True         # Use mixed precision training
-)
+```julia
+using NimbusSDK
 
-processor.configure_memory(memory_config)
+# Initialize tracker
+tracker = OnlinePerformanceTracker(window_size=50)
+
+# Process trials
+for (pred, true_label, conf) in zip(results.predictions, labels, results.confidences)
+    metrics = update_and_report!(tracker, pred, true_label, conf)
+    
+    # Print running metrics every 10 trials
+    if length(tracker.recent_correct) % 10 == 0
+        println("Running accuracy: $(round(metrics.accuracy * 100, digits=1))%")
+    end
+end
+
+# Get final comprehensive metrics
+final_metrics = get_metrics(tracker, n_classes=4, trial_duration=4.0)
+
+println("\n=== Session Metrics ===")
+println("Accuracy: $(round(final_metrics.accuracy * 100, digits=1))%")
+println("ITR: $(round(final_metrics.information_transfer_rate, digits=1)) bits/min")
+println("Mean confidence: $(round(final_metrics.mean_confidence, digits=3))")
+println("Mean latency: $(round(final_metrics.mean_latency_ms, digits=1)) ms")
 ```
 
-### Distributed Processing
+## Quality Assessment
 
-Scale across multiple machines:
+### Trial Quality Analysis
 
-```python
-# Distributed batch processing
-distributed_config = nimbus.DistributedConfig(
-    # Cluster configuration
-    master_node='192.168.1.100',
-    worker_nodes=[
-        '192.168.1.101',
-        '192.168.1.102',
-        '192.168.1.103'
-    ],
-    
-    # Communication
-    backend='nccl',              # NCCL for GPU communication
-    communication_timeout=300,    # seconds
-    
-    # Data distribution
-    data_sharding='subject',     # Shard by subject
-    load_balancing=True,
-    fault_tolerance=True,
-    
-    # Synchronization
-    sync_strategy='all_reduce',
-    gradient_compression=True
-)
+Identify low-quality trials:
 
-# Create distributed processor
-distributed_processor = nimbus.DistributedBatchProcessor(distributed_config)
+```julia
+using NimbusSDK
+
+# Run batch inference
+results = predict_batch(model, data)
+
+# Assess quality for each trial
+low_confidence_trials = Int[]
+for (i, confidence) in enumerate(results.confidences)
+    if should_reject_trial(confidence, 0.7)
+        push!(low_confidence_trials, i)
+    end
+end
+
+println("Low confidence trials: $(length(low_confidence_trials))/$(length(results.predictions))")
+println("Rejection rate: $(round(100 * length(low_confidence_trials) / length(results.predictions), digits=1))%")
+
+# Overall quality assessment
+quality = assess_trial_quality(results)
+println("\nOverall quality score: $(round(quality.overall_score, digits=2))")
+println("Confidence acceptable: $(quality.confidence_acceptable)")
+println("Recommendation: $(quality.recommendation)")
 ```
 
-## Specialized Batch Operations
+### Preprocessing Diagnostics
 
-### Cross-Subject Analysis
+Check preprocessing quality:
 
-Analyze patterns across multiple subjects:
+```julia
+using NimbusSDK
 
-```python
-# Cross-subject analysis
-cross_subject_config = nimbus.CrossSubjectConfig(
-    # Subject handling
-    subjects=dataset.get_subjects(),
-    subject_normalization=True,
-    
-    # Analysis types
-    analyses=[
-        'individual_performance',
-        'group_statistics',
-        'subject_similarity',
-        'population_patterns'
-    ],
-    
-    # Statistical methods
-    statistical_tests=[
-        'anova',
-        'permutation_test',
-        'cluster_analysis'
-    ],
-    
-    # Visualization
-    generate_subject_plots=True,
-    generate_group_plots=True
-)
+# Diagnose preprocessing issues
+report = diagnose_preprocessing(data)
 
-# Run cross-subject analysis
-cross_subject_results = processor.cross_subject_analysis(
-    dataset=dataset,
-    config=cross_subject_config
-)
+println("Preprocessing Quality: $(round(report.quality_score * 100, digits=1))%")
+
+if !isempty(report.errors)
+    println("\n⚠️  ERRORS:")
+    for error in report.errors
+        println("  • $error")
+    end
+end
+
+if !isempty(report.warnings)
+    println("\n⚠️  WARNINGS:")
+    for warning in report.warnings
+        println("  • $warning")
+    end
+end
+
+if !isempty(report.recommendations)
+    println("\n💡 RECOMMENDATIONS:")
+    for rec in report.recommendations
+        println("  • $rec")
+    end
+end
 ```
 
-### Feature Engineering
+## Model Comparison
 
-Automated feature discovery and selection:
+### Compare Different Models
 
-```python
-# Feature engineering pipeline
-feature_config = nimbus.FeatureEngineeringConfig(
-    # Feature extraction
-    feature_types=[
-        'spectral_features',
-        'temporal_features',
-        'spatial_features',
-        'connectivity_features'
-    ],
+```julia
+using NimbusSDK
+
+# Train multiple models
+rxlda = train_model(RxLDAModel, train_data; iterations=50)
+rxgmm = train_model(RxGMMModel, train_data; iterations=50)
+
+# Test both models
+models = [rxlda, rxgmm]
+model_names = ["RxLDA", "RxGMM"]
+
+println("=== Model Comparison ===")
+for (model, name) in zip(models, model_names)
+    results = predict_batch(model, test_data)
+    accuracy = sum(results.predictions .== test_labels) / length(test_labels)
+    mean_conf = mean(results.confidences)
     
-    # Feature selection
-    selection_methods=[
-        'mutual_information',
-        'recursive_elimination',
-        'lasso_regularization'
-    ],
-    
-    # Feature validation
-    cross_validation=True,
-    stability_selection=True,
-    
-    # Optimization
-    feature_optimization=True,
-    max_features=100
-)
-
-# Engineer features
-engineered_features = processor.engineer_features(
-    data=train_data,
-    config=feature_config
-)
-```
-
-### Model Comparison
-
-Compare different BCI approaches:
-
-```python
-# Model comparison study
-comparison_config = nimbus.ModelComparisonConfig(
-    models=[
-        'linear_discriminant_analysis',
-        'support_vector_machine',
-        'random_forest',
-        'neural_network',
-        'probabilistic_classifier'
-    ],
-    
-    # Evaluation metrics
-    metrics=[
-        'accuracy',
-        'precision',
-        'recall',
-        'f1_score',
-        'auc_roc',
-        'information_transfer_rate'
-    ],
-    
-    # Cross-validation
-    cv_strategy='stratified_kfold',
-    cv_folds=10,
-    cv_repeats=5,
-    
-    # Statistical testing
-    significance_testing=True,
-    post_hoc_tests=True
-)
-
-# Run model comparison
-comparison_results = processor.compare_models(
-    data=dataset,
-    config=comparison_config
-)
-```
-
-## Batch Processing Pipelines
-
-### Research Pipeline
-
-Complete research workflow:
-
-```python
-# Research pipeline
-research_pipeline = nimbus.ResearchPipeline([
-    # Data preprocessing
-    nimbus.PreprocessingStep(
-        filters=['bandpass', 'notch'],
-        artifact_removal='ica',
-        rereferencing='average'
-    ),
-    
-    # Feature extraction
-    nimbus.FeatureExtractionStep(
-        methods=['csp', 'spectral_power', 'connectivity'],
-        optimization=True
-    ),
-    
-    # Model training
-    nimbus.ModelTrainingStep(
-        algorithms=['lda', 'svm', 'probabilistic'],
-        hyperparameter_optimization=True
-    ),
-    
-    # Evaluation
-    nimbus.EvaluationStep(
-        cross_validation=True,
-        statistical_testing=True,
-        visualization=True
-    ),
-    
-    # Reporting
-    nimbus.ReportingStep(
-        generate_report=True,
-        export_results=True
-    )
-])
-
-# Execute pipeline
-pipeline_results = research_pipeline.execute(dataset)
-```
-
-### Production Pipeline
-
-Model deployment preparation:
-
-```python
-# Production pipeline
-production_pipeline = nimbus.ProductionPipeline([
-    # Data validation
-    nimbus.DataValidationStep(
-        quality_checks=True,
-        schema_validation=True
-    ),
-    
-    # Model training
-    nimbus.ProductionTrainingStep(
-        algorithm='probabilistic_classifier',
-        optimization='production',
-        validation='holdout'
-    ),
-    
-    # Model validation
-    nimbus.ModelValidationStep(
-        performance_tests=True,
-        robustness_tests=True,
-        safety_checks=True
-    ),
-    
-    # Model packaging
-    nimbus.ModelPackagingStep(
-        format='onnx',
-        optimization='inference',
-        quantization=True
-    ),
-    
-    # Deployment preparation
-    nimbus.DeploymentPrepStep(
-        containerization=True,
-        documentation=True,
-        monitoring_setup=True
-    )
-])
-
-# Execute production pipeline
-production_model = production_pipeline.execute(dataset)
-```
-
-## Performance Monitoring
-
-### Batch Job Monitoring
-
-Monitor long-running batch jobs:
-
-```python
-# Job monitoring
-monitor = nimbus.BatchMonitor(
-    metrics=['progress', 'throughput', 'memory_usage', 'gpu_utilization'],
-    update_interval=30,  # seconds
-    
-    # Alerts
-    alert_conditions={
-        'memory_usage': 0.9,
-        'gpu_temperature': 85,
-        'job_stalled': 300  # seconds
-    },
-    
-    # Logging
-    log_level='INFO',
-    log_file='/var/log/nimbus_batch.log'
-)
-
-# Start monitoring
-monitor.start()
-
-# Run batch job with monitoring
-results = processor.process_batch(
-    data=large_dataset,
-    monitor=monitor
-)
-```
-
-### Resource Utilization
-
-Optimize resource usage:
-
-```python
-# Resource optimization
-resource_config = nimbus.ResourceConfig(
-    # CPU optimization
-    cpu_optimization='throughput',
-    numa_awareness=True,
-    
-    # GPU optimization
-    gpu_optimization='memory',
-    tensor_core_usage=True,
-    
-    # Memory optimization
-    memory_optimization='bandwidth',
-    huge_pages=True,
-    
-    # I/O optimization
-    io_optimization='sequential',
-    prefetch_data=True
-)
-
-processor.optimize_resources(resource_config)
+    println("\n$name:")
+    println("  Accuracy: $(round(accuracy * 100, digits=1))%")
+    println("  Mean confidence: $(round(mean_conf, digits=3))")
+end
 ```
 
 ## Best Practices
 
-### Reproducibility
+### Data Organization
 
-Ensure reproducible batch processing:
+```julia
+# Organize your data clearly
+struct BCISession
+    features::Array{Float64, 3}  # (n_features × n_samples × n_trials)
+    labels::Vector{Int}           # Trial labels
+    subject_id::String
+    session_id::String
+    date::Date
+end
 
-```python
-# Reproducibility configuration
-reproducibility_config = nimbus.ReproducibilityConfig(
-    # Random seeds
-    random_seed=42,
-    deterministic_algorithms=True,
-    
-    # Environment tracking
-    track_environment=True,
-    track_dependencies=True,
-    track_hardware=True,
-    
-    # Data versioning
-    data_versioning=True,
-    model_versioning=True,
-    
-    # Experiment tracking
-    experiment_tracking=True,
-    metadata_logging=True
-)
-
-processor.configure_reproducibility(reproducibility_config)
+# Process multiple sessions
+function process_sessions(sessions::Vector{BCISession})
+    for session in sessions
+        data = BCIData(session.features, metadata, session.labels)
+        results = predict_batch(model, data)
+        
+        # Save results
+        save_results(session.subject_id, session.session_id, results)
+    end
+end
 ```
 
 ### Error Handling
 
-Robust error handling for long-running jobs:
+```julia
+using NimbusSDK
 
-```python
-# Robust batch processing
-try:
-    results = processor.process_batch(
-        data=dataset,
-        checkpoint_interval=100,  # Save progress every 100 batches
-        resume_from_checkpoint=True,
-        max_retries=3
-    )
-except nimbus.OutOfMemoryError:
-    # Reduce batch size and retry
-    processor.reduce_batch_size(factor=0.5)
-    results = processor.process_batch(data=dataset)
-    
-except nimbus.ComputeError as e:
-    # Log error and continue with fallback
-    logger.error(f"Compute error: {e}")
-    results = processor.process_batch_cpu_fallback(data=dataset)
-```
-
-## Integration Examples
-
-### Research Study
-
-Complete BCI research study:
-
-```python
-# Multi-subject motor imagery study
-study_config = nimbus.StudyConfig(
-    name="Motor Imagery Classification Study",
-    subjects=20,
-    sessions_per_subject=3,
-    
-    # Experimental design
-    paradigm='motor_imagery',
-    classes=['left_hand', 'right_hand', 'feet', 'tongue'],
-    trials_per_class=100,
-    
-    # Analysis pipeline
-    preprocessing='standard',
-    feature_extraction='csp_spectral',
-    classification='probabilistic',
-    
-    # Statistical analysis
-    statistical_tests=True,
-    multiple_comparisons_correction=True,
-    
-    # Reporting
-    generate_figures=True,
-    export_data=True
-)
-
-# Execute study
-study_results = nimbus.execute_study(study_config)
-```
-
-### Clinical Validation
-
-Clinical BCI system validation:
-
-```python
-# Clinical validation pipeline
-clinical_config = nimbus.ClinicalConfig(
-    # Regulatory requirements
-    fda_compliance=True,
-    gcp_compliance=True,
-    
-    # Validation protocol
-    validation_type='prospective',
-    primary_endpoint='classification_accuracy',
-    secondary_endpoints=['itr', 'usability', 'safety'],
-    
-    # Statistical plan
-    power_analysis=True,
-    sample_size_calculation=True,
-    interim_analysis=True,
-    
-    # Quality assurance
-    data_monitoring=True,
-    audit_trail=True,
-    source_data_verification=True
-)
-
-# Run clinical validation
-clinical_results = nimbus.clinical_validation(
-    data=clinical_dataset,
-    config=clinical_config
-)
+try
+    results = predict_batch(model, data)
+catch e
+    if isa(e, DataValidationError)
+        @error "Data validation failed" exception=e
+        # Check data format and preprocessing
+    elseif isa(e, ModelCompatibilityError)
+        @error "Model incompatible with data" exception=e
+        # Check n_features, n_classes match
+    else
+        @error "Inference failed" exception=e
+        rethrow()
+    end
+end
 ```
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Error Handling" icon="shield" href="/inference-configuration/error-handling">
-    Implement robust error recovery
+  <Card title="Streaming Inference" icon="signal" href="/inference-configuration/streaming-inference">
+    Learn about real-time chunk-by-chunk processing
   </Card>
   <Card title="Real-time Setup" icon="cog" href="/inference-configuration/real-time-setup">
-    Configure real-time processing
+    Configure streaming for online applications
   </Card>
-  <Card title="Streaming Inference" icon="signal" href="/inference-configuration/streaming-inference">
-    Learn about continuous processing
+  <Card title="Preprocessing Guide" icon="filter" href="/inference-configuration/preprocessing-requirements">
+    Ensure your data is properly preprocessed
   </Card>
-  <Card title="Examples" icon="list" href="/examples/basic-examples">
-    See batch processing examples
+  <Card title="Julia SDK Reference" icon="code" href="/api-reference/julia-sdk">
+    Complete SDK documentation
   </Card>
 </CardGroup>
 
 ---
 
 <Note>
-**Next**: Learn how to implement [error handling](/inference-configuration/error-handling) for robust BCI applications.
+**Next**: Learn about [streaming inference](/inference-configuration/streaming-inference) for real-time BCI applications.
 </Note>

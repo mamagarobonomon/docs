@@ -1,12 +1,12 @@
 ---
 title: "Real-time Processing"
-description: "How Nimbus achieves sub-20ms latency for responsive brain-computer interfaces"
+description: "How Nimbus achieves sub-25ms latency for responsive brain-computer interfaces"
 icon: "clock"
 ---
 
 # Real-time Processing for BCI
 
-Real-time performance is critical for brain-computer interfaces. Users expect immediate responses to their neural commands - any delay breaks the sense of direct neural control and degrades the user experience. Nimbus achieves sub-20ms inference latency, enabling truly responsive BCI applications.
+Real-time performance is critical for brain-computer interfaces. Users expect immediate responses to their neural commands - any delay breaks the sense of direct neural control and degrades the user experience. NimbusSDK achieves 10-25ms inference latency, enabling truly responsive BCI applications.
 
 ## Why Latency Matters in BCI
 
@@ -44,20 +44,20 @@ Total: ~210ms (10x slower than needed)
 
 ### Streaming Inference Pipeline
 
-Nimbus processes neural signals as continuous streams, not batches:
+NimbusSDK processes neural signals as continuous streams, not batches:
 
 ```
 Neural Stream → Reactive Processing → Probabilistic Inference → Real-time Output
-    ~1ms            ~5ms                    ~10ms              ~2ms
+    ~1ms            ~5ms                    ~10-15ms            ~2ms
 
-Total: ~18ms (sub-20ms target achieved)
+Total: 18-23ms (sub-25ms target achieved)
 ```
 
-### Key Innovations
+### Key Performance Features
 
 <Columns cols={2}>
   <Card title="Reactive Message Passing" icon="refresh">
-    Updates only when new data arrives, no waiting for batches
+    Updates only when new data arrives using RxInfer.jl
   </Card>
   <Card title="Incremental Inference" icon="arrow-right">
     Builds on previous computations instead of starting fresh
@@ -65,8 +65,8 @@ Total: ~18ms (sub-20ms target achieved)
   <Card title="Optimized Factor Graphs" icon="sitemap">
     Efficient graph structures minimize computation
   </Card>
-  <Card title="Hardware Acceleration" icon="cog">
-    GPU/TPU optimization for parallel processing
+  <Card title="Julia Performance" icon="cog">
+    Native Julia compilation for maximum speed
   </Card>
 </Columns>
 
@@ -74,41 +74,69 @@ Total: ~18ms (sub-20ms target achieved)
 
 ### Streaming Data Processing
 
-Unlike traditional batch processing, Nimbus handles continuous data streams:
+NimbusSDK handles continuous data streams efficiently:
 
-```python
-# Traditional batch approach (slow)
-def process_batch(signal_window):
-    features = extract_features(signal_window)  # Wait for full window
-    prediction = classify(features)             # Process entire batch
-    return prediction
+```julia
+using NimbusSDK
 
-# Nimbus streaming approach (fast)
-async def process_stream(signal_stream):
-    async for sample in signal_stream:
-        # Incremental processing - no waiting
-        updated_belief = nimbus.update_belief(sample)
-        if updated_belief.confidence > threshold:
-            yield updated_belief.prediction
+# Initialize streaming session
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4,
+    chunk_size = 250  # 1 second chunks
+)
+
+session = init_streaming(model, metadata)
+
+# Process chunks as they arrive - no waiting for full trials
+for chunk in eeg_stream
+    # Incremental processing - updates beliefs in ~15ms
+    chunk_result = process_chunk(session, chunk)
+    
+    # Immediate feedback to user
+    if chunk_result.confidence > 0.7
+        provide_immediate_feedback(chunk_result.prediction)
+    end
+end
+
+# Finalize with weighted voting across chunks
+final_result = finalize_trial(session; method=:weighted_vote)
+```
+
+### Batch Processing for Offline Analysis
+
+For offline analysis where latency isn't critical:
+
+```julia
+using NimbusSDK
+
+# Process multiple trials efficiently
+results = predict_batch(model, bci_data; iterations=10)
+
+# Typical performance: 200 trials in ~5 seconds
+# Average latency per trial: ~25ms
 ```
 
 ### Reactive Message Passing
 
-Nimbus uses reactive programming principles:
+**RxInfer.jl** reactive programming principles:
 
-1. **Event-driven**: Computation triggered by new data arrival
-2. **Incremental**: Only update affected parts of the computation graph
-3. **Asynchronous**: Non-blocking operations for maximum throughput
-4. **Cached**: Reuse previous computations when possible
+- **Event-driven**: Computation triggered by new data arrival
+- **Incremental**: Only update affected parts of the factor graph
+- **Non-blocking**: Asynchronous message updates
+- **Memory efficient**: Bounded memory usage for streaming
 
 ### Memory Efficiency
 
 Real-time systems must manage memory carefully:
 
 - **Bounded memory**: Fixed memory usage regardless of runtime
-- **Circular buffers**: Efficient storage for streaming data
-- **Garbage collection**: Minimal GC pressure for consistent latency
-- **Memory pools**: Pre-allocated memory to avoid allocation overhead
+- **Efficient data structures**: Optimized for sequential access
+- **Minimal allocation**: Reuse memory buffers when possible
+- **Low GC pressure**: Julia's memory management optimized for real-time
 
 ## Performance Optimizations
 
@@ -116,47 +144,48 @@ Real-time systems must manage memory carefully:
 
 <AccordionGroup>
   <Accordion title="Sparse Factor Graphs">
-    Most neural signals have sparse connectivity patterns. Nimbus exploits this sparsity to reduce computation:
+    Most BCI models have sparse connectivity. NimbusSDK exploits this:
     
     - **Local updates**: Only affected nodes recompute
-    - **Pruning**: Remove irrelevant connections
-    - **Hierarchical**: Multi-resolution processing
+    - **Message caching**: Reuse previous computations
+    - **Efficient scheduling**: Optimal update order
   </Accordion>
   
-  <Accordion title="Approximate Inference">
-    Perfect inference is often unnecessary. Nimbus uses controlled approximations:
+  <Accordion title="Variational Inference">
+    RxInfer uses variational message passing for fast approximate inference:
     
-    - **Variational methods**: Fast approximate posteriors
-    - **Particle filters**: Monte Carlo approximations
-    - **Moment matching**: Gaussian approximations
+    - **Closed-form updates**: No sampling required
+    - **Parallel computation**: Independent message updates
+    - **Convergence guarantees**: Provably correct inference
   </Accordion>
   
   <Accordion title="Adaptive Precision">
-    Adjust computational precision based on signal quality:
+    Adjust computational precision based on requirements:
     
-    ```python
-    if signal_quality.is_high():
-        precision = HighPrecision()
-    else:
-        precision = FastApproximation()
+    ```julia
+    # RxLDA: Fast with shared covariance
+    # RxGMM: More flexible with class-specific covariances
+    
+    # Choose based on accuracy/speed tradeoff
+    model = accuracy_priority ? RxGMMModel : RxLDAModel
     ```
   </Accordion>
 </AccordionGroup>
 
-### Hardware Optimizations
+### Julia Performance
 
 <Columns cols={2}>
-  <Card title="SIMD Instructions" icon="cog">
-    Vectorized operations for parallel computation
+  <Card title="JIT Compilation" icon="cog">
+    First inference compiles, subsequent calls are fast
   </Card>
-  <Card title="GPU Acceleration" icon="microchip">
-    Massively parallel inference on graphics cards
+  <Card title="Type Specialization" icon="code">
+    Compiler optimizes for actual data types
   </Card>
-  <Card title="Memory Locality" icon="database">
-    Cache-friendly data structures and access patterns
+  <Card title="SIMD Operations" icon="microchip">
+    Vectorized operations for array computations
   </Card>
-  <Card title="Pipeline Parallelism" icon="bars">
-    Overlap computation and I/O operations
+  <Card title="Memory Efficiency" icon="database">
+    Minimal allocation and efficient GC
   </Card>
 </Columns>
 
@@ -164,79 +193,97 @@ Real-time systems must manage memory carefully:
 
 ### Benchmark Results
 
-Nimbus consistently achieves sub-20ms latency across different BCI applications:
+NimbusSDK consistently achieves sub-25ms latency for BCI applications:
 
-| Application Type | Signal Type | Channels | Nimbus Latency | Standard BCI |
-|-----------------|-------------|----------|----------------|--------------|
-| Motor Imagery   | EEG         | 64       | 15ms          | 180ms        |
-| P300 Speller    | EEG         | 32       | 12ms          | 150ms        |
-| EMG Control     | EMG         | 8        | 8ms           | 120ms        |
-| Eye Tracking    | EOG         | 4        | 6ms           | 100ms        |
+|| Application Type | Signal Type | Features | NimbusSDK Latency | Typical Pipeline |
+||-----------------|-------------|----------|-------------------|------------------|
+|| Motor Imagery   | CSP         | 16       | 15-20ms          | 180ms           |
+|| P300 Detection  | ERP         | 12       | 12-18ms          | 150ms           |
+|| Multi-class MI  | CSP         | 32       | 20-25ms          | 200ms           |
+|| Binary MI       | CSP         | 8        | 10-15ms          | 120ms           |
 
-### Scalability
+### Scaling Characteristics
 
-Performance scales with system resources:
+- **Feature count**: Linear scaling with number of features
+- **Classes**: Minimal impact from 2-4 classes
+- **Streaming**: Constant per-chunk latency
+- **Batch**: Efficient parallel processing
 
-```python
-# Automatic scaling based on available hardware
-config = nimbus.auto_configure(
-    target_latency=15,  # milliseconds
-    available_cores=8,
-    gpu_memory="8GB"
-)
-
-# Nimbus automatically optimizes for your hardware
-bci_system = nimbus.create_system(config)
-```
+<Note>
+Performance measured on modern CPU (Intel i7 or equivalent). RxLDA is typically faster than RxGMM due to shared covariance structure.
+</Note>
 
 ## Deployment Considerations
 
-### Edge Computing
+### Local Processing
 
-For ultra-low latency, deploy Nimbus at the edge:
+For optimal latency, deploy NimbusSDK locally:
 
-- **Local processing**: No network round-trips
-- **Dedicated hardware**: Optimized for BCI workloads
-- **Real-time OS**: Deterministic scheduling
-- **Hardware acceleration**: Specialized BCI chips
+- **No network latency**: All processing on device
+- **Predictable performance**: No cloud variability
+- **Privacy**: Neural data stays local
+- **Offline capability**: Works without internet
 
-### Cloud Integration
+### System Requirements
 
-When edge computing isn't sufficient:
+**Minimum:**
+- Julia 1.9+
+- 4GB RAM
+- Modern CPU (Intel i5 or equivalent)
 
-- **Hybrid processing**: Critical path on edge, complex analysis in cloud
-- **Predictive caching**: Pre-compute likely responses
-- **Load balancing**: Distribute across multiple inference nodes
-- **Failover**: Graceful degradation when cloud is unavailable
+**Recommended:**
+- Julia 1.10+
+- 8GB RAM
+- Fast CPU (Intel i7 or equivalent)
+- SSD for model loading
 
 ## Monitoring and Debugging
 
-### Real-time Metrics
+### Performance Metrics
 
-Monitor system performance in production:
+Monitor system performance during inference:
 
-```python
-# Built-in performance monitoring
-metrics = nimbus.get_performance_metrics()
-print(f"Average latency: {metrics.latency_p50}ms")
-print(f"99th percentile: {metrics.latency_p99}ms")
-print(f"Throughput: {metrics.samples_per_second}")
+```julia
+using NimbusSDK
+
+# Track performance with built-in metrics
+tracker = OnlinePerformanceTracker(window_size=50)
+
+for (pred, label, conf) in zip(predictions, true_labels, confidences)
+    metrics = update_and_report!(tracker, pred, label, conf)
+end
+
+# Get comprehensive metrics
+full_metrics = get_metrics(tracker, n_classes=4, trial_duration=4.0)
+
+println("Accuracy: $(round(full_metrics.accuracy * 100, digits=1))%")
+println("ITR: $(round(full_metrics.information_transfer_rate, digits=1)) bits/min")
+println("Mean confidence: $(round(full_metrics.mean_confidence, digits=3))")
 ```
 
-### Latency Profiling
+### Quality Assessment
 
-Identify bottlenecks in your BCI pipeline:
+Identify trials with poor signal quality:
 
-```python
-with nimbus.profiler() as prof:
-    result = bci_system.process(neural_signal)
+```julia
+using NimbusSDK
 
-# Detailed breakdown of processing time
-prof.print_stats()
+# Assess each trial's quality
+quality = assess_trial_quality(results)
+
+if !quality.confidence_acceptable
+    @warn "Trial quality below threshold" quality.overall_score
+    println("Recommendation: $(quality.recommendation)")
+end
+
+# Check if rejection is warranted
+if should_reject_trial(confidence, 0.7)
+    println("⚠️  Low confidence trial - consider rejecting")
+end
 ```
 
 <Tip>
-Use Nimbus's built-in profiling tools to optimize your specific BCI application. Every use case has different performance characteristics.
+Use quality assessment to identify when recalibration is needed or when environmental conditions are affecting signal quality.
 </Tip>
 
 ## Getting Started with Real-time BCI
@@ -247,13 +294,13 @@ Ready to build ultra-fast BCI applications?
   <Card title="Quick Start" icon="play" href="/quickstart">
     Build your first real-time BCI system
   </Card>
-  <Card title="Streaming API" icon="signal" href="/api-reference/streaming-api">
-    Learn the streaming inference API
+  <Card title="Streaming Setup" icon="signal" href="/inference-configuration/real-time-setup">
+    Configure streaming inference
   </Card>
-  <Card title="Performance Tuning" icon="tachometer-alt" href="/inference-configuration/real-time-setup">
-    Optimize for your hardware
+  <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
+    Complete SDK reference
   </Card>
-  <Card title="Examples" icon="code" href="/examples/basic-examples">
+  <Card title="Examples" icon="code" href="/examples/code-samples">
     See real-time BCI in action
   </Card>
 </CardGroup>
@@ -263,3 +310,4 @@ Ready to build ultra-fast BCI applications?
 <Note>
 **Next**: Learn how Nimbus handles [uncertainty in neural signals](/core-concepts/uncertainty-handling) to build robust BCI applications.
 </Note>
+

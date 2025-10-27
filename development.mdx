@@ -1,672 +1,656 @@
 ---
 title: 'Development'
-description: 'Local development setup and best practices for building BCI applications with Nimbus'
+description: 'Development workflow for building BCI applications with NimbusSDK (Julia)'
 icon: 'code'
 ---
 
 # Development Guide
 
-This guide covers everything you need to know for developing BCI applications with Nimbus, from local setup to production deployment. Whether you're building a research prototype or a production system, this guide will help you establish a robust development workflow.
+This guide covers the development workflow for building BCI applications with **NimbusSDK** in Julia, from local setup to production deployment.
 
 ## Development Environment Setup
 
 ### Prerequisites
 
-Before you begin developing with Nimbus BCI, ensure you have:
-
 <Info>
 **Required:**
-- **Python 3.8+** (3.9+ recommended for best performance)
+- **Julia 1.9+** (1.10+ recommended for best performance)
 - **Git** for version control
-- **API Key** from hello@nimbusbci.com
+- **API Key** from [Nimbus BCI](mailto:hello@nimbusbci.com)
 - **EEG Hardware** or sample data for testing
 
 **Recommended:**
-- **Virtual environment** (venv, conda, or pipenv)
-- **IDE** with Python support (VS Code, PyCharm, or Jupyter)
-- **Node.js 19+** (for documentation development)
+- **VSCode** with Julia extension
+- **Jupyter** for interactive development
+- **Preprocessing pipeline** (CSP, bandpower, ERP extraction)
 </Info>
 
-### Local Setup
+### Installation
 
 <Steps>
-<Step title="Create Development Environment">
+<Step title="Install Julia">
 
-Set up an isolated Python environment for your BCI project:
+Download and install Julia from [julialang.org](https://julialang.org/downloads/):
 
 ```bash
-# Create virtual environment
-python -m venv nimbus-dev
-source nimbus-dev/bin/activate  # On Windows: nimbus-dev\Scripts\activate
+# Verify installation
+julia --version
+# Expected: julia version 1.10.0 (or later)
+```
 
-# Upgrade pip
-pip install --upgrade pip
+</Step>
 
-# Install Nimbus BCI SDK
-pip install nimbus-bci
+<Step title="Create Project Environment">
 
-# Install development dependencies
-pip install jupyter matplotlib scipy scikit-learn pytest black flake8
+Set up an isolated Julia environment for your BCI project:
+
+```bash
+# Create project directory
+mkdir my-bci-project
+cd my-bci-project
+
+# Initialize Julia project
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+```
+
+</Step>
+
+<Step title="Install NimbusSDK">
+
+Add NimbusSDK to your project:
+
+```julia
+# Start Julia REPL
+julia --project=.
+
+# Install NimbusSDK
+using Pkg
+Pkg.add(url="https://github.com/nimbusbci/NimbusSDK.jl")
+
+# Verify installation
+using NimbusSDK
+println("✓ NimbusSDK installed successfully")
 ```
 
 </Step>
 
 <Step title="Configure API Access">
 
-Set up your API credentials securely:
+Set up your API credentials:
+
+```julia
+# In Julia
+using NimbusSDK
+
+# Authenticate (stores credentials locally)
+NimbusSDK.authenticate("your-api-key-here")
+
+# Verify authentication
+println("✓ Authenticated successfully")
+```
+
+**Security Best Practice:**
+
+Store API keys in environment variables:
 
 ```bash
-# Create .env file for local development
-echo "NIMBUS_API_KEY=your_api_key_here" > .env
-echo "NIMBUS_ENV=development" >> .env
-
-# Add .env to .gitignore
-echo ".env" >> .gitignore
+# In your shell (.bashrc, .zshrc, etc.)
+export NIMBUS_API_KEY="your-api-key-here"
 ```
 
-Create a configuration file for different environments:
-
-```python
-# config.py
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-class Config:
-    NIMBUS_API_KEY = os.getenv('NIMBUS_API_KEY')
-    NIMBUS_ENV = os.getenv('NIMBUS_ENV', 'development')
-    
-    # Development settings
-    DEBUG = NIMBUS_ENV == 'development'
-    CONFIDENCE_THRESHOLD = 0.6 if DEBUG else 0.8
-    BUFFER_SIZE_MS = 2000 if DEBUG else 1000
-```
-
-</Step>
-
-<Step title="Project Structure">
-
-Organize your BCI project with this recommended structure:
-
-```
-your-bci-project/
-├── src/
-│   ├── __init__.py
-│   ├── models/          # Custom BCI models
-│   ├── preprocessing/   # Data preprocessing
-│   ├── inference/       # Inference logic
-│   ├── ui/             # User interface
-│   └── utils/          # Utility functions
-├── data/
-│   ├── raw/            # Raw EEG data
-│   ├── processed/      # Preprocessed data
-│   └── samples/        # Sample datasets
-├── tests/
-│   ├── test_models.py
-│   ├── test_inference.py
-│   └── test_integration.py
-├── notebooks/          # Jupyter notebooks
-├── docs/              # Project documentation
-├── requirements.txt   # Python dependencies
-├── .env              # Environment variables
-├── .gitignore        # Git ignore rules
-└── README.md         # Project overview
+```julia
+# In Julia
+api_key = ENV["NIMBUS_API_KEY"]
+NimbusSDK.authenticate(api_key)
 ```
 
 </Step>
 </Steps>
+
+## Project Structure
+
+Organize your Julia BCI project:
+
+```
+my-bci-project/
+├── Project.toml          # Julia dependencies
+├── Manifest.toml         # Locked dependency versions
+├── src/
+│   ├── MyBCIProject.jl   # Main module
+│   ├── preprocessing.jl   # Feature extraction
+│   ├── training.jl        # Model training
+│   ├── inference.jl       # Real-time inference
+│   └── utils.jl           # Utility functions
+├── data/
+│   ├── raw/               # Raw EEG recordings
+│   ├── processed/         # Preprocessed features
+│   └── models/            # Trained models
+├── test/
+│   ├── runtests.jl        # Test suite
+│   └── test_inference.jl  # Inference tests
+├── examples/
+│   └── motor_imagery_demo.jl
+└── README.md
+```
 
 ## Development Workflow
 
-### 1. Data Acquisition Setup
+### 1. Data Preparation
 
-Set up your EEG data acquisition pipeline:
+#### Preprocessing Pipeline
 
-```python
-# src/data_acquisition.py
-import numpy as np
-from nimbus_bci import NimbusClient
-from config import Config
+```julia
+# src/preprocessing.jl
+using DSP, LinearAlgebra, Statistics
 
-class EEGDataAcquisition:
-    def __init__(self):
-        self.client = NimbusClient(api_key=Config.NIMBUS_API_KEY)
-        self.sampling_rate = 250
-        self.channels = ['C3', 'C4', 'Cz', 'Fz']
-        self.buffer = []
+"""
+    extract_csp_features(eeg_data, csp_filters) -> features
+
+Extract CSP features for motor imagery BCI.
+"""
+function extract_csp_features(eeg_data::Matrix{Float64}, csp_filters::Matrix{Float64})
+    # eeg_data: [n_channels × n_samples]
+    # csp_filters: [n_components × n_channels]
     
-    def simulate_eeg_stream(self):
-        """Simulate real-time EEG data for development."""
-        while True:
-            # In production, replace with actual EEG device interface
-            sample = np.random.randn(len(self.channels))
-            self.buffer.append(sample)
-            
-            if len(self.buffer) >= self.sampling_rate:  # 1 second of data
-                yield np.array(self.buffer[-self.sampling_rate:])
+    # Apply spatial filters
+    spatial_filtered = csp_filters * eeg_data
     
-    def load_sample_data(self, dataset='motor_imagery'):
-        """Load sample data for development and testing."""
-        # Implementation for loading various sample datasets
-        pass
+    # Compute log-variance features
+    features = log.(var(spatial_filtered, dims=2) .+ 1e-10)
+    
+    return vec(features)
+end
+
+"""
+    extract_erp_features(eeg_epoch, time_windows) -> features
+
+Extract ERP amplitude features for P300 BCI.
+"""
+function extract_erp_features(eeg_epoch::Matrix{Float64}, time_windows::Vector)
+    # eeg_epoch: [n_channels × n_samples]
+    # time_windows: [(start_sample, end_sample), ...]
+    
+    features = Float64[]
+    
+    for (start_idx, end_idx) in time_windows
+        window_data = eeg_epoch[:, start_idx:end_idx]
+        # Mean amplitude in window for each channel
+        append!(features, mean(window_data, dims=2))
+    end
+    
+    return features
+end
+
+"""
+    bandpass_filter(data, low_freq, high_freq, fs) -> filtered_data
+
+Apply bandpass filter to EEG data.
+"""
+function bandpass_filter(data::Matrix{Float64}, low_freq::Float64, high_freq::Float64, fs::Float64)
+    # Design Butterworth bandpass filter
+    responsetype = Bandpass(low_freq, high_freq; fs=fs)
+    designmethod = Butterworth(4)  # 4th order
+    
+    # Apply filter to each channel
+    filtered = similar(data)
+    for ch in 1:size(data, 1)
+        filtered[ch, :] = filtfilt(digitalfilter(responsetype, designmethod), data[ch, :])
+    end
+    
+    return filtered
+end
 ```
 
-### 2. Model Development
+### 2. Model Training
 
-Create and test custom BCI models:
+#### Training Workflow
 
-```python
-# src/models/custom_classifier.py
-from nimbus_bci import NimbusClient
-import numpy as np
+```julia
+# src/training.jl
+using NimbusSDK
+using Statistics
 
-class CustomBCIModel:
-    def __init__(self, model_name='motor-imagery-classifier'):
-        self.client = NimbusClient(api_key=Config.NIMBUS_API_KEY)
-        self.model_name = model_name
-        self.preprocessing_config = {
-            'filter': {'low': 1, 'high': 40},
-            'artifact_removal': True,
-            'normalization': 'zscore'
-        }
+"""
+    train_motor_imagery_model(data_file::String) -> trained_model
+
+Complete training workflow for motor imagery BCI.
+"""
+function train_motor_imagery_model(data_file::String)
+    println("="^60)
+    println("Motor Imagery Model Training")
+    println("="^60)
     
-    def preprocess_data(self, eeg_data):
-        """Apply preprocessing steps."""
-        # Custom preprocessing logic
-        return processed_data
+    # 1. Load and preprocess data
+    println("\n1. Loading data...")
+    raw_data = load_eeg_data(data_file)
     
-    def predict(self, eeg_data, channels):
-        """Make prediction with error handling."""
-        try:
-            processed_data = self.preprocess_data(eeg_data)
-            
-            result = self.client.inference(
-                model=self.model_name,
-                eeg_data=processed_data,
-                channels=channels,
-                sampling_rate=self.sampling_rate,
-                config={'preprocessing': self.preprocessing_config}
-            )
-            
-            return result
-            
-        except Exception as e:
-            print(f"Prediction error: {e}")
-            return None
+    # 2. Extract features (CSP)
+    println("2. Extracting CSP features...")
+    features, labels = extract_mi_features(raw_data)
+    # features: [n_features × n_samples × n_trials]
+    # labels: [n_trials]
+    
+    # 3. Create BCIData
+    metadata = BCIMetadata(
+        sampling_rate = 250.0,
+        paradigm = :motor_imagery,
+        feature_type = :csp,
+        n_features = size(features, 1),
+        n_classes = length(unique(labels)),
+        chunk_size = nothing  # Batch mode
+    )
+    
+    training_data = BCIData(features, metadata, labels)
+    
+    # 4. Validate data
+    println("3. Validating data...")
+    report = diagnose_preprocessing(training_data)
+    println("   Quality score: $(round(report.quality_score * 100, digits=1))%")
+    
+    if report.quality_score < 0.6
+        @warn "Low quality score - check preprocessing" score=report.quality_score
+    end
+    
+    # 5. Split into train/test
+    println("4. Splitting train/test...")
+    train_data, test_data = split_data(training_data, test_ratio=0.2)
+    
+    # 6. Train model
+    println("5. Training RxLDA model...")
+    trained_model = train_model(
+        RxLDAModel,
+        train_data;
+        iterations = 50,
+        showprogress = true,
+        name = "my_motor_imagery_model",
+        description = "Trained on $(size(features, 3)) trials"
+    )
+    
+    # 7. Evaluate
+    println("\n6. Evaluating on test set...")
+    test_results = predict_batch(trained_model, test_data)
+    
+    accuracy = sum(test_results.predictions .== test_data.labels) / length(test_results.predictions)
+    mean_conf = mean(test_results.confidences)
+    
+    println("\n" * "="^60)
+    println("Training Results")
+    println("="^60)
+    println("Test Accuracy: $(round(accuracy * 100, digits=1))%")
+    println("Mean Confidence: $(round(mean_conf, digits=3))")
+    
+    # 8. Save model
+    save_path = "data/models/motor_imagery_$(today()).jld2"
+    save_model(trained_model, save_path)
+    println("\n✓ Model saved to: $save_path")
+    
+    return trained_model
+end
+
+"""
+    split_data(data::BCIData, test_ratio::Float64) -> (train, test)
+
+Split BCIData into training and test sets.
+"""
+function split_data(data::BCIData, test_ratio::Float64=0.2)
+    n_trials = size(data.features, 3)
+    n_test = Int(floor(n_trials * test_ratio))
+    n_train = n_trials - n_test
+    
+    # Random shuffle
+    indices = randperm(n_trials)
+    train_idx = indices[1:n_train]
+    test_idx = indices[n_train+1:end]
+    
+    # Split features and labels
+    train_features = data.features[:, :, train_idx]
+    test_features = data.features[:, :, test_idx]
+    
+    train_labels = isnothing(data.labels) ? nothing : data.labels[train_idx]
+    test_labels = isnothing(data.labels) ? nothing : data.labels[test_idx]
+    
+    train_data = BCIData(train_features, data.metadata, train_labels)
+    test_data = BCIData(test_features, data.metadata, test_labels)
+    
+    return train_data, test_data
+end
 ```
 
-### 3. Testing Framework
+### 3. Real-Time Inference
 
-Implement comprehensive testing:
+#### Streaming Application
 
-```python
-# tests/test_models.py
-import unittest
-import numpy as np
-from src.models.custom_classifier import CustomBCIModel
+```julia
+# src/inference.jl
+using NimbusSDK
+using Statistics
 
-class TestBCIModel(unittest.TestCase):
-    def setUp(self):
-        self.model = CustomBCIModel()
-        self.sample_data = np.random.randn(250, 4)  # 1 second, 4 channels
-        self.channels = ['C3', 'C4', 'Cz', 'Fz']
+"""
+    run_realtime_bci(model_path::String; duration_seconds::Int=60)
+
+Run real-time BCI application.
+"""
+function run_realtime_bci(model_path::String; duration_seconds::Int=60)
+    println("="^60)
+    println("Real-Time BCI Application")
+    println("="^60)
     
-    def test_prediction_format(self):
-        """Test that predictions return expected format."""
-        result = self.model.predict(self.sample_data, self.channels)
-        
-        self.assertIsNotNone(result)
-        self.assertIn('prediction', result.__dict__)
-        self.assertIn('confidence', result.prediction.__dict__)
-        self.assertIn('latency_ms', result.__dict__)
+    # 1. Authenticate
+    NimbusSDK.authenticate(ENV["NIMBUS_API_KEY"])
     
-    def test_data_validation(self):
-        """Test data validation and error handling."""
-        # Test with invalid data shapes
-        invalid_data = np.random.randn(10, 2)  # Too few samples/channels
-        result = self.model.predict(invalid_data, self.channels)
-        
-        # Should handle gracefully
-        self.assertIsNone(result)
+    # 2. Load model
+    println("\nLoading model...")
+    model = load_model(RxLDAModel, model_path)
+    println("✓ Model loaded: $(model.metadata.name)")
     
-    def test_confidence_thresholds(self):
-        """Test confidence threshold handling."""
-        result = self.model.predict(self.sample_data, self.channels)
+    # 3. Configure streaming
+    metadata = BCIMetadata(
+        sampling_rate = 250.0,
+        paradigm = :motor_imagery,
+        feature_type = :csp,
+        n_features = 16,
+        n_classes = 4,
+        chunk_size = 250  # 1-second chunks
+    )
+    
+    # 4. Initialize session
+    println("Initializing streaming session...")
+    session = init_streaming(model, metadata)
+    println("✓ Session initialized")
+    
+    # 5. Warmup
+    println("\nWarmup (JIT compilation)...")
+    dummy_chunk = randn(16, 250)
+    for _ in 1:10
+        process_chunk(session, dummy_chunk)
+    end
+    println("✓ Warmup complete")
+    
+    # 6. Real-time loop
+    println("\n" * "="^60)
+    println("Starting real-time processing ($(duration_seconds)s)")
+    println("="^60)
+    
+    chunk_count = 0
+    start_time = time()
+    latencies = Float64[]
+    confidences = Float64[]
+    
+    while (time() - start_time) < duration_seconds
+        # Acquire EEG chunk (replace with your acquisition code)
+        raw_chunk = acquire_eeg_chunk()  # Your hardware interface
         
-        if result:
-            self.assertGreaterEqual(result.prediction.confidence, 0.0)
-            self.assertLessEqual(result.prediction.confidence, 1.0)
+        # Extract features
+        feature_chunk = extract_csp_features(raw_chunk, model.csp_filters)
+        
+        # Time inference
+        t_start = time()
+        result = process_chunk(session, feature_chunk)
+        latency_ms = (time() - t_start) * 1000
+        
+        chunk_count += 1
+        push!(latencies, latency_ms)
+        push!(confidences, result.confidence)
+        
+        # Execute BCI command
+        if result.confidence > 0.75
+            execute_bci_command(result.prediction)
+        end
+        
+        # Report every 10 chunks
+        if chunk_count % 10 == 0
+            println("\nChunk $chunk_count:")
+            println("  Mean latency: $(round(mean(latencies[max(1, end-9):end]), digits=1)) ms")
+            println("  Mean confidence: $(round(mean(confidences[max(1, end-9):end]), digits=3))")
+        end
+    end
+    
+    # 7. Summary
+    println("\n" * "="^60)
+    println("Session Complete")
+    println("="^60)
+    println("Total chunks: $chunk_count")
+    println("Mean latency: $(round(mean(latencies), digits=1)) ms")
+    println("Mean confidence: $(round(mean(confidences), digits=3))")
+end
 
-if __name__ == '__main__':
-    unittest.main()
+"""
+    execute_bci_command(prediction::Int)
+
+Execute BCI command based on prediction.
+"""
+function execute_bci_command(prediction::Int)
+    commands = ["Left", "Right", "Forward", "Stop"]
+    println("→ Command: $(commands[prediction])")
+    
+    # Your application logic here
+    # e.g., control wheelchair, game, cursor, etc.
+end
 ```
 
-## Real-time Development
+### 4. Testing
 
-### Streaming Development Setup
+#### Test Suite
 
-For real-time BCI applications:
+```julia
+# test/runtests.jl
+using Test
+using NimbusSDK
 
-```python
-# src/realtime/stream_processor.py
-import asyncio
-from nimbus_bci import StreamingClient
-from config import Config
-
-class RealTimeProcessor:
-    def __init__(self):
-        self.client = StreamingClient(api_key=Config.NIMBUS_API_KEY)
-        self.session = None
-        self.is_running = False
+@testset "NimbusSDK Tests" begin
     
-    async def start_session(self, model='motor-imagery-classifier'):
-        """Start real-time processing session."""
-        self.session = await self.client.create_session(
-            model=model,
-            config={
-                'buffer_size_ms': Config.BUFFER_SIZE_MS,
-                'update_interval_ms': 50,
-                'confidence_threshold': Config.CONFIDENCE_THRESHOLD,
-                'channels': ['C3', 'C4', 'Cz', 'Fz'],
-                'sampling_rate': 250
-            }
+    @testset "Data Validation" begin
+        # Test BCIData creation
+        features = randn(16, 250, 10)
+        metadata = BCIMetadata(
+            sampling_rate = 250.0,
+            n_features = 16,
+            n_classes = 4
+        )
+        labels = rand(1:4, 10)
+        
+        data = BCIData(features, metadata, labels)
+        @test size(data.features) == (16, 250, 10)
+        @test length(data.labels) == 10
+    end
+    
+    @testset "Model Training" begin
+        # Test RxLDA training
+        features = randn(8, 100, 50)
+        labels = rand(1:2, 50)
+        metadata = BCIMetadata(
+            sampling_rate = 250.0,
+            n_features = 8,
+            n_classes = 2
         )
         
-        # Set up event handlers
-        self.session.on('prediction', self.handle_prediction)
-        self.session.on('signal_quality', self.handle_quality)
-        self.session.on('error', self.handle_error)
+        data = BCIData(features, metadata, labels)
+        model = train_model(RxLDAModel, data; iterations=10)
         
-        await self.session.connect()
-        self.is_running = True
+        @test model isa RxLDAModel
+        @test get_n_features(model) == 8
+        @test get_n_classes(model) == 2
+    end
     
-    async def handle_prediction(self, data):
-        """Handle real-time predictions."""
-        prediction = data['result']
+    @testset "Batch Inference" begin
+        # Test prediction
+        features = randn(8, 100, 20)
+        metadata = BCIMetadata(
+            sampling_rate = 250.0,
+            n_features = 8,
+            n_classes = 2
+        )
         
-        if Config.DEBUG:
-            print(f"Prediction: {prediction['class']} ({prediction['confidence']:.2f})")
+        data = BCIData(features, metadata)
+        model = train_model(RxLDAModel, BCIData(randn(8, 100, 30), metadata, rand(1:2, 30)); iterations=10)
         
-        # Your application logic here
-        await self.process_bci_command(prediction)
+        results = predict_batch(model, data)
+        
+        @test length(results.predictions) == 20
+        @test length(results.confidences) == 20
+        @test all(0 .<= results.confidences .<= 1)
+    end
     
-    async def handle_quality(self, data):
-        """Monitor signal quality."""
-        quality = data['quality']['overall']
+    @testset "Streaming Inference" begin
+        # Test streaming
+        model = train_model(RxLDAModel, BCIData(randn(8, 100, 30), metadata, rand(1:2, 30)); iterations=10)
         
-        if quality < 0.5:
-            print("⚠️ Poor signal quality detected")
-            # Implement quality improvement suggestions
-    
-    async def handle_error(self, data):
-        """Handle streaming errors."""
-        error = data['error']
-        print(f"Streaming error: {error['message']}")
+        metadata = BCIMetadata(
+            sampling_rate = 250.0,
+            n_features = 8,
+            n_classes = 2,
+            chunk_size = 100
+        )
         
-        if error['recoverable']:
-            await asyncio.sleep(1)  # Brief pause before continuing
-        else:
-            await self.stop_session()
-    
-    async def stop_session(self):
-        """Stop streaming session."""
-        if self.session:
-            await self.session.disconnect()
-        self.is_running = False
+        session = init_streaming(model, metadata)
+        
+        chunk = randn(8, 100)
+        result = process_chunk(session, chunk)
+        
+        @test result.prediction in 1:2
+        @test 0 <= result.confidence <= 1
+    end
+end
+
+println("\n✓ All tests passed!")
 ```
-
-### Development Tools
-
-Create helpful development utilities:
-
-```python
-# src/utils/dev_tools.py
-import matplotlib.pyplot as plt
-import numpy as np
-from datetime import datetime
-
-class BCIDevTools:
-    @staticmethod
-    def plot_eeg_data(eeg_data, channels, sampling_rate=250):
-        """Visualize EEG data for debugging."""
-        time_axis = np.arange(len(eeg_data)) / sampling_rate
-        
-        fig, axes = plt.subplots(len(channels), 1, figsize=(12, 8))
-        
-        for i, channel in enumerate(channels):
-            axes[i].plot(time_axis, eeg_data[:, i])
-            axes[i].set_ylabel(channel)
-            axes[i].grid(True)
-        
-        axes[-1].set_xlabel('Time (s)')
-        plt.title('EEG Data Visualization')
-        plt.tight_layout()
-        plt.show()
-    
-    @staticmethod
-    def log_prediction(result, log_file='predictions.log'):
-        """Log predictions for analysis."""
-        timestamp = datetime.now().isoformat()
-        log_entry = f"{timestamp},{result.prediction.class_name},{result.prediction.confidence},{result.latency_ms}\n"
-        
-        with open(log_file, 'a') as f:
-            f.write(log_entry)
-    
-    @staticmethod
-    def analyze_performance(log_file='predictions.log'):
-        """Analyze prediction performance."""
-        import pandas as pd
-        
-        df = pd.read_csv(log_file, names=['timestamp', 'class', 'confidence', 'latency'])
-        
-        print("Performance Analysis:")
-        print(f"Average confidence: {df['confidence'].mean():.3f}")
-        print(f"Average latency: {df['latency'].mean():.1f}ms")
-        print(f"Class distribution:\n{df['class'].value_counts()}")
-        
-        return df
-```
-
-## Documentation Development
-
-### Local Documentation Setup
-
-If you're contributing to Nimbus documentation:
-
-<Steps>
-<Step title="Install Documentation Tools">
-
-```bash
-# Install Mintlify CLI
-npm i -g mint
-
-# Clone documentation repository
-git clone https://github.com/nimbusbci/docs.git
-cd docs
-```
-
-</Step>
-
-<Step title="Preview Documentation">
-
-```bash
-# Start local preview
-mint dev
-
-# Open http://localhost:3000 to see your changes
-```
-
-</Step>
-
-<Step title="Validate Documentation">
-
-```bash
-# Check for broken links
-mint broken-links
-
-# Validate MDX syntax
-npx mintlify validate
-```
-
-</Step>
-</Steps>
 
 ## Best Practices
 
-### Code Quality
+### Code Organization
 
-<AccordionGroup>
-  <Accordion title="Code Formatting and Linting">
-    Use automated tools to maintain code quality:
-    
-    ```bash
-    # Format code with Black
-    black src/ tests/
-    
-    # Lint with flake8
-    flake8 src/ tests/
-    
-    # Type checking with mypy
-    mypy src/
-    ```
-    
-    Create a `pyproject.toml` for configuration:
-    ```toml
-    [tool.black]
-    line-length = 88
-    target-version = ['py38']
-    
-    [tool.flake8]
-    max-line-length = 88
-    ignore = E203, W503
-    ```
-  </Accordion>
-  
-  <Accordion title="Error Handling">
-    Implement robust error handling for BCI applications:
-    
-    ```python
-    from nimbus_bci.exceptions import (
-        NimbusAPIError, 
-        AuthenticationError, 
-        RateLimitError
-    )
-    
-    def robust_inference(client, **kwargs):
-        max_retries = 3
-        retry_count = 0
-        
-        while retry_count < max_retries:
-            try:
-                return client.inference(**kwargs)
-                
-            except RateLimitError as e:
-                print(f"Rate limit hit, waiting {e.retry_after}s")
-                time.sleep(e.retry_after)
-                retry_count += 1
-                
-            except AuthenticationError:
-                print("Authentication failed - check API key")
-                break
-                
-            except NimbusAPIError as e:
-                print(f"API error: {e.message}")
-                retry_count += 1
-                time.sleep(2 ** retry_count)  # Exponential backoff
-        
-        return None
-    ```
-  </Accordion>
-  
-  <Accordion title="Performance Monitoring">
-    Monitor your BCI application performance:
-    
-    ```python
-    import time
-    from collections import deque
-    
-    class PerformanceMonitor:
-        def __init__(self, window_size=100):
-            self.latencies = deque(maxlen=window_size)
-            self.confidences = deque(maxlen=window_size)
-            self.errors = 0
-        
-        def record_prediction(self, result, start_time):
-            latency = (time.time() - start_time) * 1000  # ms
-            self.latencies.append(latency)
-            
-            if result:
-                self.confidences.append(result.prediction.confidence)
-            else:
-                self.errors += 1
-        
-        def get_stats(self):
-            if not self.latencies:
-                return None
-                
-            return {
-                'avg_latency': sum(self.latencies) / len(self.latencies),
-                'max_latency': max(self.latencies),
-                'avg_confidence': sum(self.confidences) / len(self.confidences),
-                'error_rate': self.errors / (len(self.latencies) + self.errors)
-            }
-    ```
-  </Accordion>
-</AccordionGroup>
+<Card title="Module Structure" icon="folder">
+  ```julia
+  # src/MyBCIProject.jl
+  module MyBCIProject
 
-## Debugging and Troubleshooting
+  using NimbusSDK
+  using Statistics
 
-### Common Development Issues
+  include("preprocessing.jl")
+  include("training.jl")
+  include("inference.jl")
+  include("utils.jl")
 
-<AccordionGroup>
-  <Accordion title="API Connection Issues">
-    **Symptoms**: Connection timeouts, authentication errors
-    
-    **Solutions**:
-    ```python
-    # Test API connectivity
-    def test_api_connection():
-        try:
-            client = NimbusClient(api_key=Config.NIMBUS_API_KEY)
-            models = client.get_models()
-            print(f"✅ Connected successfully. {len(models)} models available.")
-            return True
-        except Exception as e:
-            print(f"❌ Connection failed: {e}")
-            return False
-    
-    # Debug API requests
-    import logging
-    logging.basicConfig(level=logging.DEBUG)
-    ```
-  </Accordion>
-  
-  <Accordion title="Data Format Issues">
-    **Symptoms**: Model errors, unexpected predictions
-    
-    **Solutions**:
-    ```python
-    def validate_eeg_data(eeg_data, channels, sampling_rate):
-        """Validate EEG data format."""
-        issues = []
-        
-        # Check data shape
-        if eeg_data.ndim != 2:
-            issues.append(f"Data should be 2D, got {eeg_data.ndim}D")
-        
-        if eeg_data.shape[1] != len(channels):
-            issues.append(f"Channel mismatch: {eeg_data.shape[1]} vs {len(channels)}")
-        
-        # Check for NaN or infinite values
-        if np.isnan(eeg_data).any():
-            issues.append("Data contains NaN values")
-        
-        if np.isinf(eeg_data).any():
-            issues.append("Data contains infinite values")
-        
-        # Check data range (typical EEG is ±100µV)
-        if np.abs(eeg_data).max() > 1000:
-            issues.append("Data values seem too large (>1000µV)")
-        
-        return issues
-    ```
-  </Accordion>
-  
-  <Accordion title="Performance Issues">
-    **Symptoms**: High latency, memory usage
-    
-    **Solutions**:
-    ```python
-    # Profile your code
-    import cProfile
-    import pstats
-    
-    def profile_inference():
-        profiler = cProfile.Profile()
-        profiler.enable()
-        
-        # Your BCI code here
-        result = client.inference(...)
-        
-        profiler.disable()
-        stats = pstats.Stats(profiler)
-        stats.sort_stats('cumulative')
-        stats.print_stats(10)  # Top 10 functions
-    
-    # Memory monitoring
-    import psutil
-    import os
-    
-    def monitor_memory():
-        process = psutil.Process(os.getpid())
-        memory_mb = process.memory_info().rss / 1024 / 1024
-        print(f"Memory usage: {memory_mb:.1f} MB")
-    ```
-  </Accordion>
-</AccordionGroup>
+  export train_motor_imagery_model,
+         run_realtime_bci,
+         extract_csp_features
 
-## Deployment Preparation
+  end  # module
+  ```
+</Card>
 
-### Production Checklist
+### Error Handling
 
-Before deploying your BCI application:
-
-- [ ] **Security**: API keys stored securely, no hardcoded credentials
-- [ ] **Error Handling**: Comprehensive error handling and logging
-- [ ] **Performance**: Latency under target thresholds (typically <50ms)
-- [ ] **Testing**: Unit tests, integration tests, and user acceptance testing
-- [ ] **Monitoring**: Performance monitoring and alerting set up
-- [ ] **Documentation**: Code documented, deployment guide written
-- [ ] **Backup**: Data backup and recovery procedures in place
-
-### Environment Configuration
-
-```python
-# production_config.py
-class ProductionConfig(Config):
-    DEBUG = False
-    CONFIDENCE_THRESHOLD = 0.8
-    BUFFER_SIZE_MS = 1000
-    MAX_RETRIES = 5
-    TIMEOUT_SECONDS = 30
-    
-    # Logging configuration
-    LOG_LEVEL = 'INFO'
-    LOG_FILE = '/var/log/nimbus-bci.log'
-    
-    # Performance settings
-    BATCH_SIZE = 10
-    CACHE_SIZE = 1000
+```julia
+function safe_inference(model, data::BCIData)
+    try
+        results = predict_batch(model, data)
+        return results
+    catch e
+        if e isa DimensionMismatch
+            @error "Feature dimension mismatch" expected=get_n_features(model) actual=size(data.features, 1)
+        elseif e isa ArgumentError
+            @error "Invalid argument" exception=e
+        else
+            @error "Inference failed" exception=e
+        end
+        return nothing
+    end
+end
 ```
+
+### Performance Monitoring
+
+```julia
+using Statistics
+
+struct PerformanceMonitor
+    latencies::Vector{Float64}
+    confidences::Vector{Float64}
+end
+
+PerformanceMonitor() = PerformanceMonitor(Float64[], Float64[])
+
+function record!(monitor::PerformanceMonitor, latency_ms::Float64, confidence::Float64)
+    push!(monitor.latencies, latency_ms)
+    push!(monitor.confidences, confidence)
+end
+
+function report(monitor::PerformanceMonitor)
+    println("Performance Report:")
+    println("  Mean latency: $(round(mean(monitor.latencies), digits=1)) ms")
+    println("  95th percentile: $(round(quantile(monitor.latencies, 0.95), digits=1)) ms")
+    println("  Mean confidence: $(round(mean(monitor.confidences), digits=3))")
+end
+```
+
+## Debugging Tips
+
+### Common Issues
+
+<AccordionGroup>
+  <Accordion title="Slow First Inference">
+    **Cause**: Julia's JIT compilation
+    
+    **Solution**: Run warmup inferences
+    ```julia
+    # Warmup
+    dummy_data = randn(16, 250, 1)
+    for _ in 1:10
+        predict_batch(model, BCIData(dummy_data, metadata))
+    end
+    # Now real inference will be fast
+    ```
+  </Accordion>
+  
+  <Accordion title="Dimension Mismatch">
+    **Cause**: Feature count doesn't match model
+    
+    **Solution**: Verify dimensions
+    ```julia
+    println("Model expects: $(get_n_features(model)) features")
+    println("Data has: $(size(data.features, 1)) features")
+    ```
+  </Accordion>
+  
+  <Accordion title="Low Confidence">
+    **Cause**: Poor preprocessing or model calibration
+    
+    **Solution**: Run diagnostics
+    ```julia
+    report = diagnose_preprocessing(data)
+    println("Quality: $(report.quality_score)")
+    for warning in report.warnings
+        println("  • $warning")
+    end
+    ```
+  </Accordion>
+</AccordionGroup>
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="API Reference" icon="code" href="/api-reference/authentication">
-    Explore the complete API documentation
+  <Card title="Julia SDK Reference" icon="book" href="/api-reference/julia-sdk">
+    Complete API documentation
   </Card>
-  
-  <Card title="Model Specification" icon="brain" href="/model-specification">
-    Learn to build custom BCI models
+  <Card title="Code Examples" icon="code" href="/examples/code-samples">
+    Working Julia examples
   </Card>
-  
-  <Card title="Examples" icon="play" href="/examples/code-samples">
-    See complete implementation examples
+  <Card title="Model Training" icon="graduation-cap" href="/inference-configuration/batch-processing">
+    Training guide
   </Card>
-  
-  <Card title="Production Deployment" icon="server" href="/inference-configuration/real-time-setup">
-    Deploy your BCI application to production
+  <Card title="Preprocessing" icon="waveform" href="/development/preprocessing-integration">
+    Feature extraction guide
   </Card>
 </CardGroup>
 
 ## Support
 
-Need help with development?
+Need help?
 
-- **Email**: hello@nimbusbci.com for technical support
-- **GitHub**: Report issues and contribute to examples
-- **Documentation**: Browse our comprehensive guides
-- **Community**: Join our developer community
+- **Email**: hello@nimbusbci.com
+- **Documentation**: Browse comprehensive guides
+- **GitHub**: Report issues and contribute
 
-Happy coding! 🚀 Build amazing BCI applications with Nimbus.
+Happy coding! 🚀 Build amazing BCI applications with NimbusSDK.

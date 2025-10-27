@@ -27,15 +27,13 @@ Traditional deterministic BCI systems assume clean, consistent signals. When the
 
 ### Why Deterministic Approaches Fail
 
-Most current BCI systems use deterministic classification:
+Most current BCI systems use deterministic classification that always returns a single answer with no uncertainty:
 
-```python
-# Traditional deterministic BCI approach
-def classify_intent(neural_signal):
-    features = extract_features(neural_signal)
-    prediction = trained_classifier.predict(features)
-    return prediction  # Single answer, no uncertainty
-```
+**Traditional approach:**
+- Extract features from neural signals
+- Apply a classifier (SVM, LDA, etc.)
+- Return a single class prediction
+- No confidence measure or alternatives provided
 
 **Problems with this approach:**
 - **Overconfident predictions**: Always returns an answer, even with poor signal quality
@@ -47,25 +45,39 @@ def classify_intent(neural_signal):
 
 ### Bayesian Inference for BCI
 
-Nimbus uses Bayesian inference to model uncertainty explicitly:
+NimbusSDK uses Bayesian inference via **RxInfer.jl** to model uncertainty explicitly:
 
-```python
-# Probabilistic BCI approach with Nimbus
-def infer_intent(neural_signal):
-    # Returns probability distribution over possible intents
-    intent_distribution = nimbus.infer(
-        signal=neural_signal,
-        model=bci_model,
-        uncertainty=True
-    )
+```julia
+using NimbusSDK
+
+# Authenticate and load model
+NimbusSDK.authenticate("your-api-key")
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+# Run inference - returns full posterior distribution
+results = predict_batch(model, bci_data)
+
+# Access predictions with confidence
+for (i, pred) in enumerate(results.predictions)
+    confidence = results.confidences[i]
+    posterior = results.posteriors[:, i]  # Full distribution over classes
     
-    # Can express confidence and multiple possibilities
-    return {
-        'most_likely': intent_distribution.mode(),
-        'confidence': intent_distribution.entropy(),
-        'alternatives': intent_distribution.top_k(3)
-    }
+    println("Prediction: $pred")
+    println("Confidence: $(round(confidence, digits=3))")
+    println("Posterior distribution: $(round.(posterior, digits=3))")
+    
+    # Make confidence-based decisions
+    if confidence < 0.7
+        println("⚠️  Low confidence - consider rejecting this trial")
+    end
+end
 ```
+
+**Key advantages:**
+- Returns full posterior probability distribution, not just a single prediction
+- Confidence scores for each prediction
+- Can identify uncertain trials and request clarification
+- Gracefully handles poor signal quality
 
 ### Key Advantages
 
@@ -122,74 +134,110 @@ For FDA-approved medical devices, explainability is crucial. Probabilistic model
 </Note>
 
 **Example: Assistive Communication Device**
-```python
-# Patient with ALS using eye-tracking BCI
-signal_quality = assess_signal_quality(eye_data)
 
-if signal_quality.confidence > 0.8:
+```julia
+using NimbusSDK
+
+# Assess signal quality for each trial
+quality = assess_trial_quality(results)
+
+# Adaptive responses based on confidence
+if quality.confidence_acceptable
     # High confidence - execute command immediately
-    execute_command(predicted_intent)
-elif signal_quality.confidence > 0.5:
-    # Medium confidence - ask for confirmation
-    request_confirmation(predicted_intent, alternatives)
-else:
+    execute_command(results.predictions[end])
+elseif results.confidences[end] > 0.5
+    # Medium confidence - show top 2 alternatives
+    show_alternatives(results.predictions[end], results.posteriors[:, end])
+else
     # Low confidence - request clearer signal
-    prompt_user_for_clearer_input()
+    display_message("Please focus and try again")
+end
 ```
 
 ### Consumer Applications
 
-**Example: Gaming Interface**
-```python
-# Adaptive difficulty based on cognitive load
-cognitive_load = nimbus.infer_cognitive_state(eeg_signal)
+**Example: Motor Imagery BCI for Gaming**
 
-if cognitive_load.is_high():
-    # User is struggling - reduce game difficulty
-    game.adjust_difficulty(easier=True)
-elif cognitive_load.is_low():
-    # User is bored - increase challenge
-    game.adjust_difficulty(harder=True)
+```julia
+using NimbusSDK
+
+# Initialize streaming for real-time gaming
+session = init_streaming(model, metadata)
+
+# Process continuous stream with quality monitoring
+for chunk in game_stream
+    chunk_result = process_chunk(session, chunk)
+    
+    # Adaptive difficulty based on performance
+    if chunk_result.confidence > 0.85
+        # User performing well - increase challenge
+        increase_game_difficulty()
+    elseif chunk_result.confidence < 0.55
+        # User struggling - provide hints or reduce challenge
+        adjust_game_assistance()
+    end
+end
 ```
 
 ### Research Applications
 
-**Example: Neurofeedback Training**
-```python
-# Real-time feedback on meditation state
-meditation_state = nimbus.infer_meditation_depth(eeg_signal)
+**Example: BCI Performance Tracking**
 
-# Provide nuanced feedback based on uncertainty
-if meditation_state.confidence > 0.9:
-    feedback = f"Deep meditation detected (confidence: {meditation_state.confidence:.1%})"
-else:
-    feedback = f"Meditation in progress (confidence: {meditation_state.confidence:.1%})"
+```julia
+using NimbusSDK
+
+# Track performance metrics in real-time
+tracker = OnlinePerformanceTracker(window_size=50)
+
+for (prediction, true_label, confidence) in zip(results.predictions, labels, results.confidences)
+    metrics = update_and_report!(tracker, prediction, true_label, confidence)
     
-display_feedback(feedback)
+    println("Running accuracy: $(round(metrics.accuracy * 100, digits=1))%")
+    println("Mean confidence: $(round(metrics.mean_confidence, digits=3))")
+    
+    # Provide adaptive feedback
+    if metrics.accuracy < 0.6
+        println("⚠️  Consider recalibration")
+    end
+end
 ```
 
 ## Technical Implementation
 
-### Message Passing Algorithms
+### RxInfer.jl Message Passing
 
-Nimbus uses efficient message passing on factor graphs to perform Bayesian inference:
+NimbusSDK uses **RxInfer.jl** for efficient Bayesian inference through reactive message passing:
 
-1. **Factor graphs** represent probabilistic relationships between variables
-2. **Message passing** propagates information through the graph
-3. **Reactive updates** handle streaming data in real-time
-4. **Approximate inference** maintains computational efficiency
+1. **Factor graphs** represent probabilistic relationships between neural features and brain states
+2. **Variational message passing** propagates information efficiently through the graph
+3. **Reactive updates** handle streaming data in real-time with minimal latency
+4. **Automatic inference** - RxInfer generates efficient inference algorithms automatically
 
 <Tip>
-The mathematical details are handled automatically by Nimbus. You specify the model structure, and Nimbus generates efficient inference algorithms.
+The mathematical details are handled automatically by RxInfer. NimbusSDK provides the RxLDA and RxGMM models pre-configured for optimal BCI performance.
 </Tip>
 
-### Scalability
+### Performance Characteristics
 
-Probabilistic inference scales to:
-- **Thousands of neural channels** (high-density EEG, ECoG arrays)
-- **Real-time processing** (sub-20ms latency)
-- **Continuous adaptation** (online learning from new data)
-- **Multi-modal integration** (EEG + EMG + eye tracking + etc.)
+NimbusSDK achieves:
+- **Real-time processing**: 10-25ms inference latency per trial
+- **Batch efficiency**: Process hundreds of trials in seconds
+- **Memory efficiency**: Fixed memory usage for streaming
+- **Scalability**: Handle 100+ features without performance degradation
+
+### Supported Models
+
+**RxLDA (Linear Discriminant Analysis)**
+- Shared covariance across classes
+- Fast inference and training
+- Best for well-separated classes
+- Typical accuracy: 70-90% (motor imagery)
+
+**RxGMM (Gaussian Mixture Model)**
+- Class-specific covariances
+- More flexible for overlapping distributions
+- Handles complex class structures
+- Slightly slower but more robust
 
 ## Getting Started
 

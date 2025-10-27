@@ -1,523 +1,523 @@
 ---
 title: "Real-time Setup"
-description: "Configure Nimbus for ultra-low latency BCI inference"
+description: "Configure NimbusSDK for ultra-low latency BCI inference"
 icon: "gear"
 ---
 
 # Real-time Inference Setup
 
-Setting up Nimbus for real-time BCI applications requires careful configuration to achieve sub-20ms latency while maintaining accuracy. This guide covers the essential configuration options and best practices for optimal real-time performance.
+Setting up NimbusSDK for real-time BCI applications requires proper configuration to achieve 10-25ms latency while maintaining accuracy. This guide covers essential setup steps and best practices for optimal real-time performance.
 
-## Quick Start Configuration
+## Quick Start
 
-For immediate real-time BCI setup:
+Minimal setup for real-time streaming:
 
-```python
-import nimbus
+```julia
+using NimbusSDK
 
-# Optimized configuration for real-time BCI
-config = nimbus.RealTimeConfig(
-    target_latency=15,  # milliseconds
-    max_channels=64,    # EEG channels
-    sample_rate=1000,   # Hz
-    buffer_size=16,     # samples
-    precision='float32' # balance speed vs accuracy
+# 1. Authenticate
+NimbusSDK.authenticate("your-api-key")
+
+# 2. Load model
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+# 3. Configure streaming metadata
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4,
+    chunk_size = 250  # 1 second chunks at 250 Hz
 )
 
-# Create real-time BCI system
-bci_system = nimbus.create_realtime_system(config)
+# 4. Initialize streaming session
+session = init_streaming(model, metadata)
+
+# 5. Process chunks in real-time
+for chunk in eeg_stream
+    result = process_chunk(session, chunk)
+    execute_command(result.prediction, result.confidence)
+end
 ```
 
-## Configuration Options
+## Chunk Size Selection
 
-### Latency Settings
+The `chunk_size` parameter determines latency and accuracy tradeoff:
 
-Control the speed-accuracy tradeoff:
-
-<AccordionGroup>
-  <Accordion title="Target Latency">
-    Set your maximum acceptable latency:
-    
-    ```python
-    config = nimbus.RealTimeConfig(
-        target_latency=10,   # Ultra-fast (gaming)
-        target_latency=15,   # Fast (general BCI)
-        target_latency=20,   # Standard (research)
-    )
-    ```
-    
-    **Trade-offs:**
-    - Lower latency = Less processing time = Potentially lower accuracy
-    - Higher latency = More processing time = Better accuracy
-  </Accordion>
-  
-  <Accordion title="Processing Mode">
-    Choose between different processing strategies:
-    
-    ```python
-    # Streaming mode (lowest latency)
-    config.processing_mode = 'streaming'
-    
-    # Micro-batch mode (balanced)
-    config.processing_mode = 'micro_batch'
-    config.batch_size = 4
-    
-    # Adaptive mode (automatic optimization)
-    config.processing_mode = 'adaptive'
-    ```
-  </Accordion>
-  
-  <Accordion title="Buffer Configuration">
-    Optimize buffering for your application:
-    
-    ```python
-    config.buffer_config = {
-        'input_buffer_size': 32,    # Input samples to buffer
-        'output_buffer_size': 16,   # Output predictions to buffer
-        'circular_buffer': True,    # Use circular buffering
-        'zero_copy': True          # Avoid memory copying
-    }
-    ```
-  </Accordion>
-</AccordionGroup>
-
-### Hardware Optimization
-
-Configure Nimbus for your specific hardware:
-
-```python
-# Automatic hardware detection and optimization
-config = nimbus.RealTimeConfig.auto_optimize(
-    cpu_cores=8,
-    gpu_memory='4GB',
-    target_latency=15
-)
-
-# Manual hardware configuration
-config.hardware = {
-    'use_gpu': True,
-    'gpu_device': 0,
-    'cpu_threads': 4,
-    'memory_pool_size': '1GB',
-    'pin_memory': True
-}
-```
-
-### Signal Processing Pipeline
-
-Configure the processing pipeline for your BCI type:
-
-<Columns cols={2}>
-  <Card title="Motor Imagery BCI" icon="gamepad">
-    ```python
-    config.pipeline = nimbus.MotorImageryPipeline(
-        frequency_bands=[(8, 12), (18, 25)],
-        spatial_filter='CSP',
-        classifier='LDA',
-        post_processing='exponential_smoothing'
-    )
-    ```
-  </Card>
-  <Card title="P300 Speller" icon="keyboard">
-    ```python
-    config.pipeline = nimbus.P300Pipeline(
-        epoch_length=0.8,  # seconds
-        baseline_correction=True,
-        artifact_rejection='automatic',
-        averaging_method='weighted'
-    )
-    ```
-  </Card>
-  <Card title="SSVEP BCI" icon="signal">
-    ```python
-    config.pipeline = nimbus.SSVEPPipeline(
-        target_frequencies=[6, 7.5, 8.57, 10],
-        window_length=1.0,  # seconds
-        method='CCA',
-        harmonics=3
-    )
-    ```
-  </Card>
-  <Card title="Custom Pipeline" icon="cog">
-    ```python
-    config.pipeline = nimbus.CustomPipeline(
-        preprocessing_steps=[
-            'bandpass_filter',
-            'notch_filter',
-            'artifact_removal'
-        ],
-        feature_extraction='custom',
-        classifier='probabilistic'
-    )
-    ```
-  </Card>
-</Columns>
-
-## Performance Tuning
-
-### Latency Optimization
-
-Fine-tune for minimum latency:
-
-```python
-# Ultra-low latency configuration
-ultra_fast_config = nimbus.RealTimeConfig(
-    target_latency=8,           # Aggressive target
-    processing_mode='streaming', # No batching
-    precision='float16',        # Reduced precision
-    optimization_level='max_speed',
-    
-    # Disable expensive operations
-    uncertainty_quantification=False,
-    detailed_logging=False,
-    
-    # Hardware optimizations
-    use_gpu=True,
-    pin_memory=True,
-    prefetch_factor=2
+### Fast Response (0.5 second chunks)
+```julia
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    chunk_size = 125,  # 0.5s at 250 Hz
+    # ... other params
 )
 ```
+- **Latency**: ~10-15ms per chunk
+- **Update rate**: Every 0.5 seconds
+- **Use case**: Fast paced games, quick reactions
+- **Trade-off**: Less data per prediction, potentially lower confidence
 
-### Accuracy Optimization
+### Standard (1 second chunks) - **Recommended**
+```julia
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    chunk_size = 250,  # 1s at 250 Hz
+    # ... other params
+)
+```
+- **Latency**: ~15-20ms per chunk
+- **Update rate**: Every second
+- **Use case**: Most BCI applications
+- **Trade-off**: Good balance of speed and accuracy
 
-Prioritize accuracy over speed:
+### Accurate (2 second chunks)
+```julia
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    chunk_size = 500,  # 2s at 250 Hz
+    # ... other params
+)
+```
+- **Latency**: ~20-25ms per chunk
+- **Update rate**: Every 2 seconds
+- **Use case**: High-stakes decisions, medical applications
+- **Trade-off**: Higher confidence but slower updates
 
-```python
-# High accuracy configuration
-accurate_config = nimbus.RealTimeConfig(
-    target_latency=25,          # More processing time
-    processing_mode='micro_batch',
-    batch_size=8,
-    precision='float64',        # Higher precision
-    optimization_level='max_accuracy',
+## Model Selection for Real-Time
+
+### RxLDA vs RxGMM
+
+```julia
+# RxLDA: Faster, recommended for real-time
+rxlda_model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+# Typical latency: 10-20ms
+# Use when: Speed is priority, classes are well-separated
+
+# RxGMM: More flexible, slightly slower
+rxgmm_model = load_model(RxGMMModel, "motor_imagery_4class_gmm_v1")
+# Typical latency: 15-25ms
+# Use when: Need flexibility for overlapping classes
+```
+
+<Tip>
+For most real-time applications, **RxLDA is recommended** due to its faster inference while maintaining good accuracy.
+</Tip>
+
+## Aggregation Strategies
+
+Choose how to combine multiple chunks for final decisions:
+
+### Weighted Vote (Recommended)
+```julia
+# High-confidence chunks contribute more
+final_result = finalize_trial(session; method=:weighted_vote)
+```
+- Best for: Most applications
+- Advantage: Balances all chunks by confidence
+- Typical accuracy: Best overall performance
+
+### Majority Vote
+```julia
+# Each chunk has equal weight
+final_result = finalize_trial(session; method=:majority_vote)
+```
+- Best for: When all chunks have similar quality
+- Advantage: Simple, robust to outliers
+- Typical accuracy: Good with consistent signal
+
+### Latest Chunk Only
+```julia
+# Use only the most recent chunk
+final_result = finalize_trial(session; method=:latest)
+```
+- Best for: Ultra-responsive applications
+- Advantage: Fastest response to state changes
+- Typical accuracy: Lower, but most reactive
+
+## Performance Optimization
+
+### JIT Compilation Warmup
+
+Julia's JIT compiler makes the first inference slower. Warm up before real use:
+
+```julia
+using NimbusSDK
+
+# Load model
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+session = init_streaming(model, metadata)
+
+# Warmup: Run a few dummy inferences
+println("Warming up...")
+dummy_chunk = randn(16, 250)  # Same shape as real data
+for i in 1:10
+    process_chunk(session, dummy_chunk)
+end
+println("✓ Ready for real-time processing")
+
+# Now process real data (much faster)
+for chunk in eeg_stream
+    result = process_chunk(session, chunk)  # Fast after warmup
+end
+```
+
+### Memory Pre-allocation
+
+Avoid allocations in the real-time loop:
+
+```julia
+using NimbusSDK
+
+# Pre-allocate buffers
+chunk_buffer = zeros(Float64, 16, 250)
+results_buffer = Vector{StreamingResult}(undef, 100)
+
+# Real-time loop with minimal allocation
+for (i, raw_chunk) in enumerate(eeg_stream)
+    # Reuse pre-allocated buffer
+    chunk_buffer .= raw_chunk
     
-    # Enable advanced features
-    uncertainty_quantification=True,
-    ensemble_methods=True,
-    adaptive_learning=True,
+    # Process (minimal allocation)
+    result = process_chunk(session, chunk_buffer)
+    results_buffer[i] = result
     
-    # Quality checks
-    signal_quality_monitoring=True,
-    artifact_detection=True
-)
+    # Handle result
+    handle_bci_command(result)
+end
 ```
 
-### Balanced Configuration
+### Confidence Thresholding
 
-Optimal balance for most applications:
+Only act on high-confidence predictions:
 
-```python
-# Balanced configuration (recommended)
-balanced_config = nimbus.RealTimeConfig(
-    target_latency=15,
-    processing_mode='adaptive',
-    precision='float32',
-    optimization_level='balanced',
+```julia
+# Configure threshold based on application
+confidence_threshold = 0.75  # Adjust based on needs
+
+for chunk in eeg_stream
+    result = process_chunk(session, chunk)
     
-    # Essential features
-    uncertainty_quantification=True,
-    signal_quality_monitoring=True,
-    
-    # Performance optimizations
-    use_gpu=True,
-    cpu_threads=4,
-    memory_optimization=True
-)
+    # Only execute if confidence exceeds threshold
+    if result.confidence > confidence_threshold
+        execute_command(result.prediction)
+    else
+        # Optional: provide feedback about low confidence
+        display_uncertain_state()
+    end
+end
 ```
 
-## Initialization and Calibration
+## Real-Time Monitoring
 
-### System Initialization
-
-Proper initialization is crucial for real-time performance:
-
-```python
-# Initialize the real-time system
-bci_system = nimbus.create_realtime_system(config)
-
-# Pre-compile computational graphs
-bci_system.compile(
-    input_shape=(64, 1000),  # channels x samples
-    optimization_passes=['constant_folding', 'dead_code_elimination']
-)
-
-# Warm up the system
-bci_system.warmup(num_iterations=100)
-```
-
-### User Calibration
-
-Calibrate the system for individual users:
-
-```python
-# Collect calibration data
-calibration_data = collect_calibration_session(
-    user_id='user_001',
-    session_length=300,  # seconds
-    tasks=['left_hand', 'right_hand', 'rest']
-)
-
-# Train user-specific model
-user_model = bci_system.calibrate(
-    data=calibration_data,
-    method='supervised',
-    cross_validation=True
-)
-
-# Update system with user model
-bci_system.load_user_model(user_model)
-```
-
-### Online Adaptation
-
-Enable continuous learning during use:
-
-```python
-# Configure online adaptation
-adaptation_config = {
-    'enabled': True,
-    'learning_rate': 0.01,
-    'adaptation_window': 100,  # samples
-    'stability_threshold': 0.95,
-    'max_drift_tolerance': 0.1
-}
-
-bci_system.enable_online_adaptation(adaptation_config)
-```
-
-## Monitoring and Diagnostics
-
-### Real-time Metrics
+### Performance Tracking
 
 Monitor system performance during operation:
 
-```python
-# Enable performance monitoring
-monitor = nimbus.RealTimeMonitor(
-    metrics=['latency', 'throughput', 'accuracy', 'signal_quality'],
-    update_interval=1.0,  # seconds
-    alert_thresholds={
-        'latency': 20,      # ms
-        'accuracy': 0.8,    # minimum
-        'signal_quality': 0.7
-    }
-)
+```julia
+using NimbusSDK
+using Statistics
 
-# Start monitoring
-monitor.start()
+# Initialize tracker
+latencies = Float64[]
+confidences = Float64[]
 
-# Get current metrics
-current_metrics = monitor.get_metrics()
-print(f"Latency: {current_metrics.latency:.1f}ms")
-print(f"Accuracy: {current_metrics.accuracy:.2%}")
-```
-
-### Diagnostic Tools
-
-Debug performance issues:
-
-```python
-# Profile system performance
-profiler = nimbus.RealTimeProfiler()
-profiler.start()
-
-# Run inference
-result = bci_system.infer(eeg_data)
-
-profiler.stop()
-
-# Analyze bottlenecks
-bottlenecks = profiler.identify_bottlenecks()
-for component, time_ms in bottlenecks.items():
-    print(f"{component}: {time_ms:.2f}ms")
-```
-
-### Logging Configuration
-
-Configure logging for production systems:
-
-```python
-# Production logging configuration
-logging_config = {
-    'level': 'INFO',
-    'real_time_safe': True,     # Avoid blocking operations
-    'buffer_size': 1000,        # Log entries to buffer
-    'flush_interval': 5.0,      # seconds
-    'include_metrics': True,
-    'include_predictions': False  # Avoid sensitive data
-}
-
-bci_system.configure_logging(logging_config)
-```
-
-## Deployment Considerations
-
-### Edge Deployment
-
-Configure for edge computing devices:
-
-```python
-# Edge-optimized configuration
-edge_config = nimbus.RealTimeConfig(
-    target_latency=15,
-    memory_limit='512MB',       # Limited memory
-    cpu_only=True,              # No GPU available
-    model_compression=True,     # Compress models
-    quantization='int8',        # Reduce model size
+for (i, chunk) in enumerate(eeg_stream)
+    # Time the inference
+    t_start = time()
+    result = process_chunk(session, chunk)
+    t_end = time()
     
-    # Minimize resource usage
-    background_tasks=False,
-    telemetry=False,
-    detailed_logging=False
-)
-```
-
-### Cloud Deployment
-
-Configure for cloud-based inference:
-
-```python
-# Cloud-optimized configuration
-cloud_config = nimbus.RealTimeConfig(
-    target_latency=10,
-    use_gpu=True,
-    gpu_memory='8GB',
-    auto_scaling=True,
+    latency_ms = (t_end - t_start) * 1000
+    push!(latencies, latency_ms)
+    push!(confidences, result.confidence)
     
-    # Cloud-specific features
-    load_balancing=True,
-    health_checks=True,
-    metrics_export=True,
+    # Report every 50 chunks
+    if i % 50 == 0
+        println("\n=== Performance Report ===")
+        println("Mean latency: $(round(mean(latencies[end-49:end]), digits=1)) ms")
+        println("Max latency: $(round(maximum(latencies[end-49:end]), digits=1)) ms")
+        println("Mean confidence: $(round(mean(confidences[end-49:end]), digits=3))")
+    end
+end
+```
+
+### Quality Monitoring
+
+Track signal quality in real-time:
+
+```julia
+using NimbusSDK
+
+# Track confidence trends
+confidence_window = CircularBuffer{Float64}(20)
+
+for chunk in eeg_stream
+    result = process_chunk(session, chunk)
     
-    # Reliability features
-    failover_enabled=True,
-    backup_models=True
-)
+    # Add to rolling window
+    push!(confidence_window, result.confidence)
+    
+    # Check for degrading quality
+    if length(confidence_window) >= 20
+        recent_conf = mean(confidence_window)
+        
+        if recent_conf < 0.6
+            @warn "Signal quality degrading"
+            println("Recent mean confidence: $(round(recent_conf, digits=2))")
+            println("Recommendation: Check electrode contact")
+        end
+    end
+end
 ```
 
-### Hybrid Deployment
+## Application-Specific Setups
 
-Combine edge and cloud processing:
+### Motor Imagery Game Control
 
-```python
-# Hybrid configuration
-hybrid_config = nimbus.HybridConfig(
-    edge_config={
-        'target_latency': 10,
-        'critical_path_only': True
-    },
-    cloud_config={
-        'advanced_analytics': True,
-        'model_updates': True,
-        'batch_processing': True
-    },
-    fallback_strategy='edge_only'
-)
-```
+```julia
+using NimbusSDK
 
-## Best Practices
+# Setup for gaming
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
 
-### Configuration Management
-
-<Tip>
-Use configuration files for reproducible setups and easy deployment across different environments.
-</Tip>
-
-```python
-# Save configuration
-config.save('production_config.json')
-
-# Load configuration
-config = nimbus.RealTimeConfig.load('production_config.json')
-
-# Environment-specific overrides
-if environment == 'production':
-    config.logging_level = 'WARNING'
-    config.telemetry = True
-elif environment == 'development':
-    config.logging_level = 'DEBUG'
-    config.profiling = True
-```
-
-### Testing and Validation
-
-```python
-# Validate configuration before deployment
-validation_result = config.validate()
-if not validation_result.is_valid:
-    print("Configuration issues:")
-    for issue in validation_result.issues:
-        print(f"- {issue}")
-
-# Benchmark performance
-benchmark = nimbus.benchmark_configuration(
-    config=config,
-    test_data=validation_dataset,
-    iterations=1000
+# Fast chunks for responsive gameplay
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    chunk_size = 125,  # 0.5s for quick response
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4
 )
 
-print(f"Average latency: {benchmark.avg_latency:.1f}ms")
-print(f"99th percentile: {benchmark.p99_latency:.1f}ms")
+session = init_streaming(model, metadata)
+
+# Game control loop
+for chunk in game_eeg_stream
+    result = process_chunk(session, chunk)
+    
+    # Lower threshold for responsive gameplay
+    if result.confidence > 0.65
+        update_game_state(result.prediction)
+    end
+end
 ```
+
+### P300 Speller
+
+```julia
+using NimbusSDK
+
+# P300 detection setup
+model = load_model(RxLDAModel, "p300_binary_v1")
+
+# Post-stimulus window
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    chunk_size = 200,  # 0.8s post-stimulus
+    paradigm = :p300,
+    feature_type = :erp,
+    n_features = 12,
+    n_classes = 2  # target vs non-target
+)
+
+session = init_streaming(model, metadata)
+
+# Process stimulus presentations
+for (stimulus, chunk) in p300_stream
+    result = process_chunk(session, chunk)
+    
+    # Higher threshold for spelling accuracy
+    if result.prediction == 1 && result.confidence > 0.85
+        selected_character = stimulus
+        println("Selected: $selected_character")
+    end
+end
+```
+
+### Wheelchair Control (Safety-Critical)
+
+```julia
+using NimbusSDK
+
+# Safety-critical setup
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+# Longer chunks for higher confidence
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    chunk_size = 500,  # 2s for safety
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4
+)
+
+session = init_streaming(model, metadata)
+
+# Safety-critical control loop
+for chunk in wheelchair_stream
+    result = process_chunk(session, chunk)
+    
+    # Very high threshold for safety
+    if result.confidence > 0.90
+        execute_wheelchair_command(result.prediction)
+    else
+        # Require confirmation for low confidence
+        request_manual_confirmation(result.prediction, result.confidence)
+    end
+end
+```
+
+## Error Handling
+
+### Robust Real-Time Loop
+
+```julia
+using NimbusSDK
+
+session = init_streaming(model, metadata)
+error_count = 0
+max_errors = 10
+
+while is_bci_active()
+    try
+        chunk = get_next_chunk()
+        
+        # Process with timeout protection
+        result = process_chunk(session, chunk)
+        
+        # Reset error counter on success
+        error_count = 0
+        
+        # Handle result
+        handle_bci_result(result)
+        
+    catch e
+        error_count += 1
+        @error "Chunk processing failed" exception=e error_count
+        
+        if error_count >= max_errors
+            @error "Too many consecutive errors - stopping"
+            break
+        end
+        
+        # Brief pause before retry
+        sleep(0.1)
+    end
+end
+```
+
+## System Requirements
+
+### Minimum Requirements
+- **CPU**: Modern multi-core processor (Intel i5 or equivalent)
+- **RAM**: 4GB available
+- **Julia**: Version 1.9 or later
+- **OS**: Windows, macOS, or Linux
+
+### Recommended for Real-Time
+- **CPU**: Intel i7 or equivalent (or better)
+- **RAM**: 8GB available
+- **Julia**: Version 1.10+
+- **Storage**: SSD for faster model loading
+- **OS**: Linux for best real-time performance
+
+### Latency Expectations
+
+| Hardware | RxLDA Latency | RxGMM Latency |
+|----------|---------------|---------------|
+| i5, 8GB RAM | 15-25ms | 20-30ms |
+| i7, 16GB RAM | 10-20ms | 15-25ms |
+| High-end workstation | 10-15ms | 12-20ms |
+
+<Note>
+These are per-chunk latencies. Total system latency includes signal acquisition and any application-specific processing.
+</Note>
 
 ## Troubleshooting
 
-### Common Issues
+### High Latency Issues
 
-<AccordionGroup>
-  <Accordion title="High Latency">
-    **Symptoms**: Latency > target threshold
+```julia
+# Profile to find bottlenecks
+latencies = []
+
+for chunk in test_stream[1:100]
+    t_start = time()
+    result = process_chunk(session, chunk)
+    latency = (time() - t_start) * 1000
     
-    **Solutions**:
-    - Reduce buffer sizes
-    - Enable GPU acceleration
-    - Decrease precision (float32 → float16)
-    - Simplify processing pipeline
-    - Check system resource usage
-  </Accordion>
-  
-  <Accordion title="Poor Accuracy">
-    **Symptoms**: Classification accuracy below expectations
-    
-    **Solutions**:
-    - Increase processing window
-    - Enable uncertainty quantification
-    - Improve signal quality
-    - Recalibrate user model
-    - Check for artifacts
-  </Accordion>
-  
-  <Accordion title="System Instability">
-    **Symptoms**: Crashes, memory leaks, inconsistent performance
-    
-    **Solutions**:
-    - Enable memory pooling
-    - Reduce batch sizes
-    - Check hardware compatibility
-    - Update drivers
-    - Monitor system resources
-  </Accordion>
-</AccordionGroup>
+    push!(latencies, latency)
+end
+
+println("Statistics:")
+println("  Mean: $(round(mean(latencies), digits=1)) ms")
+println("  Median: $(round(median(latencies), digits=1)) ms")
+println("  95th percentile: $(round(quantile(latencies, 0.95), digits=1)) ms")
+println("  Max: $(round(maximum(latencies), digits=1)) ms")
+
+# First chunk is usually slower (JIT compilation)
+println("\nExcluding first chunk:")
+println("  Mean: $(round(mean(latencies[2:end]), digits=1)) ms")
+```
+
+**Common Solutions:**
+1. Run warmup inferences before real use
+2. Use RxLDA instead of RxGMM for speed
+3. Reduce chunk_size if acceptable
+4. Check system resource usage
+5. Close other applications
+
+### Low Confidence Issues
+
+```julia
+# Diagnose signal quality
+using NimbusSDK
+
+# Collect diagnostic trial
+diagnostic_data = collect_diagnostic_trial()
+
+# Check preprocessing quality
+report = diagnose_preprocessing(diagnostic_data)
+
+println("Preprocessing quality: $(round(report.quality_score * 100, digits=1))%")
+
+if !isempty(report.warnings)
+    println("\nWarnings:")
+    for warning in report.warnings
+        println("  • $warning")
+    end
+end
+
+if !isempty(report.recommendations)
+    println("\nRecommendations:")
+    for rec in report.recommendations
+        println("  • $rec")
+    end
+end
+```
 
 ## Next Steps
 
 <CardGroup cols={2}>
   <Card title="Streaming Inference" icon="signal" href="/inference-configuration/streaming-inference">
-    Learn about continuous data processing
+    Complete streaming inference guide
   </Card>
   <Card title="Batch Processing" icon="layers" href="/inference-configuration/batch-processing">
-    Configure offline analysis workflows
+    Offline analysis workflows
   </Card>
   <Card title="Error Handling" icon="shield" href="/inference-configuration/error-handling">
-    Implement robust error recovery
+    Robust error recovery patterns
   </Card>
-  <Card title="Examples" icon="list" href="/examples/basic-examples">
-    See real-time setup in action
+  <Card title="Code Examples" icon="code" href="/examples/code-samples">
+    Working real-time examples
   </Card>
 </CardGroup>
 
 ---
 
 <Note>
-**Next**: Learn how to configure [streaming inference](/inference-configuration/streaming-inference) for continuous BCI data processing.
+**Tip**: Start with standard 1-second chunks and adjust based on your application's speed/accuracy requirements.
 </Note>

@@ -1,600 +1,517 @@
 ---
 title: "Streaming Inference"
-description: "Process continuous neural data streams with reactive message passing"
+description: "Real-time chunk-by-chunk BCI processing with NimbusSDK streaming mode"
 icon: "play"
 ---
 
 # Streaming Inference for BCI
 
-Streaming inference is the cornerstone of real-time BCI applications. Unlike batch processing that waits for complete data windows, streaming inference processes neural signals as they arrive, enabling truly responsive brain-computer interfaces with minimal latency.
+Streaming inference is essential for real-time BCI applications. NimbusSDK's streaming mode processes neural data chunk-by-chunk as it arrives, enabling responsive brain-computer interfaces with sub-25ms latency per chunk.
 
 ## Streaming vs Batch Processing
 
-### Traditional Batch Processing
+### Batch Processing
 
-Most BCI systems use batch processing:
+Process complete trials offline:
 
-```python
-# Traditional batch approach
-def batch_bci_processing(eeg_buffer):
-    # Wait for complete window (e.g., 1 second)
-    if len(eeg_buffer) >= window_size:
-        features = extract_features(eeg_buffer)
-        prediction = classify(features)
-        return prediction
-    else:
-        return None  # Wait for more data
+```julia
+# Batch: Process all trials at once
+results = predict_batch(model, all_trials_data)
 ```
 
-**Limitations:**
-- High latency (must wait for complete windows)
-- Inefficient (reprocesses overlapping data)
-- Poor responsiveness (delayed reactions to brain state changes)
+**Best for:**
+- Offline analysis
+- Model training/validation
+- Research studies
+- Multiple trials available upfront
 
-### Nimbus Streaming Approach
+### Streaming Processing
 
-Streaming inference processes data incrementally:
+Process chunks as they arrive in real-time:
 
-```python
-# Nimbus streaming approach
-async def streaming_bci_inference(eeg_stream):
-    async for sample in eeg_stream:
-        # Process each sample immediately
-        updated_belief = await nimbus.update_belief(sample)
-        
-        # Emit prediction when confidence is sufficient
-        if updated_belief.confidence > threshold:
-            yield updated_belief.prediction
+```julia
+# Streaming: Process chunks incrementally
+session = init_streaming(model, metadata)
+for chunk in eeg_stream
+    chunk_result = process_chunk(session, chunk)
+    # Immediate response to user
+end
+final_result = finalize_trial(session)
 ```
 
-**Advantages:**
-- Ultra-low latency (processes samples immediately)
-- Efficient (incremental updates, no recomputation)
-- Responsive (adapts to rapid brain state changes)
+**Best for:**
+- Real-time BCI control
+- Online feedback
+- Interactive applications
+- Gaming and communication
 
 ## Setting Up Streaming Inference
 
-### Basic Streaming Configuration
+### Basic Streaming Setup
 
-```python
-import nimbus
-import asyncio
+```julia
+using NimbusSDK
 
-# Configure streaming inference
-stream_config = nimbus.StreamingConfig(
-    sample_rate=1000,           # Hz
-    channels=64,                # EEG channels
-    buffer_size=16,             # Minimal buffering
-    update_mode='incremental',  # Process each sample
-    output_rate='adaptive'      # Emit when ready
+# 1. Authenticate and load model
+NimbusSDK.authenticate("your-api-key")
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+# 2. Configure streaming metadata
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4,
+    chunk_size = 250  # 1 second chunks at 250 Hz
 )
 
-# Create streaming processor
-processor = nimbus.StreamingProcessor(stream_config)
+# 3. Initialize streaming session
+session = init_streaming(model, metadata)
+println("✓ Streaming session initialized")
+
+# 4. Process chunks as they arrive
+for chunk in your_eeg_stream()
+    # chunk shape: (n_features × chunk_size)
+    chunk_result = process_chunk(session, chunk)
+    
+    println("Chunk prediction: $(chunk_result.prediction)")
+    println("Confidence: $(round(chunk_result.confidence, digits=3))")
+    
+    # Provide immediate feedback
+    if chunk_result.confidence > 0.75
+        provide_feedback(chunk_result.prediction)
+    end
+end
+
+# 5. Finalize trial with aggregated result
+final_result = finalize_trial(session; method=:weighted_vote)
+println("\n✓ Final prediction: $(final_result.prediction)")
+println("Final confidence: $(round(final_result.confidence, digits=3))")
 ```
 
-### Data Source Integration
+### Chunk Size Selection
 
-Connect to various BCI hardware:
+Choose chunk size based on your application:
 
-<Tabs>
-  <Tab title="OpenBCI">
-    ```python
-    # OpenBCI integration
-    from nimbus.hardware import OpenBCIStream
-    
-    eeg_stream = OpenBCIStream(
-        board_id=0,
-        serial_port='/dev/ttyUSB0',
-        sample_rate=250
-    )
-    
-    # Start streaming
-    async for sample in eeg_stream:
-        result = await processor.process(sample)
-        if result:
-            print(f"Prediction: {result.prediction}")
-    ```
-  </Tab>
-  
-  <Tab title="Emotiv EPOC">
-    ```python
-    # Emotiv EPOC integration
-    from nimbus.hardware import EmotivStream
-    
-    eeg_stream = EmotivStream(
-        user_id='your_user_id',
-        client_id='your_client_id',
-        client_secret='your_secret'
-    )
-    
-    await processor.connect_stream(eeg_stream)
-    ```
-  </Tab>
-  
-  <Tab title="Lab Streaming Layer">
-    ```python
-    # LSL integration
-    from nimbus.hardware import LSLStream
-    
-    eeg_stream = LSLStream(
-        stream_name='EEG',
-        stream_type='EEG',
-        timeout=5.0
-    )
-    
-    await processor.connect_stream(eeg_stream)
-    ```
-  </Tab>
-  
-  <Tab title="Custom Hardware">
-    ```python
-    # Custom hardware integration
-    class CustomEEGStream:
-        async def __aiter__(self):
-            while True:
-                # Read from your hardware
-                sample = await self.read_sample()
-                yield sample
-    
-    custom_stream = CustomEEGStream()
-    await processor.connect_stream(custom_stream)
-    ```
-  </Tab>
-</Tabs>
+```julia
+# Fast updates (0.5 second chunks)
+chunk_size = 125  # At 250 Hz sampling rate
+# Pro: More responsive, frequent updates
+# Con: Less data per prediction, potentially lower confidence
 
-## Streaming Processing Pipeline
+# Standard (1 second chunks)
+chunk_size = 250  
+# Pro: Good balance of responsiveness and accuracy
+# Con: None - recommended default
 
-### Incremental Feature Extraction
+# Longer chunks (2 second chunks)
+chunk_size = 500
+# Pro: More data, higher confidence
+# Con: Less responsive, slower feedback
+```
 
-Process features as data arrives:
+<Tip>
+Start with 1-second chunks (chunk_size = sampling_rate). Adjust based on your accuracy/latency requirements.
+</Tip>
 
-```python
-# Configure incremental feature extraction
-feature_config = nimbus.IncrementalFeatures(
-    # Spectral features
-    power_bands=[(8, 12), (13, 30)],  # Alpha, Beta
-    update_method='exponential_smoothing',
-    smoothing_factor=0.1,
-    
-    # Spatial features
-    spatial_filters=['CSP', 'Laplacian'],
-    filter_update='adaptive',
-    
-    # Temporal features
-    temporal_window=1.0,  # seconds
-    overlap=0.5,          # 50% overlap
-    update_rate='continuous'
+## Aggregation Methods
+
+### Weighted Vote
+
+Weight chunks by confidence (recommended):
+
+```julia
+# Aggregate with weighted voting
+final_result = finalize_trial(session; method=:weighted_vote)
+```
+
+High-confidence chunks contribute more to the final decision. Best for most applications.
+
+### Majority Vote
+
+Simple majority across chunks:
+
+```julia
+# Aggregate with majority voting
+final_result = finalize_trial(session; method=:majority_vote)
+```
+
+Each chunk has equal weight. Use when all chunks have similar quality.
+
+### Latest Chunk
+
+Use only the most recent chunk:
+
+```julia
+# Use only latest chunk
+final_result = finalize_trial(session; method=:latest)
+```
+
+Fastest response, but ignores trial history. Use for ultra-responsive applications.
+
+## Real-time BCI Example
+
+### Motor Imagery Control
+
+```julia
+using NimbusSDK
+
+# Setup
+NimbusSDK.authenticate("your-api-key")
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4,
+    chunk_size = 250
 )
 
-processor.configure_features(feature_config)
+session = init_streaming(model, metadata)
+
+# Real-time processing loop
+trial_count = 0
+while is_bci_active()
+    trial_count += 1
+    println("\n=== Trial $trial_count ===")
+    
+    # Collect trial chunks
+    chunk_count = 0
+    for chunk in collect_trial_chunks()  # Your acquisition function
+        chunk_count += 1
+        
+        # Process chunk
+        chunk_result = process_chunk(session, chunk)
+        
+        # Real-time feedback
+        println("Chunk $chunk_count: $(chunk_result.prediction) (conf: $(round(chunk_result.confidence, digits=2)))")
+        
+        # Early stopping if very confident
+        if chunk_result.confidence > 0.95 && chunk_count >= 2
+            println("✓ High confidence - early stop")
+            break
+        end
+    end
+    
+    # Finalize trial
+    final_result = finalize_trial(session; method=:weighted_vote)
+    
+    println("\n✓ Trial complete")
+    println("  Prediction: $(final_result.prediction)")
+    println("  Confidence: $(round(final_result.confidence, digits=3))")
+    
+    # Execute command
+    execute_motor_command(final_result.prediction)
+    
+    # Quality check
+    if should_reject_trial(final_result.confidence, 0.7)
+        println("⚠️  Low confidence - suggest recalibration")
+    end
+end
 ```
 
-### Probabilistic State Tracking
+### P300 Speller
 
-Track brain states continuously:
+```julia
+using NimbusSDK
 
-```python
-# Configure probabilistic state tracking
-state_config = nimbus.StateTracking(
-    states=['rest', 'left_hand', 'right_hand', 'feet'],
-    transition_model='markov',
-    observation_model='gaussian_mixture',
-    
-    # Streaming parameters
-    belief_update='bayesian',
-    memory_length=5.0,      # seconds
-    adaptation_rate=0.05,
-    
-    # Uncertainty handling
-    confidence_threshold=0.8,
-    uncertainty_penalty=0.1
+# P300 detection with streaming
+model = load_model(RxLDAModel, "p300_detection_v1")
+
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :p300,
+    feature_type = :erp,
+    n_features = 12,
+    n_classes = 2,  # Target vs non-target
+    chunk_size = 200  # 0.8 seconds post-stimulus
 )
 
-processor.configure_state_tracking(state_config)
+# Process stimulus presentations
+for letter_row in spelling_matrix
+    session = init_streaming(model, metadata)
+    
+    for stimulus in letter_row
+        # Present stimulus
+        flash_stimulus(stimulus)
+        
+        # Collect and process EEG response
+        chunk = collect_post_stimulus_chunk()  # 0.8s after stimulus
+        result = process_chunk(session, chunk)
+        
+        if result.prediction == 2 && result.confidence > 0.8
+            # P300 detected - this is the target
+            println("✓ Target detected: $stimulus")
+            break
+        end
+    end
+end
 ```
 
-### Output Generation
+## Performance Monitoring
 
-Configure when and how to emit predictions:
+### Real-time Metrics
 
-```python
-# Configure output generation
-output_config = nimbus.OutputConfig(
-    # Emission criteria
-    confidence_threshold=0.75,
-    stability_window=0.2,    # seconds
-    minimum_interval=0.1,    # seconds between outputs
+Track streaming performance:
+
+```julia
+using NimbusSDK
+
+# Initialize performance tracker
+tracker = OnlinePerformanceTracker(window_size=20)
+
+# Process stream with tracking
+for chunk in eeg_stream
+    start_time = time()
     
-    # Output format
-    include_confidence=True,
-    include_alternatives=True,
-    include_timing=True,
+    result = process_chunk(session, chunk)
     
-    # Post-processing
-    smoothing='exponential',
-    debouncing=True,
-    hysteresis_margin=0.1
-)
-
-processor.configure_output(output_config)
-```
-
-## Advanced Streaming Features
-
-### Multi-Modal Streaming
-
-Combine multiple data streams:
-
-```python
-# Multi-modal streaming setup
-multimodal_config = nimbus.MultiModalConfig(
-    primary_stream='EEG',
-    secondary_streams=['EMG', 'EOG', 'Accelerometer'],
+    latency_ms = (time() - start_time) * 1000
     
-    # Synchronization
-    sync_method='timestamp',
-    max_delay=10,  # ms
-    interpolation='linear',
-    
-    # Fusion strategy
-    fusion_method='early',  # or 'late', 'hybrid'
-    weights={'EEG': 0.7, 'EMG': 0.2, 'EOG': 0.1}
-)
-
-# Create multi-modal processor
-multimodal_processor = nimbus.MultiModalProcessor(multimodal_config)
-```
-
-### Adaptive Processing
-
-Automatically adjust processing based on conditions:
-
-```python
-# Adaptive processing configuration
-adaptive_config = nimbus.AdaptiveConfig(
-    # Signal quality adaptation
-    quality_monitoring=True,
-    quality_threshold=0.6,
-    quality_actions={
-        'low': 'increase_smoothing',
-        'medium': 'standard_processing',
-        'high': 'reduce_latency'
-    },
-    
-    # Performance adaptation
-    latency_monitoring=True,
-    target_latency=15,  # ms
-    adaptation_actions={
-        'high_latency': 'reduce_precision',
-        'low_latency': 'increase_accuracy'
-    },
-    
-    # User state adaptation
-    fatigue_detection=True,
-    attention_monitoring=True,
-    adaptation_learning=True
-)
-
-processor.enable_adaptive_processing(adaptive_config)
-```
-
-### Stream Buffering and Windowing
-
-Optimize buffering for different BCI paradigms:
-
-<AccordionGroup>
-  <Accordion title="Motor Imagery">
-    ```python
-    # Motor imagery streaming
-    mi_config = nimbus.StreamingConfig(
-        paradigm='motor_imagery',
+    # Update tracker (if ground truth available)
+    if !isnothing(ground_truth)
+        final = finalize_trial(session)
+        metrics = update_and_report!(tracker, final.prediction, ground_truth, final.confidence)
         
-        # Buffering
-        buffer_size=32,           # samples
-        overlap=0.75,             # 75% overlap
-        
-        # Processing windows
-        short_window=0.5,         # seconds (fast detection)
-        long_window=2.0,          # seconds (accurate classification)
-        
-        # Output timing
-        min_decision_time=0.3,    # seconds
-        max_decision_time=1.0     # seconds
-    )
-    ```
-  </Accordion>
-  
-  <Accordion title="P300 Speller">
-    ```python
-    # P300 streaming
-    p300_config = nimbus.StreamingConfig(
-        paradigm='p300',
-        
-        # Event-based processing
-        event_detection=True,
-        pre_stimulus=0.1,         # seconds
-        post_stimulus=0.8,        # seconds
-        
-        # Averaging
-        online_averaging=True,
-        averaging_window=10,      # trials
-        
-        # Decision making
-        confidence_accumulation=True,
-        decision_threshold=0.9
-    )
-    ```
-  </Accordion>
-  
-  <Accordion title="SSVEP">
-    ```python
-    # SSVEP streaming
-    ssvep_config = nimbus.StreamingConfig(
-        paradigm='ssvep',
-        
-        # Frequency analysis
-        frequency_resolution=0.25,  # Hz
-        analysis_window=1.0,        # seconds
-        update_interval=0.1,        # seconds
-        
-        # Target frequencies
-        targets=[6.0, 7.5, 8.57, 10.0, 12.0],
-        harmonics=3,
-        
-        # Detection
-        snr_threshold=2.0,
-        stability_check=True
-    )
-    ```
-  </Accordion>
-</AccordionGroup>
-
-## Performance Optimization
-
-### Memory Management
-
-Optimize memory usage for continuous operation:
-
-```python
-# Memory optimization
-memory_config = nimbus.MemoryConfig(
-    # Buffer management
-    circular_buffers=True,
-    buffer_pool_size=100,
-    zero_copy_operations=True,
-    
-    # Garbage collection
-    gc_strategy='incremental',
-    gc_threshold=0.8,  # 80% memory usage
-    
-    # Memory limits
-    max_memory_usage='1GB',
-    emergency_cleanup=True,
-    
-    # Caching
-    feature_cache_size=1000,
-    model_cache_size=10
-)
-
-processor.configure_memory(memory_config)
-```
-
-### CPU and GPU Optimization
-
-Leverage hardware acceleration:
-
-```python
-# Hardware acceleration
-hardware_config = nimbus.HardwareConfig(
-    # CPU optimization
-    cpu_threads=4,
-    cpu_affinity=[0, 1, 2, 3],
-    simd_instructions=True,
-    
-    # GPU acceleration
-    use_gpu=True,
-    gpu_device=0,
-    gpu_memory_fraction=0.5,
-    gpu_streams=2,
-    
-    # Parallel processing
-    pipeline_parallelism=True,
-    data_parallelism=False,  # Not suitable for streaming
-    
-    # Optimization flags
-    fast_math=True,
-    tensor_cores=True  # If available
-)
-
-processor.configure_hardware(hardware_config)
-```
-
-## Error Handling and Reliability
-
-### Stream Interruption Handling
-
-Handle data stream interruptions gracefully:
-
-```python
-# Robust streaming with error handling
-async def robust_streaming():
-    retry_config = nimbus.RetryConfig(
-        max_retries=3,
-        backoff_strategy='exponential',
-        base_delay=0.1,  # seconds
-        max_delay=2.0    # seconds
-    )
-    
-    try:
-        async for sample in eeg_stream:
-            try:
-                result = await processor.process(sample)
-                if result:
-                    await handle_prediction(result)
-            except nimbus.ProcessingError as e:
-                await handle_processing_error(e)
-                
-    except nimbus.StreamInterruption as e:
-        # Attempt to reconnect
-        await reconnect_stream(retry_config)
-        
-    except nimbus.HardwareError as e:
-        # Switch to backup hardware or graceful degradation
-        await switch_to_backup(e)
+        println("Running accuracy: $(round(metrics.accuracy * 100, digits=1))%")
+        println("Chunk latency: $(round(latency_ms, digits=1)) ms")
+    end
+end
 ```
 
 ### Quality Monitoring
 
-Monitor stream quality in real-time:
+Monitor signal quality during streaming:
 
-```python
-# Stream quality monitoring
-quality_monitor = nimbus.StreamQualityMonitor(
-    metrics=['signal_quality', 'artifact_level', 'electrode_impedance'],
-    thresholds={
-        'signal_quality': 0.7,
-        'artifact_level': 0.3,
-        'electrode_impedance': 50000  # ohms
-    },
+```julia
+# Track confidence trends
+confidence_history = Float64[]
+
+for chunk in eeg_stream
+    result = process_chunk(session, chunk)
+    push!(confidence_history, result.confidence)
     
-    # Actions on quality issues
-    actions={
-        'low_signal_quality': 'increase_smoothing',
-        'high_artifacts': 'enable_artifact_removal',
-        'high_impedance': 'alert_user'
-    }
-)
-
-# Start monitoring
-await quality_monitor.start()
+    # Check for degrading quality
+    if length(confidence_history) >= 5
+        recent_conf = mean(confidence_history[end-4:end])
+        if recent_conf < 0.6
+            @warn "Signal quality degrading"
+            println("Recent confidence: $(round(recent_conf, digits=2))")
+            println("Recommendation: Check electrode contact or reduce movement")
+        end
+    end
+end
 ```
 
-## Real-World Examples
+## Advanced Streaming Features
 
-### Gaming BCI
+### Adaptive Confidence Thresholds
 
-Ultra-responsive gaming interface:
+```julia
+# Adjust thresholds based on performance
+base_threshold = 0.7
+current_accuracy = tracker.accuracy
 
-```python
-# Gaming BCI streaming setup
-gaming_config = nimbus.StreamingConfig(
-    target_latency=8,           # ms - gaming requires ultra-low latency
-    confidence_threshold=0.6,   # Lower threshold for responsiveness
-    smoothing_factor=0.05,      # Minimal smoothing
-    
-    # Gaming-specific features
-    gesture_detection=True,
-    rapid_commands=True,
-    multi_class_output=True,
-    
-    # Performance optimization
-    precision='float16',
-    batch_size=1,
-    gpu_acceleration=True
-)
+if current_accuracy > 0.85
+    # User performing well - can lower threshold for faster response
+    threshold = base_threshold * 0.9
+elseif current_accuracy < 0.65
+    # User struggling - raise threshold for more reliable decisions
+    threshold = base_threshold * 1.2
+else
+    threshold = base_threshold
+end
 
-gaming_processor = nimbus.StreamingProcessor(gaming_config)
-
-# Process gaming commands
-async for command in gaming_processor.stream():
-    game_engine.execute_command(command)
+# Apply threshold
+if final_result.confidence > threshold
+    execute_command(final_result.prediction)
+else
+    request_retry()
+end
 ```
 
-### Medical Assistive Device
+### Multi-trial Context
 
-Reliable assistive technology:
+```julia
+# Track recent trial history for context
+struct TrialHistory
+    predictions::Vector{Int}
+    confidences::Vector{Float64}
+    max_history::Int
+end
 
-```python
-# Medical device streaming setup
-medical_config = nimbus.StreamingConfig(
-    target_latency=20,          # ms - balance speed and accuracy
-    confidence_threshold=0.9,   # High threshold for safety
-    redundancy=True,            # Multiple confirmation
+function add_trial!(history::TrialHistory, pred::Int, conf::Float64)
+    push!(history.predictions, pred)
+    push!(history.confidences, conf)
     
-    # Medical-specific features
-    safety_monitoring=True,
-    error_logging=True,
-    audit_trail=True,
+    # Keep only recent trials
+    if length(history.predictions) > history.max_history
+        popfirst!(history.predictions)
+        popfirst!(history.confidences)
+    end
+end
+
+# Use history to detect anomalies
+function is_anomaly(history::TrialHistory, new_pred::Int)
+    if length(history.predictions) < 3
+        return false
+    end
     
-    # Reliability features
-    watchdog_timer=True,
-    failsafe_mode=True,
-    backup_processing=True
-)
+    # Check if prediction differs from recent trend
+    recent_mode = mode(history.predictions[end-2:end])
+    return new_pred != recent_mode
+end
 
-medical_processor = nimbus.StreamingProcessor(medical_config)
+# Example usage
+history = TrialHistory(Int[], Float64[], 10)
 
-# Process medical commands with safety checks
-async for command in medical_processor.stream():
-    if command.confidence > 0.95:
-        medical_device.execute_command(command)
-    else:
-        request_user_confirmation(command)
-```
-
-## Monitoring and Debugging
-
-### Real-time Metrics
-
-Monitor streaming performance:
-
-```python
-# Performance monitoring
-metrics = processor.get_streaming_metrics()
-print(f"Processing latency: {metrics.avg_latency:.1f}ms")
-print(f"Throughput: {metrics.samples_per_second:.0f} samples/s")
-print(f"Buffer utilization: {metrics.buffer_utilization:.1%}")
-print(f"Prediction rate: {metrics.predictions_per_second:.1f}/s")
-```
-
-### Stream Visualization
-
-Visualize streaming data and predictions:
-
-```python
-# Real-time visualization
-visualizer = nimbus.StreamVisualizer(
-    plots=['raw_signal', 'features', 'predictions', 'confidence'],
-    update_rate=10,  # Hz
-    window_length=5  # seconds
-)
-
-# Start visualization
-await visualizer.start()
+for trial in trials
+    final_result = finalize_trial(session)
+    
+    if is_anomaly(history, final_result.prediction)
+        println("⚠️  Anomalous prediction - requesting confirmation")
+        show_confirmation_dialog(final_result.prediction)
+    end
+    
+    add_trial!(history, final_result.prediction, final_result.confidence)
+end
 ```
 
 ## Best Practices
 
-<Tip>
-**Start Simple**: Begin with basic streaming configuration and gradually add complexity as needed. Monitor performance at each step.
-</Tip>
+### Session Management
 
-1. **Buffer Sizing**: Use minimal buffers for low latency, but ensure stability
-2. **Quality Monitoring**: Always monitor signal quality and adapt processing accordingly  
-3. **Error Handling**: Implement robust error handling for production systems
-4. **Performance Testing**: Regularly benchmark your streaming setup under realistic conditions
-5. **User Feedback**: Provide real-time feedback to users about system status and confidence
+```julia
+# Always initialize new session for each trial
+for trial_idx in 1:n_trials
+    # New session = fresh state
+    session = init_streaming(model, metadata)
+    
+    # Process trial
+    for chunk in collect_trial()
+        process_chunk(session, chunk)
+    end
+    
+    # Finalize
+    result = finalize_trial(session)
+    
+    # Session automatically cleaned up
+end
+```
+
+### Error Handling
+
+```julia
+using NimbusSDK
+
+try
+    session = init_streaming(model, metadata)
+    
+    for chunk in eeg_stream
+        try
+            result = process_chunk(session, chunk)
+            handle_result(result)
+        catch e
+            @error "Chunk processing failed" exception=e
+            # Continue to next chunk
+            continue
+        end
+    end
+    
+    final_result = finalize_trial(session)
+    
+catch e
+    @error "Streaming session failed" exception=e
+    # Reinitialize and retry
+end
+```
+
+### Memory Management
+
+```julia
+# Streaming uses bounded memory - no accumulation
+# Each session has fixed memory footprint
+
+# Good: Process long sessions safely
+for hour in 1:8
+    for trial in collect_hour_trials(hour)
+        session = init_streaming(model, metadata)
+        # ... process trial
+        # Memory freed after finalize_trial
+    end
+end
+
+# Memory usage stays constant regardless of session length
+```
+
+## Troubleshooting
+
+### Low Confidence Issues
+
+```julia
+# Diagnose low confidence
+if mean(confidence_history) < 0.65
+    println("Troubleshooting low confidence:")
+    println("1. Check preprocessing quality")
+    println("2. Verify chunk_size is appropriate")
+    println("3. Ensure user is focused and relaxed")
+    println("4. Check for electrode issues")
+    println("5. Consider recalibration")
+    
+    # Run diagnostics
+    diagnostic_data = collect_diagnostic_trial()
+    report = diagnose_preprocessing(diagnostic_data)
+    println("\nPreprocessing quality: $(round(report.quality_score * 100, digits=1))%")
+end
+```
+
+### Latency Issues
+
+```julia
+# Profile streaming latency
+latencies = Float64[]
+
+for chunk in eeg_stream[1:100]  # Test 100 chunks
+    t_start = time()
+    result = process_chunk(session, chunk)
+    t_end = time()
+    
+    push!(latencies, (t_end - t_start) * 1000)  # Convert to ms
+end
+
+println("Latency statistics:")
+println("  Mean: $(round(mean(latencies), digits=1)) ms")
+println("  Median: $(round(median(latencies), digits=1)) ms")
+println("  95th percentile: $(round(quantile(latencies, 0.95), digits=1)) ms")
+println("  Max: $(round(maximum(latencies), digits=1)) ms")
+
+# First chunk is slower due to JIT compilation
+println("\nExcluding first chunk (JIT warmup):")
+println("  Mean: $(round(mean(latencies[2:end]), digits=1)) ms")
+```
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Batch Processing" icon="layers" href="/inference-configuration/batch-processing">
-    Learn about offline analysis workflows
-  </Card>
-  <Card title="Error Handling" icon="shield" href="/inference-configuration/error-handling">
-    Implement robust error recovery
+  <Card title="Batch Processing" icon="list" href="/inference-configuration/batch-processing">
+    Learn about offline batch inference
   </Card>
   <Card title="Real-time Setup" icon="cog" href="/inference-configuration/real-time-setup">
-    Optimize system configuration
+    Configure your real-time BCI system
   </Card>
-  <Card title="Examples" icon="list" href="/examples/basic-examples">
-    See streaming inference in action
+  <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
+    Complete SDK reference
+  </Card>
+  <Card title="Examples" icon="play" href="/examples/code-samples">
+    Working streaming examples
   </Card>
 </CardGroup>
 
 ---
 
 <Note>
-**Next**: Learn how to configure [batch processing](/inference-configuration/batch-processing) for offline BCI analysis and model training.
+**Next**: Configure your [real-time BCI setup](/inference-configuration/real-time-setup) for optimal streaming performance.
 </Note>

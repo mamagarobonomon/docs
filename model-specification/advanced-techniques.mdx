@@ -1,510 +1,398 @@
 ---
 title: "Advanced Modeling Techniques"
-description: "Sophisticated probabilistic modeling approaches for complex BCI applications"
-icon: "cog"
+description: "Future directions for sophisticated probabilistic BCI models"
+icon="sparkles"
 ---
 
 # Advanced Modeling Techniques
 
-This section covers sophisticated modeling approaches for complex BCI scenarios, including multi-modal integration, adaptive models, and hierarchical architectures.
+<Warning>
+**Note**: This page describes **future directions** and **conceptual approaches** for advanced BCI modeling. Most techniques described here are **not yet implemented** in NimbusSDK.
 
-## Multi-modal Sensor Fusion
+**Current SDK**: Provides **RxLDA** and **RxGMM** models for classification tasks.
 
-Combine multiple sensor modalities for robust BCI performance.
+**Future Releases**: May include advanced techniques based on user demand and research validation.
+</Warning>
 
-### EEG + EMG Fusion
-
-```python
-@model
-def eeg_emg_fusion(eeg_signals, emg_signals, movement_intent, muscle_activation):
-    """
-    Fuse EEG and EMG for robust movement decoding
-    
-    Args:
-        eeg_signals: Cortical activity from EEG electrodes
-        emg_signals: Muscle activity from EMG electrodes  
-        movement_intent: Intended movement from motor cortex
-        muscle_activation: Actual muscle contraction level
-    """
-    
-    # Shared movement intention state
-    movement_intent ~ Normal(mean=0.0, variance=1.0)
-    
-    # EEG observation model (cortical activity)
-    eeg_delay ~ Normal(mean=100.0, variance=20.0)  # ms cortical delay
-    eeg_gain ~ Normal(mean=1.0, variance=0.2)
-    
-    delayed_intent = delay_signal(movement_intent, eeg_delay)
-    eeg_signals ~ Normal(
-        mean=eeg_gain * delayed_intent,
-        variance=eeg_noise_variance
-    )
-    
-    # EMG observation model (muscle activity)  
-    emg_delay ~ Normal(mean=50.0, variance=10.0)  # ms neuromuscular delay
-    emg_gain ~ Normal(mean=2.0, variance=0.5)
-    
-    delayed_muscle = delay_signal(movement_intent, emg_delay)
-    muscle_activation ~ Normal(
-        mean=delayed_muscle,
-        variance=muscle_noise
-    )
-    
-    emg_signals ~ Normal(
-        mean=emg_gain * muscle_activation,
-        variance=emg_noise_variance
-    )
-    
-    # Cross-modal consistency constraint
-    consistency_penalty = cross_modal_consistency(
-        eeg_prediction=eeg_gain * delayed_intent,
-        emg_prediction=emg_gain * delayed_muscle
-    )
-```
-
-### EEG + fNIRS Integration
-
-```python
-@model  
-def eeg_fnirs_fusion(eeg_signals, fnirs_signals, neural_activity, hemodynamics):
-    """
-    Combine EEG and fNIRS for complementary temporal/spatial resolution
-    
-    Args:
-        eeg_signals: Fast electrical activity (ms resolution)
-        fnirs_signals: Slow hemodynamic response (seconds resolution)
-        neural_activity: Underlying neural population activity
-        hemodynamics: Blood oxygenation dynamics
-    """
-    
-    # Neural activity dynamics
-    neural_activity[0] ~ Normal(mean=0.0, variance=1.0)
-    
-    for t in range(1, sequence_length):
-        neural_activity[t] ~ Normal(
-            mean=0.95 * neural_activity[t-1],  # Temporal correlation
-            variance=neural_noise
-        )
-    
-    # EEG: Direct electrical measurement (fast)
-    eeg_signals ~ Normal(
-        mean=eeg_spatial_filter @ neural_activity,
-        variance=eeg_measurement_noise
-    )
-    
-    # fNIRS: Hemodynamic response (slow, delayed)
-    hemodynamic_kernel ~ Gamma(alpha=6.0, beta=1.0)  # HRF shape
-    hemodynamic_delay ~ Normal(mean=6.0, variance=1.0)  # seconds
-    
-    # Convolve neural activity with HRF
-    hemodynamics = convolve(neural_activity, hemodynamic_kernel, hemodynamic_delay)
-    
-    fnirs_signals ~ Normal(
-        mean=fnirs_spatial_sensitivity @ hemodynamics,
-        variance=fnirs_measurement_noise
-    )
-```
-
-## Adaptive and Personalized Models
-
-### Subject-Adaptive Calibration
-
-```python
-@model
-def adaptive_bci_calibration(signals, subject_id, population_prior, adaptation_data):
-    """
-    Continuously adapt BCI models to individual users
-    
-    Args:
-        signals: Neural signals from current session
-        subject_id: Unique identifier for user
-        population_prior: Prior knowledge from other users
-        adaptation_data: Feedback from recent performance
-    """
-    
-    # Population-level parameters
-    population_mean ~ Normal(mean=0.0, variance=10.0)
-    population_variance ~ InverseGamma(alpha=2.0, beta=1.0)
-    
-    # Subject-specific deviation from population
-    subject_offset[subject_id] ~ Normal(
-        mean=population_mean,
-        variance=population_variance
-    )
-    
-    # Adaptation based on recent performance
-    adaptation_rate ~ Beta(alpha=2.0, beta=2.0)
-    performance_history ~ Normal(
-        mean=subject_offset[subject_id],
-        variance=adaptation_variance
-    )
-    
-    # Update subject parameters based on feedback
-    for session in range(num_sessions):
-        session_performance = adaptation_data[session]
-        
-        subject_offset[subject_id] = (
-            (1 - adaptation_rate) * subject_offset[subject_id] +
-            adaptation_rate * session_performance
-        )
-    
-    # Current session model
-    signals ~ Normal(
-        mean=subject_offset[subject_id] * neural_features,
-        variance=measurement_noise
-    )
-```
-
-### Online Learning and Adaptation
-
-```python
-@model
-def online_adaptive_decoder(signals, true_labels, model_parameters, learning_signal):
-    """
-    Continuously update decoder based on user feedback
-    
-    Args:
-        signals: Incoming neural data stream
-        true_labels: Ground truth when available (sparse)
-        model_parameters: Current decoder parameters
-        learning_signal: Implicit feedback from user behavior
-    """
-    
-    # Forgetting factor for temporal adaptation
-    forgetting_factor ~ Beta(alpha=9.0, beta=1.0)  # ~0.9
-    
-    # Learning rate based on confidence
-    confidence_threshold ~ Beta(alpha=2.0, beta=2.0)
-    learning_rate ~ Beta(alpha=1.0, beta=3.0)  # Conservative learning
-    
-    # Parameter evolution over time
-    for t in range(sequence_length):
-        if t == 0:
-            model_parameters[t] = initial_parameters
-        else:
-            # Exponential forgetting of old parameters
-            forgotten_params = forgetting_factor * model_parameters[t-1]
-            
-            # Update based on new evidence (when available)
-            if true_labels[t] is not None:
-                prediction_error = compute_error(signals[t], true_labels[t])
-                parameter_update = learning_rate * gradient(prediction_error)
-                
-                model_parameters[t] = forgotten_params + parameter_update
-            else:
-                # Use implicit feedback from user behavior
-                implicit_error = estimate_implicit_error(
-                    signals[t], 
-                    learning_signal[t]
-                )
-                
-                if confidence(implicit_error) > confidence_threshold:
-                    parameter_update = 0.1 * learning_rate * gradient(implicit_error)
-                    model_parameters[t] = forgotten_params + parameter_update
-                else:
-                    model_parameters[t] = forgotten_params
-    
-    # Predictions using current parameters
-    signals ~ Normal(
-        mean=model_parameters[t] @ feature_vector,
-        variance=prediction_uncertainty
-    )
-```
-
-## Hierarchical and Compositional Models
-
-### Hierarchical State Space Models
-
-```python
-@model
-def hierarchical_bci_model(signals, high_level_intent, low_level_actions, context):
-    """
-    Multi-level BCI model with hierarchical intentions
-    
-    Args:
-        signals: Raw neural recordings
-        high_level_intent: Abstract goals (e.g., "reach for cup")
-        low_level_actions: Specific motor commands (e.g., "extend arm")
-        context: Environmental and task context
-    """
-    
-    # High-level intention dynamics (slow)
-    high_level_intent[0] ~ Categorical(probs=uniform_probs(num_high_level_states))
-    
-    for t in range(1, sequence_length):
-        # Context-dependent transition probabilities
-        transition_probs = context_dependent_transitions(context[t])
-        
-        high_level_intent[t] ~ Categorical(
-            probs=transition_probs[high_level_intent[t-1], :]
-        )
-    
-    # Low-level action generation (fast)
-    for t in range(sequence_length):
-        # Actions depend on current high-level intent
-        action_probs = intent_to_action_mapping[high_level_intent[t]]
-        
-        low_level_actions[t] ~ Categorical(probs=action_probs)
-    
-    # Neural signal generation
-    # High-level signals (slow cortical potentials)
-    high_level_signals ~ Normal(
-        mean=high_level_spatial_pattern @ high_level_intent,
-        variance=high_level_noise
-    )
-    
-    # Low-level signals (fast motor rhythms)
-    low_level_signals ~ Normal(
-        mean=low_level_spatial_pattern @ low_level_actions,
-        variance=low_level_noise
-    )
-    
-    # Combined observation
-    signals = high_level_signals + low_level_signals + measurement_noise
-```
-
-### Modular Compositional Architecture
-
-```python
-@model
-def modular_bci_system(signals, attention_module, motor_module, cognitive_module):
-    """
-    Compositional BCI with specialized processing modules
-    
-    Args:
-        signals: Multi-channel neural data
-        attention_module: Attention and focus detection
-        motor_module: Movement intention decoding  
-        cognitive_module: Cognitive state assessment
-    """
-    
-    # Attention processing module
-    @submodel
-    def attention_processor(attention_signals, attention_state):
-        # P300, SSVEP, alpha modulation
-        attention_state ~ Categorical(probs=[0.7, 0.2, 0.1])  # focused, distracted, drowsy
-        
-        attention_signals ~ Normal(
-            mean=attention_templates[attention_state],
-            variance=attention_noise
-        )
-    
-    # Motor intention module  
-    @submodel
-    def motor_processor(motor_signals, movement_intent):
-        # Motor imagery, movement preparation
-        movement_intent ~ Normal(mean=0.0, variance=1.0)
-        
-        motor_signals ~ Normal(
-            mean=motor_spatial_filters @ movement_intent,
-            variance=motor_noise
-        )
-    
-    # Cognitive assessment module
-    @submodel
-    def cognitive_processor(cognitive_signals, cognitive_load):
-        # Working memory, mental effort
-        cognitive_load ~ Beta(alpha=2.0, beta=2.0)
-        
-        cognitive_signals ~ Normal(
-            mean=cognitive_load * cognitive_patterns,
-            variance=cognitive_noise
-        )
-    
-    # Module integration and arbitration
-    module_weights ~ Dirichlet(alpha=[1.0, 1.0, 1.0])
-    
-    # Weighted combination of module outputs
-    integrated_output = (
-        module_weights[0] * attention_module.output +
-        module_weights[1] * motor_module.output +
-        module_weights[2] * cognitive_module.output
-    )
-    
-    # Final BCI decision
-    bci_output ~ Normal(
-        mean=integrated_output,
-        variance=integration_uncertainty
-    )
-```
-
-## Nonlinear and Deep Probabilistic Models
-
-### Neural Network Integration
-
-```python
-@model
-def deep_probabilistic_bci(signals, neural_network, latent_features, network_uncertainty):
-    """
-    Integrate deep neural networks with probabilistic inference
-    
-    Args:
-        signals: Raw neural data
-        neural_network: Pretrained feature extraction network
-        latent_features: Learned feature representations
-        network_uncertainty: Uncertainty in network predictions
-    """
-    
-    # Probabilistic neural network layers
-    for layer in range(num_layers):
-        # Layer weights with uncertainty
-        layer_weights[layer] ~ Normal(
-            mean=pretrained_weights[layer],
-            variance=weight_uncertainty[layer]
-        )
-        
-        # Layer activations
-        if layer == 0:
-            layer_input = signals
-        else:
-            layer_input = layer_activations[layer-1]
-        
-        layer_activations[layer] ~ Normal(
-            mean=activation_function(layer_weights[layer] @ layer_input),
-            variance=activation_noise[layer]
-        )
-    
-    # Latent feature extraction
-    latent_features = layer_activations[-1]  # Final layer output
-    
-    # Probabilistic decoder
-    bci_prediction ~ Normal(
-        mean=decoder_weights @ latent_features,
-        variance=network_uncertainty
-    )
-    
-    # Observation model
-    signals ~ Normal(
-        mean=generative_network(latent_features),
-        variance=reconstruction_error
-    )
-```
-
-### Variational Inference for Complex Models
-
-```python
-@model
-def variational_bci_model(signals, latent_variables, variational_parameters):
-    """
-    Use variational inference for intractable BCI models
-    
-    Args:
-        signals: Observed neural data
-        latent_variables: Unobserved brain states
-        variational_parameters: Approximate posterior parameters
-    """
-    
-    # Prior over latent variables
-    latent_variables ~ Normal(mean=0.0, variance=1.0)
-    
-    # Complex likelihood (intractable)
-    signals ~ ComplexDistribution(
-        parameters=nonlinear_transform(latent_variables),
-        intractable_normalizer=True
-    )
-    
-    # Variational approximation
-    variational_mean ~ Normal(mean=0.0, variance=10.0)
-    variational_variance ~ InverseGamma(alpha=2.0, beta=1.0)
-    
-    # Approximate posterior
-    latent_variables ~ Normal(
-        mean=variational_mean,
-        variance=variational_variance
-    )
-    
-    # ELBO optimization
-    elbo = expected_log_likelihood - kl_divergence(
-        approximate_posterior,
-        prior
-    )
-```
-
-## Performance Optimization Techniques
+## Current Capabilities vs. Future Work
 
 <CardGroup cols={2}>
-  <Card title="Model Compression" icon="compress">
-    Reduce model complexity while maintaining accuracy
-    
-    - Parameter pruning
-    - Knowledge distillation  
-    - Quantization techniques
+  <Card title="✅ Currently Available" icon="check-circle">
+    - **RxLDA**: Linear discriminant analysis
+    - **RxGMM**: Gaussian mixture models
+    - **Model Training**: Supervised learning
+    - **Model Calibration**: Subject adaptation
+    - **Uncertainty Quantification**: Confidence scores
+    - **Streaming Inference**: Real-time processing
   </Card>
   
-  <Card title="Parallel Processing" icon="layers">
-    Leverage multi-core and GPU acceleration
-    
-    - Batch processing
-    - Pipeline parallelism
-    - Distributed inference
-  </Card>
-  
-  <Card title="Approximate Inference" icon="clock">
-    Trade accuracy for speed when needed
-    
-    - Variational methods
-    - Sampling approximations
-    - Belief propagation
-  </Card>
-  
-  <Card title="Adaptive Complexity" icon="refresh">
-    Dynamically adjust model complexity
-    
-    - Context-dependent models
-    - Hierarchical approximations
-    - Progressive refinement
+  <Card title="⏳ Future Directions" icon="clock">
+    - **Multi-modal fusion** (EEG + EMG)
+    - **Temporal models** (HMM, Kalman)
+    - **Hierarchical models**
+    - **Transfer learning**
+    - **Custom factor graphs**
+    - **Online adaptation**
   </Card>
 </CardGroup>
 
-## Model Validation and Testing
+## Multi-Modal Sensor Fusion (Future)
 
-### Cross-validation Strategies
+### Concept: EEG + EMG Fusion
 
-```python
-def validate_bci_model(model, dataset, validation_strategy='subject_independent'):
-    """
-    Comprehensive model validation for BCI applications
-    """
-    
-    if validation_strategy == 'subject_independent':
-        # Leave-one-subject-out validation
-        results = []
-        for test_subject in dataset.subjects:
-            train_subjects = [s for s in dataset.subjects if s != test_subject]
-            
-            # Train on other subjects
-            trained_model = model.fit(
-                data=[dataset[s] for s in train_subjects]
-            )
-            
-            # Test on held-out subject
-            test_performance = trained_model.evaluate(dataset[test_subject])
-            results.append(test_performance)
-        
-        return aggregate_results(results)
-    
-    elif validation_strategy == 'temporal_split':
-        # Time-based validation (early vs late sessions)
-        early_sessions = dataset.get_sessions(time_range='early')
-        late_sessions = dataset.get_sessions(time_range='late')
-        
-        trained_model = model.fit(early_sessions)
-        return trained_model.evaluate(late_sessions)
+Combining cortical activity (EEG) with muscle activity (EMG) could provide:
+
+**Potential Benefits:**
+- **Robustness**: Redundant information sources
+- **Complementary timing**: EEG precedes EMG by ~50-100ms
+- **Improved accuracy**: Leverage both cortical intent and peripheral execution
+
+**Conceptual Model:**
+
+\[
+p(\text{intent} | \text{EEG}, \text{EMG}) \propto p(\text{EEG}|\text{intent}) \cdot p(\text{EMG}|\text{intent}) \cdot p(\text{intent})
+\]
+
+**Status**: Not implemented - requires multi-modal data collection and validation
+
+### Concept: EEG + fNIRS Integration
+
+Combining fast electrical (EEG) with slow hemodynamic (fNIRS) signals:
+
+**Potential Benefits:**
+- **Temporal resolution**: EEG provides millisecond precision
+- **Spatial resolution**: fNIRS provides better localization
+- **Artifact rejection**: Cross-validate signals
+
+**Status**: Research direction - not planned for near-term release
+
+## Temporal Dynamics (Future)
+
+### Hidden Markov Models (HMM)
+
+**Concept**: Model sequences of brain states over time
+
+\[
+p(s_1, \ldots, s_T, x_1, \ldots, x_T) = p(s_1) \prod_{t=2}^{T} p(s_t|s_{t-1}) \prod_{t=1}^{T} p(x_t|s_t)
+\]
+
+**Potential Applications:**
+- Continuous brain state tracking
+- Sequence classification (multi-step gestures)
+- State-dependent adaptive BCI
+
+**Why Not Implemented Yet:**
+- Requires temporal training data
+- More complex calibration
+- Higher computational cost
+- Needs validation for real-time BCI
+
+**Workaround**: Use RxLDA/RxGMM on temporally aggregated features (already common practice)
+
+### Kalman Filtering
+
+**Concept**: Continuous state estimation with linear dynamics
+
+\[
+s_t = A s_{t-1} + w_t \quad \text{(State evolution)}
+\]
+\[
+x_t = H s_t + v_t \quad \text{(Observations)}
+\]
+
+**Potential Applications:**
+- Smooth cursor control
+- Continuous movement decoding
+- Predictive control
+
+**Why Not Implemented Yet:**
+- BCI data often discrete (trials) rather than continuous
+- Linear assumptions may not hold for neural data
+- Requires careful system identification
+
+**Current Approach**: Streaming inference with chunk-based updates provides similar real-time capabilities
+
+## Hierarchical Models (Conceptual)
+
+### Multi-Level Modeling
+
+**Concept**: Model population, subject, and session levels
+
+\[
+\theta_{\text{population}} \rightarrow \theta_{\text{subject}} \rightarrow \theta_{\text{session}}
+\]
+
+**Potential Benefits:**
+- Transfer learning across subjects
+- Reduced calibration data
+- Population-level insights
+
+**Status**: Basic calibration (subject adaptation) available; full hierarchy not implemented
+
+### Example: Population Prior + Subject Adaptation
+
+```julia
+# Current SDK approach (simplified)
+using NimbusSDK
+
+# 1. Load population-level baseline model
+baseline_model = load_model(RxLDAModel, "motor_imagery_baseline_v1")
+
+# 2. Adapt to individual subject with small dataset
+subject_calib_data = collect_calibration(num_trials=20)
+personalized_model = calibrate_model(baseline_model, subject_calib_data)
+
+# 3. Use personalized model
+results = predict_batch(personalized_model, test_data)
 ```
+
+**This provides a simplified form of hierarchical modeling** through transfer learning.
+
+## Advanced Uncertainty Quantification (Partial)
+
+### Current Capabilities
+
+NimbusSDK already provides:
+
+```julia
+results = predict_batch(model, data)
+
+# Full posterior distribution
+posterior = results.posteriors  # [n_classes × n_trials]
+
+# Confidence (max posterior probability)
+confidence = results.confidences  # [n_trials]
+
+# Entropy as uncertainty measure
+entropy = -sum(posterior .* log.(posterior .+ 1e-10), dims=1)
+```
+
+### Future Directions
+
+<Card title="Advanced Uncertainty (Future)" icon="chart-line">
+  **Potential additions:**
+  - **Epistemic vs. aleatoric**: Separate model vs. data uncertainty
+  - **Predictive distributions**: Forecast future trials
+  - **Confidence calibration**: Ensure confidence scores are well-calibrated
+  - **Out-of-distribution detection**: Flag unusual inputs
+  
+  **Status**: Basic uncertainty available; advanced methods under research
+</Card>
+
+## Transfer Learning (Partial)
+
+### Current: Model Calibration
+
+NimbusSDK supports transfer learning via calibration:
+
+```julia
+# Pre-trained model trained on many subjects
+baseline = load_model(RxLDAModel, "motor_imagery_baseline_v1")
+
+# Quick adaptation to new subject
+personalized = calibrate_model(baseline, subject_data; iterations=20)
+```
+
+**This is a form of transfer learning**: Prior knowledge (baseline model) + subject-specific adaptation.
+
+### Future: Advanced Transfer
+
+<Card title="Advanced Transfer Learning (Future)" icon="shuffle">
+  **Potential enhancements:**
+  - **Domain adaptation**: Transfer across paradigms
+  - **Few-shot learning**: Learn from very few examples
+  - **Meta-learning**: Learn to adapt quickly
+  - **Cross-session transfer**: Maintain performance over days/weeks
+  
+  **Status**: Basic transfer via calibration available; advanced methods planned
+</Card>
+
+## Custom Factor Graphs (Future)
+
+### Concept
+
+Allow users to define custom probabilistic models using RxInfer.jl:
+
+```julia
+# Hypothetical future API
+using RxInfer
+
+@model function custom_bci(y, x)
+    x ~ NormalMeanVariance(0.0, 1.0)
+    y ~ NormalMeanVariance(x, 0.1)
+end
+
+# Integrate with NimbusSDK (hypothetical)
+custom_model = NimbusModel(custom_bci)
+train_model(custom_model, training_data)
+```
+
+**Why Not Available Yet:**
+- Requires unified API between RxInfer.jl and NimbusSDK
+- Training/inference abstractions need generalization
+- Needs extensive testing and validation
+
+**Workaround**: Advanced users can use RxInfer.jl directly, but without NimbusSDK's convenience functions
+
+## Online Adaptation (Partial)
+
+### Current: Offline Calibration
+
+```julia
+# Collect all calibration data first
+calib_data = collect_all_trials()
+
+# Then calibrate
+personalized = calibrate_model(baseline, calib_data)
+```
+
+### Future: Online Learning
+
+<Card title="Online Adaptation (Future)" icon="refresh">
+  **Concept**: Continuously update model during use
+  
+  ```julia
+  # Hypothetical future API
+  adaptive_session = start_adaptive_session(model, metadata)
+  
+  for chunk in eeg_stream
+      result = process_chunk_adaptive(adaptive_session, chunk)
+      
+      # Model automatically updates based on feedback
+      provide_feedback(adaptive_session, result, ground_truth)
+  end
+  ```
+  
+  **Challenges:**
+  - Risk of catastrophic forgetting
+  - Requires reliable feedback signal
+  - Stability vs. adaptivity tradeoff
+  
+  **Status**: Research prototype; not production-ready
+  </Card>
+  
+## Non-Gaussian Models (Future)
+
+### Current: Gaussian Assumptions
+
+RxLDA and RxGMM assume Gaussian feature distributions:
+
+\[
+p(x|c) = \mathcal{N}(x | \mu_c, \Sigma_c)
+\]
+
+**This works well for many BCI features** (CSP, bandpower, ERP amplitudes).
+
+### Future: Flexible Distributions
+
+<Card title="Non-Gaussian Models (Future)" icon="chart-scatter">
+  **Potential additions:**
+  - **Student-t distributions**: Robust to outliers
+  - **Mixture models**: Flexible multi-modal distributions
+  - **Non-parametric methods**: No distributional assumptions
+  
+  **Status**: RxGMM provides some flexibility; more options under consideration
+  </Card>
+  
+## Sparse Models (Conceptual)
+
+### Concept: Automatic Feature Selection
+
+Models that automatically select relevant features:
+
+\[
+p(x|\text{class}, \text{active features})
+\]
+
+**Potential Benefits:**
+- Reduced overfitting
+- Interpretability (which features matter?)
+- Reduced computation
+
+**Status**: Preprocessing feature selection recommended; sparse models not implemented
+
+## Practical Recommendations
+
+### For Current SDK Users
+
+<Tip>
+**Best Practices with RxLDA/RxGMM:**
+
+1. **Good feature extraction** is more important than complex models
+   - Use CSP for motor imagery
+   - Extract ERP amplitudes for P300
+   - Compute bandpower for frequency-based paradigms
+
+2. **Start simple**: RxLDA often sufficient
+   - Try RxLDA first
+   - Use RxGMM if classes overlap significantly
+
+3. **Calibrate**: Subject-specific adaptation improves accuracy
+   - Collect 20-50 calibration trials
+   - Use `calibrate_model()` for personalization
+
+4. **Monitor uncertainty**: Use confidence scores
+   - Reject low-confidence predictions
+   - Adapt thresholds based on application
+</Tip>
+
+### For Advanced Users
+
+If you need features not in NimbusSDK:
+
+1. **Use RxInfer.jl directly** for custom factor graphs
+2. **Preprocess thoughtfully** to create informative features
+3. **Consider hybrid approaches** (e.g., RxLDA for classification + post-hoc smoothing)
+4. **Contribute**: Open-source contributions welcome!
+
+## Research Collaborations
+
+<Card title="Partner With Us" icon="handshake">
+  **Interested in advanced BCI models?**
+  
+  We're actively researching:
+  - Multi-modal fusion
+  - Online adaptation
+  - Transfer learning
+  - Novel paradigms
+  
+  **Contact**: research@nimbusbci.com  
+  **GitHub**: github.com/nimbusbci
+</Card>
+
+## Implementation Timeline
+
+| Feature | Status | Estimated Timeline |
+|---------|--------|-------------------|
+| **RxLDA** | ✅ Available | Shipped |
+| **RxGMM** | ✅ Available | Shipped |
+| **Model Calibration** | ✅ Available | Shipped |
+| **Streaming Inference** | ✅ Available | Shipped |
+| **HMM Models** | ⏳ Planned | 2025 Q4 |
+| **Kalman Filters** | ⏳ Planned | 2026 Q1 |
+| **Online Adaptation** | 🔬 Research | TBD |
+| **Multi-Modal Fusion** | 🔬 Research | TBD |
+| **Custom Factor Graphs** | 💡 Proposed | TBD |
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Custom Node Development" icon="cog" href="/development/custom-nodes">
-    Create specialized nodes for advanced techniques
+  <Card title="Current Models" icon="brain" href="/model-specification/index">
+    Learn about RxLDA and RxGMM
   </Card>
-  <Card title="Performance Optimization" icon="chart-bar" href="/core-concepts/real-time-processing">
-    Optimize complex models for real-time use
+  <Card title="Working Examples" icon="code" href="/examples/code-samples">
+    See current SDK in action
   </Card>
-  <Card title="Model Deployment" icon="play" href="/inference-configuration/streaming-inference">
-    Deploy advanced models in production
+  <Card title="Training Guide" icon="graduation-cap" href="/inference-configuration/batch-processing">
+    Train models on your data
   </Card>
-  <Card title="Research Applications" icon="microscope" href="/examples/advanced-applications">
-    Explore cutting-edge research applications
+  <Card title="API Reference" icon="book" href="/api-reference/julia-sdk">
+    Complete SDK documentation
   </Card>
 </CardGroup>
+
+---
+
+<Note>
+**Philosophy**: NimbusSDK prioritizes **proven, production-ready techniques** (RxLDA, RxGMM) over experimental methods. Advanced features will be added incrementally as they mature and demonstrate clear benefits for real-world BCI applications.
+</Note>

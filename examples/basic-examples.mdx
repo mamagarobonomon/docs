@@ -1,433 +1,549 @@
 ---
 title: "Basic BCI Examples"
-description: "Fundamental probabilistic models for brain-computer interface applications"
+description: "Fundamental examples using NimbusSDK for brain-computer interface applications"
 icon: "play"
 ---
 
 # Basic BCI Examples
 
-This section provides fundamental examples of probabilistic models commonly used in brain-computer interface applications. Each example demonstrates core concepts adapted from established probabilistic inference techniques, specifically tailored for neural signal processing and BCI control.
+This section provides fundamental examples of using NimbusSDK for brain-computer interface applications. All examples use the actual RxLDA and RxGMM models with real Julia SDK code.
 
 <Note>
-For detailed implementations and advanced features of each model, see the dedicated pages in the **BCI Models** section.
+For detailed model information, see [RxLDA](/models/rxlda) and [RxGMM](/models/rxgmm) documentation.
 </Note>
 
-## Kalman Filtering for EEG Signal Processing
+## Motor Imagery Classification
 
-Kalman filtering is essential for tracking neural states and removing noise from EEG signals. This example demonstrates how to use Nimbus for real-time EEG preprocessing and state estimation.
+Motor imagery BCI allows users to control devices by imagining movements. This is one of the most common BCI paradigms.
 
-### Problem Setup
+### Basic 2-Class Motor Imagery
 
-EEG signals are inherently noisy and contain artifacts from eye movements, muscle activity, and environmental interference. We model the clean neural signal as a hidden state that evolves over time, observed through noisy EEG measurements.
+Classify left vs right hand motor imagery:
 
-```python
-@model
-def eeg_kalman_filter(eeg_observations, sampling_rate=250):
-    """
-    Kalman filter for EEG signal denoising and state tracking
-    
-    Args:
-        eeg_observations: Raw EEG measurements [channels x time]
-        sampling_rate: EEG sampling frequency in Hz
-    """
-    
-    # System parameters
-    dt = 1.0 / sampling_rate
-    num_channels, num_samples = eeg_observations.shape
-    
-    # State transition model (neural signal dynamics)
-    # Simple random walk with momentum for neural oscillations
-    A = np.array([[1.0, dt], [0.0, 0.95]])  # [signal, velocity]
-    
-    # Process noise (neural variability)
-    Q = np.array([[0.1, 0.0], [0.0, 0.05]])
-    
-    # Observation model (EEG measurement)
-    H = np.array([1.0, 0.0])  # Observe signal directly
-    
-    # Measurement noise (electrode/amplifier noise)
-    R = 2.5  # Typical EEG noise variance
-    
-    # Prior for initial state
-    neural_state[0] ~ MultivariateNormal(
-        mean=[0.0, 0.0], 
-        covariance=[[10.0, 0.0], [0.0, 1.0]]
-    )
-    
-    # State evolution and observations
-    for t in range(1, num_samples):
-        # Neural state dynamics
-        neural_state[t] ~ MultivariateNormal(
-            mean=A @ neural_state[t-1],
-            covariance=Q
-        )
-        
-        # EEG observations for each channel
-        for ch in range(num_channels):
-            eeg_observations[ch, t] ~ Normal(
-                mean=H @ neural_state[t] * channel_weights[ch],
-                variance=R
-            )
+```julia
+using NimbusSDK
+
+# 1. Authenticate
+NimbusSDK.authenticate("your-api-key")
+
+# 2. Load pre-trained 2-class model
+model = load_model(RxLDAModel, "motor_imagery_2class_v1")
+
+# 3. Prepare your preprocessed CSP features
+# Features must be CSP-transformed EEG (8-30 Hz bandpass)
+# Shape: (n_features × n_samples × n_trials)
+csp_features = load_your_csp_features()  # (8, 250, 100) - 8 CSP features, 1s trials, 100 trials
+labels = [1, 2, 1, 2, ...]  # 1 = left hand, 2 = right hand
+
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 8,
+    n_classes = 2,
+    chunk_size = nothing
+)
+
+data = BCIData(csp_features, metadata, labels)
+
+# 4. Run batch inference
+results = predict_batch(model, data; iterations=10)
+
+# 5. Analyze results
+accuracy = sum(results.predictions .== labels) / length(labels)
+itr = calculate_ITR(accuracy, 2, 4.0)  # 2 classes, 4-second trials
+
+println("Accuracy: $(round(accuracy * 100, digits=1))%")
+println("ITR: $(round(itr, digits=1)) bits/minute")
+println("Mean confidence: $(round(mean(results.confidences), digits=3))")
 ```
 
-### BCI Application: Motor Imagery Preprocessing
+### 4-Class Motor Imagery
 
-```python
-# Real-time EEG preprocessing for motor imagery BCI
-class EEGPreprocessor:
-    def __init__(self, channels=['C3', 'C4', 'Cz'], sampling_rate=250):
-        self.model = eeg_kalman_filter(sampling_rate=sampling_rate)
-        self.channels = channels
-        
-    def process_window(self, eeg_window):
-        """Process 1-second EEG window for motor imagery detection"""
-        
-        # Apply Kalman filtering
-        result = self.model.infer(
-            eeg_observations=eeg_window,
-            target='neural_state'
-        )
-        
-        # Extract clean neural signals
-        clean_signals = result.mean[:, 0]  # Signal component
-        confidence = 1.0 / result.variance[:, 0]  # Inverse variance
-        
-        return {
-            'clean_eeg': clean_signals,
-            'confidence': confidence,
-            'artifacts_detected': confidence < 0.1
-        }
+Classify left hand, right hand, feet, and tongue movements:
 
-# Usage example
-preprocessor = EEGPreprocessor()
+```julia
+using NimbusSDK
 
-for eeg_window in real_time_stream():
-    processed = preprocessor.process_window(eeg_window)
-    
-    if not processed['artifacts_detected']:
-        # Feed to motor imagery classifier
-        motor_intent = classify_motor_imagery(processed['clean_eeg'])
-        send_control_command(motor_intent)
+# Authenticate and load 4-class model
+NimbusSDK.authenticate("your-api-key")
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+# Prepare 4-class data
+# Classes: 1=left hand, 2=right hand, 3=feet, 4=tongue
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,  # More features for 4-class problem
+    n_classes = 4
+)
+
+data = BCIData(csp_features, metadata, labels)
+
+# Run inference
+results = predict_batch(model, data)
+
+# Per-class analysis
+for class_id in 1:4
+    class_mask = labels .== class_id
+    class_acc = sum(results.predictions[class_mask] .== class_id) / sum(class_mask)
+    println("Class $class_id accuracy: $(round(class_acc * 100, digits=1))%")
+end
+
+# Overall metrics
+accuracy = sum(results.predictions .== labels) / length(labels)
+itr = calculate_ITR(accuracy, 4, 4.0)
+println("\nOverall accuracy: $(round(accuracy * 100, digits=1))%")
+println("ITR: $(round(itr, digits=1)) bits/minute")
 ```
 
-<Card title="Performance Metrics" icon="chart-bar">
-  **Noise Reduction**: 15-25 dB improvement in SNR
-  
-  **Latency**: Sub-10ms processing time per sample
-  
-  **Artifact Detection**: 95%+ accuracy for eye blinks and muscle artifacts
-</Card>
+### Training Custom Motor Imagery Model
 
-## Hidden Markov Models for Brain State Detection
+Train a model on your own data:
 
-Hidden Markov Models excel at detecting discrete brain states like attention levels, fatigue, and cognitive load from continuous neural signals.
+```julia
+using NimbusSDK
 
-### Problem Setup
+NimbusSDK.authenticate("your-api-key")
 
-We model brain states as discrete hidden variables that transition over time, generating observable patterns in EEG spectral features.
+# Collect training data
+# Minimum: 50 trials per class recommended
+# Optimal: 200+ trials per class
+train_features, train_labels = collect_training_data()
 
-```python
-@model
-def brain_state_hmm(spectral_features, num_states=3):
-    """
-    HMM for detecting brain states from EEG spectral features
-    
-    Args:
-        spectral_features: Power in frequency bands [time x bands]
-        num_states: Number of discrete brain states
-    """
-    
-    # State definitions: 0=Alert, 1=Relaxed, 2=Drowsy
-    state_names = ['Alert', 'Relaxed', 'Drowsy']
-    
-    # Initial state probabilities
-    initial_probs ~ Dirichlet(alpha=[1.0, 1.0, 1.0])
-    
-    # State transition probabilities
-    for i in range(num_states):
-        transition_probs[i] ~ Dirichlet(alpha=[2.0, 1.0, 1.0])
-    
-    # Emission parameters for each state
-    for state in range(num_states):
-        # Mean spectral power for each frequency band
-        emission_means[state] ~ MultivariateNormal(
-            mean=state_priors[state],
-            covariance=np.eye(len(frequency_bands))
-        )
-        
-        # Precision (inverse variance) for observations
-        emission_precision[state] ~ Gamma(alpha=2.0, beta=1.0)
-    
-    # Initial state
-    brain_state[0] ~ Categorical(probs=initial_probs)
-    
-    # State sequence and observations
-    for t in range(1, len(spectral_features)):
-        # State transition
-        brain_state[t] ~ Categorical(
-            probs=transition_probs[brain_state[t-1]]
-        )
-        
-        # Spectral feature observations
-        spectral_features[t] ~ MultivariateNormal(
-            mean=emission_means[brain_state[t]],
-            precision=emission_precision[brain_state[t]]
-        )
+train_data = BCIData(
+    train_features,
+    BCIMetadata(
+        sampling_rate = 250.0,
+        paradigm = :motor_imagery,
+        feature_type = :csp,
+        n_features = 16,
+        n_classes = 4
+    ),
+    train_labels
+)
+
+# Train RxLDA model (faster, shared covariance)
+rxlda_model = train_model(
+    RxLDAModel,
+    train_data;
+    iterations = 50,
+    showprogress = true,
+    name = "my_motor_imagery",
+    description = "Custom 4-class motor imagery"
+)
+
+# Or train RxGMM model (more flexible, class-specific covariances)
+rxgmm_model = train_model(
+    RxGMMModel,
+    train_data;
+    iterations = 50,
+    showprogress = true,
+    name = "my_motor_imagery_gmm"
+)
+
+# Save trained model
+save_model(rxlda_model, "my_motor_imagery.jld2")
+
+# Evaluate on test data
+test_results = predict_batch(rxlda_model, test_data)
+test_accuracy = sum(test_results.predictions .== test_labels) / length(test_labels)
+println("Test accuracy: $(round(test_accuracy * 100, digits=1))%")
 ```
 
-### BCI Application: Attention Monitoring System
+## P300 Event-Related Potential Detection
 
-```python
-class AttentionMonitor:
-    def __init__(self, frequency_bands=['theta', 'alpha', 'beta']):
-        self.model = brain_state_hmm(num_states=3)
-        self.bands = frequency_bands
-        self.state_names = ['Alert', 'Relaxed', 'Drowsy']
-        
-    def extract_spectral_features(self, eeg_data):
-        """Extract power spectral density features"""
-        
-        features = []
-        for band in self.bands:
-            if band == 'theta':
-                power = bandpower(eeg_data, 4, 8)
-            elif band == 'alpha':
-                power = bandpower(eeg_data, 8, 13)
-            elif band == 'beta':
-                power = bandpower(eeg_data, 13, 30)
-            
-            features.append(np.log(power))  # Log-transform for normality
-        
-        return np.array(features)
-    
-    def monitor_attention(self, eeg_stream, window_size=2.0):
-        """Real-time attention state monitoring"""
-        
-        spectral_history = []
-        
-        for eeg_window in eeg_stream:
-            # Extract spectral features
-            features = self.extract_spectral_features(eeg_window)
-            spectral_history.append(features)
-            
-            if len(spectral_history) >= 10:  # Minimum history for HMM
-                # Infer current brain state
-                result = self.model.infer(
-                    spectral_features=np.array(spectral_history),
-                    target='brain_state'
-                )
-                
-                current_state = result.mode[-1]  # Most recent state
-                confidence = result.probability[current_state]
-                
-                yield {
-                    'state': self.state_names[current_state],
-                    'confidence': confidence,
-                    'alert_level': 1.0 - (current_state / 2.0)  # 1.0=Alert, 0.0=Drowsy
-                }
+P300 BCIs detect attention-related brain responses to visual stimuli.
 
-# Usage for adaptive BCI interface
-monitor = AttentionMonitor()
+### Binary P300 Classification
 
-for attention_data in monitor.monitor_attention(eeg_stream):
-    if attention_data['alert_level'] < 0.3:
-        # User is drowsy - pause BCI or increase stimulation
-        adjust_interface_difficulty(difficulty='easy')
-    elif attention_data['alert_level'] > 0.8:
-        # User is highly alert - can handle complex tasks
-        adjust_interface_difficulty(difficulty='hard')
+Detect target vs non-target stimuli:
+
+```julia
+using NimbusSDK
+
+# Authenticate and load P300 model
+NimbusSDK.authenticate("your-api-key")
+model = load_model(RxLDAModel, "p300_binary_v1")
+
+# Prepare P300 ERP features
+# Features extracted from 0.2-0.8s post-stimulus window
+# Typical: Bandpower or ERP amplitudes from Pz, Cz, Fz
+erp_features = load_p300_features()  # (12, 150, 200) - 12 features, 0.6s @ 250Hz, 200 trials
+labels = [1, 2, 2, 2, 1, 2, ...]  # 1=target, 2=non-target
+
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :p300,
+    feature_type = :erp,
+    n_features = 12,
+    n_classes = 2
+)
+
+data = BCIData(erp_features, metadata, labels)
+
+# Run inference
+results = predict_batch(model, data)
+
+# Analyze target detection
+target_mask = labels .== 1
+target_detected = sum(results.predictions[target_mask] .== 1)
+target_total = sum(target_mask)
+
+println("Target detection rate: $(round(100 * target_detected / target_total, digits=1))%")
+println("Mean target confidence: $(round(mean(results.confidences[target_mask]), digits=3))")
 ```
 
-<Card title="Clinical Applications" icon="heartbeat">
-  **Attention Disorders**: Monitor ADHD treatment effectiveness
-  
-  **Fatigue Detection**: Safety systems for drivers and operators
-  
-  **Cognitive Load**: Adaptive learning systems and rehabilitation
-</Card>
+### P300 Speller Application
 
-## Autoregressive Models for EEG Rhythm Analysis
+Implement a P300-based speller:
 
-Autoregressive (AR) models are fundamental for analyzing EEG rhythms and detecting oscillatory patterns associated with different brain states and motor intentions.
+```julia
+using NimbusSDK
 
-### Problem Setup
+NimbusSDK.authenticate("your-api-key")
+model = load_model(RxLDAModel, "p300_speller_v1")
 
-EEG signals contain rhythmic oscillations (alpha, beta, mu rhythms) that can be modeled as autoregressive processes. Changes in AR parameters indicate shifts in neural activity patterns.
+# Spelling matrix (6x6 for 36 characters)
+matrix = reshape(collect('A':'Z') ∪ collect('0':'9'), 6, 6)
 
-```python
-@model
-def eeg_ar_model(eeg_signal, ar_order=8, adaptive=True):
+function spell_character(row_col_trials)
     """
-    Autoregressive model for EEG rhythm analysis
-    
-    Args:
-        eeg_signal: Single-channel EEG time series
-        ar_order: Order of autoregressive model
-        adaptive: Whether to use time-varying parameters
+    Spell one character using row/column paradigm
+    row_col_trials: Dict with :rows and :cols EEG data
     """
     
-    # AR coefficients (time-varying if adaptive)
-    if adaptive:
-        # Time-varying AR coefficients for non-stationary EEG
-        ar_innovation_precision ~ Gamma(alpha=2.0, beta=1.0)
-        
-        for t in range(ar_order, len(eeg_signal)):
-            if t == ar_order:
-                # Initial AR coefficients
-                ar_coeffs[t] ~ MultivariateNormal(
-                    mean=np.zeros(ar_order),
-                    precision=0.1 * np.eye(ar_order)
-                )
-            else:
-                # Evolving AR coefficients
-                ar_coeffs[t] ~ MultivariateNormal(
-                    mean=ar_coeffs[t-1],
-                    precision=ar_innovation_precision * np.eye(ar_order)
-                )
-    else:
-        # Static AR coefficients
-        ar_coeffs ~ MultivariateNormal(
-            mean=np.zeros(ar_order),
-            precision=0.1 * np.eye(ar_order)
-        )
+    # Analyze row flashes
+    row_data = BCIData(row_col_trials[:rows], metadata)
+    row_results = predict_batch(model, row_data)
+    target_row = argmax([mean(row_results.posteriors[1, i:i+5]) for i in 1:6:30])
     
-    # Observation noise precision
-    noise_precision ~ Gamma(alpha=2.0, beta=1.0)
+    # Analyze column flashes
+    col_data = BCIData(row_col_trials[:cols], metadata)
+    col_results = predict_batch(model, col_data)
+    target_col = argmax([mean(col_results.posteriors[1, i:i+5]) for i in 1:6:30])
     
-    # AR process
-    for t in range(ar_order, len(eeg_signal)):
-        # Predicted signal from AR model
-        ar_prediction = sum([
-            ar_coeffs[t][i] * eeg_signal[t-i-1] 
-            for i in range(ar_order)
-        ])
-        
-        # Observed EEG signal
-        eeg_signal[t] ~ Normal(
-            mean=ar_prediction,
-            precision=noise_precision
-        )
+    # Get character at intersection
+    character = matrix[target_row, target_col]
+    confidence = (row_results.confidences[target_row] + col_results.confidences[target_col]) / 2
+    
+    return (character=character, confidence=confidence)
+end
+
+# Spell a word
+word = ""
+for _ in 1:5  # Spell 5 characters
+    trials = collect_p300_trials()  # Your acquisition function
+    result = spell_character(trials)
+    
+    if result.confidence > 0.7
+        word *= result.character
+        println("Spelled: $(result.character) (confidence: $(round(result.confidence, digits=2)))")
+    else
+        println("Low confidence - retry")
+    end
+end
+
+println("\nSpelled word: $word")
 ```
 
-### BCI Application: Motor Imagery Rhythm Detection
+## Real-Time Streaming Examples
 
-```python
-class MotorRhythmDetector:
-    def __init__(self, channels=['C3', 'C4'], ar_order=8):
-        self.model = eeg_ar_model(ar_order=ar_order, adaptive=True)
-        self.channels = channels
-        self.baseline_coeffs = {}
-        
-    def calibrate_baseline(self, rest_eeg_data):
-        """Calibrate baseline AR parameters during rest"""
-        
-        for ch, channel in enumerate(self.channels):
-            result = self.model.infer(
-                eeg_signal=rest_eeg_data[ch],
-                target='ar_coeffs'
-            )
-            
-            self.baseline_coeffs[channel] = result.mean
+### Streaming Motor Imagery Control
+
+Real-time cursor control with streaming inference:
+
+```julia
+using NimbusSDK
+
+# Setup
+NimbusSDK.authenticate("your-api-key")
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4,
+    chunk_size = 250  # 1-second chunks
+)
+
+# Initialize streaming session
+session = init_streaming(model, metadata)
+
+# Process real-time EEG chunks
+cursor_position = [0.0, 0.0]  # [x, y]
+movement_speed = 0.05
+
+for chunk in eeg_stream
+    # Process chunk (16 features × 250 samples)
+    chunk_result = process_chunk(session, chunk)
     
-    def detect_motor_imagery(self, eeg_window):
-        """Detect motor imagery from AR parameter changes"""
+    # Update cursor based on prediction
+    if chunk_result.confidence > 0.7
+        if chunk_result.prediction == 1  # Left hand
+            cursor_position[1] -= movement_speed
+        elseif chunk_result.prediction == 2  # Right hand
+            cursor_position[1] += movement_speed
+        elseif chunk_result.prediction == 3  # Feet
+            cursor_position[2] -= movement_speed
+        elseif chunk_result.prediction == 4  # Tongue
+            cursor_position[2] += movement_speed
+        end
         
-        motor_scores = {}
-        
-        for ch, channel in enumerate(self.channels):
-            # Estimate current AR parameters
-            result = self.model.infer(
-                eeg_signal=eeg_window[ch],
-                target='ar_coeffs'
-            )
-            
-            current_coeffs = result.mean
-            baseline_coeffs = self.baseline_coeffs[channel]
-            
-            # Compute spectral power from AR coefficients
-            current_psd = ar_to_psd(current_coeffs, sampling_rate=250)
-            baseline_psd = ar_to_psd(baseline_coeffs, sampling_rate=250)
-            
-            # Motor imagery typically suppresses mu rhythm (8-13 Hz)
-            mu_suppression = (
-                baseline_psd[8:13].mean() - current_psd[8:13].mean()
-            ) / baseline_psd[8:13].mean()
-            
-            motor_scores[channel] = mu_suppression
-        
-        # Lateralized motor imagery detection
-        left_motor = motor_scores['C4']   # Contralateral suppression
-        right_motor = motor_scores['C3']  # Contralateral suppression
-        
-        if left_motor > 0.2 and left_motor > right_motor + 0.1:
-            return {'class': 'left_hand', 'confidence': left_motor}
-        elif right_motor > 0.2 and right_motor > left_motor + 0.1:
-            return {'class': 'right_hand', 'confidence': right_motor}
-        else:
-            return {'class': 'rest', 'confidence': 0.0}
-
-# Real-time motor imagery BCI
-detector = MotorRhythmDetector()
-
-# Calibration phase
-detector.calibrate_baseline(rest_eeg_data)
-
-# Online detection
-for eeg_window in motor_imagery_stream():
-    prediction = detector.detect_motor_imagery(eeg_window)
-    
-    if prediction['confidence'] > 0.3:
-        execute_motor_command(prediction['class'])
+        update_cursor_display(cursor_position)
+    end
+end
 ```
 
-<Card title="Rhythm Analysis Features" icon="signal">
-  **Mu Rhythm (8-13 Hz)**: Motor cortex activity and imagery
-  
-  **Alpha Rhythm (8-13 Hz)**: Attention and relaxation states
-  
-  **Beta Rhythm (13-30 Hz)**: Active concentration and motor planning
-</Card>
+### Adaptive Threshold Control
 
-## Detailed Model Pages
+Adjust control sensitivity based on performance:
 
-<CardGroup cols={2}>
-  <Card title="Kalman EEG Filtering" icon="wave-square" href="/models/kalman-eeg-filtering">
-    Complete implementation of EEG preprocessing with Kalman filters
-  </Card>
-  <Card title="HMM Brain States" icon="brain" href="/models/hmm-brain-states">
-    Hidden Markov Models for attention and cognitive state detection
-  </Card>
-  <Card title="AR Motor Rhythms" icon="wave-square" href="/models/ar-motor-rhythms">
-    Autoregressive models for motor imagery and rhythm analysis
-  </Card>
-  <Card title="Multi-Modal Fusion" icon="layers" href="/models/sensor-fusion">
-    Sensor fusion for robust multi-modal BCI systems
-  </Card>
-</CardGroup>
+```julia
+using NimbusSDK
+
+# Setup streaming
+session = init_streaming(model, metadata)
+tracker = OnlinePerformanceTracker(window_size=20)
+
+# Adaptive parameters
+confidence_threshold = 0.7
+update_interval = 10
+
+trial_count = 0
+
+for trial in trials
+    trial_count += 1
+    
+    # Process trial
+    for chunk in collect_trial_chunks()
+        result = process_chunk(session, chunk)
+        
+        # Execute command if confidence exceeds threshold
+        if result.confidence > confidence_threshold
+            execute_command(result.prediction)
+        end
+    end
+    
+    final_result = finalize_trial(session)
+    
+    # Update tracker with ground truth (if available)
+    if !isnothing(ground_truth)
+        metrics = update_and_report!(tracker, final_result.prediction, ground_truth, final_result.confidence)
+        
+        # Adapt threshold every 10 trials
+        if trial_count % update_interval == 0
+            if metrics.accuracy > 0.85
+                # High accuracy - can lower threshold for faster response
+                confidence_threshold = max(0.6, confidence_threshold * 0.95)
+                println("Lowering threshold to $(round(confidence_threshold, digits=2))")
+            elseif metrics.accuracy < 0.65
+                # Low accuracy - raise threshold for reliability
+                confidence_threshold = min(0.85, confidence_threshold * 1.05)
+                println("Raising threshold to $(round(confidence_threshold, digits=2))")
+            end
+        end
+    end
+end
+```
+
+## Subject-Specific Calibration
+
+### Quick Calibration for New Users
+
+Personalize a model with minimal calibration data:
+
+```julia
+using NimbusSDK
+
+NimbusSDK.authenticate("your-api-key")
+
+# Load baseline model
+baseline_model = load_model(RxLDAModel, "motor_imagery_baseline_v1")
+
+# Collect quick calibration (10-20 trials per class)
+println("Collecting calibration data...")
+calib_features, calib_labels = collect_calibration_trials(trials_per_class=15)
+
+calib_data = BCIData(
+    calib_features,
+    BCIMetadata(
+        sampling_rate = 250.0,
+        paradigm = :motor_imagery,
+        feature_type = :csp,
+        n_features = 16,
+        n_classes = 4
+    ),
+    calib_labels
+)
+
+# Calibrate model (much faster than training from scratch)
+println("Calibrating model...")
+personalized_model = calibrate_model(
+    baseline_model,
+    calib_data;
+    iterations = 20  # Fewer iterations needed
+)
+
+# Save personalized model
+save_model(personalized_model, "subject_123_personalized.jld2")
+
+# Test improvement
+println("\nTesting on validation data...")
+baseline_results = predict_batch(baseline_model, validation_data)
+personalized_results = predict_batch(personalized_model, validation_data)
+
+baseline_acc = sum(baseline_results.predictions .== val_labels) / length(val_labels)
+personalized_acc = sum(personalized_results.predictions .== val_labels) / length(val_labels)
+
+println("Baseline accuracy: $(round(baseline_acc * 100, digits=1))%")
+println("Personalized accuracy: $(round(personalized_acc * 100, digits=1))%")
+println("Improvement: $(round((personalized_acc - baseline_acc) * 100, digits=1))%")
+```
+
+## Quality Assessment and Diagnostics
+
+### Identify Poor Quality Trials
+
+```julia
+using NimbusSDK
+
+# Run inference
+results = predict_batch(model, data)
+
+# Identify low-confidence trials
+low_conf_threshold = 0.65
+low_conf_indices = findall(results.confidences .< low_conf_threshold)
+
+println("Low confidence trials: $(length(low_conf_indices))/$(length(results.predictions))")
+println("Indices: $low_conf_indices")
+
+# Analyze patterns in low-confidence trials
+if !isempty(low_conf_indices)
+    println("\nLow confidence trial analysis:")
+    for (class_id, class_name) in enumerate(["Left", "Right", "Feet", "Tongue"])
+        class_low_conf = sum(labels[low_conf_indices] .== class_id)
+        println("  $class_name: $class_low_conf trials")
+    end
+end
+
+# Overall quality assessment
+quality = assess_trial_quality(results)
+println("\nOverall quality score: $(round(quality.overall_score, digits=2))")
+println("Recommendation: $(quality.recommendation)")
+```
+
+### Preprocessing Quality Check
+
+```julia
+using NimbusSDK
+
+# Diagnose preprocessing quality
+report = diagnose_preprocessing(data)
+
+println("Preprocessing Quality Report")
+println("="^50)
+println("Overall score: $(round(report.quality_score * 100, digits=1))%")
+
+if !isempty(report.errors)
+    println("\n⚠️  ERRORS:")
+    for error in report.errors
+        println("  • $error")
+    end
+end
+
+if !isempty(report.warnings)
+    println("\n⚠️  WARNINGS:")
+    for warning in report.warnings
+        println("  • $warning")
+    end
+end
+
+if !isempty(report.recommendations)
+    println("\n💡 RECOMMENDATIONS:")
+    for rec in report.recommendations
+        println("  • $rec")
+    end
+end
+
+# Feature discriminability analysis
+if hasfield(typeof(report), :feature_scores)
+    println("\nTop discriminative features:")
+    top_features = sortperm(report.feature_scores, rev=true)[1:5]
+    for (rank, feat_idx) in enumerate(top_features)
+        println("  $rank. Feature $feat_idx (score: $(round(report.feature_scores[feat_idx], digits=3)))")
+    end
+end
+```
+
+## Performance Comparison
+
+### RxLDA vs RxGMM
+
+Compare the two models:
+
+```julia
+using NimbusSDK
+
+NimbusSDK.authenticate("your-api-key")
+
+# Train both models on same data
+println("Training RxLDA...")
+rxlda = train_model(RxLDAModel, train_data; iterations=50, showprogress=true)
+
+println("\nTraining RxGMM...")
+rxgmm = train_model(RxGMMModel, train_data; iterations=50, showprogress=true)
+
+# Test both models
+println("\n" * "="^50)
+println("Model Comparison")
+println("="^50)
+
+for (model, name) in [(rxlda, "RxLDA"), (rxgmm, "RxGMM")]
+    results = predict_batch(model, test_data)
+    accuracy = sum(results.predictions .== test_labels) / length(test_labels)
+    mean_conf = mean(results.confidences)
+    itr = calculate_ITR(accuracy, 4, 4.0)
+    
+    println("\n$name:")
+    println("  Accuracy: $(round(accuracy * 100, digits=1))%")
+    println("  Mean confidence: $(round(mean_conf, digits=3))")
+    println("  ITR: $(round(itr, digits=1)) bits/min")
+end
+
+println("\nRecommendation:")
+println("  • RxLDA: Faster, good for well-separated classes")
+println("  • RxGMM: More flexible, better for overlapping distributions")
+```
 
 ## Next Steps
 
 <CardGroup cols={2}>
   <Card title="Advanced Examples" icon="cog" href="/examples/advanced-applications">
-    Explore more sophisticated BCI models and techniques
+    More sophisticated BCI applications
   </Card>
-  <Card title="Model Specification" icon="code" href="/model-specification/bci-examples">
-    Learn how to build custom BCI models from scratch
+  <Card title="Code Samples" icon="code" href="/examples/code-samples">
+    Complete working code examples
   </Card>
-  <Card title="Real-time Deployment" icon="play" href="/inference-configuration/streaming-inference">
-    Deploy these models for live BCI applications
+  <Card title="RxLDA Model" icon="brain" href="/models/rxlda">
+    Detailed RxLDA documentation
   </Card>
-  <Card title="Performance Optimization" icon="chart-bar" href="/core-concepts/real-time-processing">
-    Optimize models for sub-20ms inference latency
+  <Card title="RxGMM Model" icon="brain" href="/models/rxgmm">
+    Detailed RxGMM documentation
+  </Card>
+  <Card title="Batch Processing" icon="list" href="/inference-configuration/batch-processing">
+    Offline batch inference guide
+  </Card>
+  <Card title="Streaming Inference" icon="signal" href="/inference-configuration/streaming-inference">
+    Real-time streaming guide
   </Card>
 </CardGroup>
 
-## Performance Summary
+---
 
-| Model Type | Typical Accuracy | Latency | Use Case |
-|------------|------------------|---------|----------|
-| Kalman Filter | 15-25 dB SNR improvement | <10ms | Signal preprocessing |
-| HMM Brain States | 85-95% state detection | <50ms | Attention monitoring |
-| AR Motor Rhythms | 75-90% motor classification | <30ms | Motor imagery BCI |
-
-These fundamental models form the building blocks for more complex BCI applications. Each can be combined and extended to create sophisticated, real-time brain-computer interfaces tailored to specific applications and user needs.
+<Note>
+All examples use actual NimbusSDK.jl functions and the real RxLDA/RxGMM models. No mocked or simulated code.
+</Note>

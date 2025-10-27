@@ -51,15 +51,13 @@ BCI models have inherent limitations:
 
 ### Deterministic BCI Systems
 
-Most current BCI systems ignore uncertainty:
+Most current BCI systems ignore uncertainty and always provide a single answer with no confidence measure.
 
-```python
-# Traditional approach - no uncertainty handling
-def classify_intent(eeg_signal):
-    features = extract_features(eeg_signal)
-    prediction = classifier.predict(features)
-    return prediction  # Always returns an answer, no confidence measure
-```
+**Traditional approach:**
+- Extract features from neural signals
+- Apply classifier
+- Return single class prediction
+- No indication of reliability
 
 **Problems:**
 - **Overconfident**: Always provides an answer, even with poor signal quality
@@ -67,67 +65,87 @@ def classify_intent(eeg_signal):
 - **Poor user experience**: Users can't tell when the system is struggling
 - **Safety issues**: Critical applications need to know when predictions are unreliable
 
-### Nimbus Probabilistic Approach
+### NimbusSDK Probabilistic Approach
 
-Nimbus models uncertainty explicitly:
+NimbusSDK models uncertainty explicitly through Bayesian inference:
 
-```python
-# Nimbus approach - uncertainty-aware
-def infer_intent(eeg_signal):
-    # Returns full probability distribution
-    intent_posterior = nimbus.infer(
-        signal=eeg_signal,
-        model=bci_model,
-        return_uncertainty=True
-    )
+```julia
+using NimbusSDK
+
+# Returns full probability distribution
+results = predict_batch(model, bci_data)
+
+# Access predictions with uncertainty
+for (i, pred) in enumerate(results.predictions)
+    confidence = results.confidences[i]
+    posterior = results.posteriors[:, i]  # Full distribution
     
-    return {
-        'prediction': intent_posterior.mode(),
-        'confidence': intent_posterior.confidence(),
-        'entropy': intent_posterior.entropy(),
-        'alternatives': intent_posterior.top_k(3)
-    }
+    # Confidence-based decision making
+    if confidence > 0.9
+        # High confidence - execute immediately
+        execute_command(pred)
+    elseif confidence > 0.7
+        # Medium confidence - show confirmation
+        show_confirmation_dialog(pred, posterior)
+    else
+        # Low confidence - request clearer signal
+        request_better_signal()
+    end
+end
 ```
+
+**Benefits:**
+- Full posterior probability distribution over classes
+- Explicit confidence scores
+- Can identify unreliable predictions
+- Graceful handling of poor signal quality
 
 ## Types of Uncertainty
 
 ### Aleatoric Uncertainty (Data Uncertainty)
 
-Irreducible uncertainty inherent in the data:
+Irreducible uncertainty inherent in the data - cannot be reduced by collecting more training data.
 
-```python
-# Example: Noisy EEG signal
-signal_quality = nimbus.assess_signal_quality(eeg_data)
+**Example:** Noisy EEG signal
 
-if signal_quality.snr < threshold:
-    # High aleatoric uncertainty due to noise
-    response = {
-        'prediction': result.mode(),
-        'confidence': 'low',
-        'reason': 'Poor signal quality detected'
-    }
+```julia
+using NimbusSDK
+
+# Assess signal quality
+report = diagnose_preprocessing(bci_data)
+
+if report.quality_score < 0.6
+    @warn "High aleatoric uncertainty due to noise"
+    println("SNR: $(report.snr_db) dB")
+    println("Recommendations:")
+    for rec in report.recommendations
+        println("  • $rec")
+    end
+end
 ```
 
 **Characteristics:**
-- Cannot be reduced by more data or better models
+- Cannot be reduced by more training data
 - Varies across time and conditions
-- Requires adaptive responses
+- Requires adaptive responses (reject trials, request better focus)
 
 ### Epistemic Uncertainty (Model Uncertainty)
 
-Reducible uncertainty due to limited knowledge:
+Reducible uncertainty due to limited knowledge - can be reduced with more training data.
 
-```python
-# Example: New user with limited training data
-training_samples = get_user_training_data(user_id)
+**Example:** New user with limited calibration
 
-if len(training_samples) < minimum_samples:
-    # High epistemic uncertainty - need more data
-    response = {
-        'prediction': result.mode(),
-        'confidence': 'low',
-        'reason': 'Insufficient training data for this user'
-    }
+```julia
+using NimbusSDK
+
+# Check if user has sufficient training data
+if n_training_trials < 50
+    @warn "High epistemic uncertainty - insufficient training data"
+    println("Recommendation: Collect more calibration trials")
+end
+
+# Calibrate model to reduce epistemic uncertainty
+calib_model = calibrate_model(base_model, calib_data; iterations=20)
 ```
 
 **Characteristics:**
@@ -139,58 +157,53 @@ if len(training_samples) < minimum_samples:
 
 ### Confidence Measures
 
-Nimbus provides multiple ways to quantify confidence:
+NimbusSDK provides multiple ways to quantify confidence:
 
-<AccordionGroup>
-  <Accordion title="Posterior Entropy">
-    Measures how "spread out" the probability distribution is:
+**Posterior Entropy**: Measures how "spread out" the probability distribution is
+- Low entropy = high confidence (distribution peaked on one class)
+- High entropy = low confidence (distribution spread across classes)
+
+**Maximum Probability**: The probability of the most likely prediction
+- Values close to 1.0 = high confidence
+- Values close to 1/n_classes = low confidence (random guessing)
+
+**Quality Assessment**: Built-in trial quality scoring
+
+```julia
+using NimbusSDK
+
+# Assess trial quality
+quality = assess_trial_quality(results)
+
+println("Overall score: $(quality.overall_score)")
+println("Confidence acceptable: $(quality.confidence_acceptable)")
+println("Recommendation: $(quality.recommendation)")
+
+# Reject low-quality trials
+if should_reject_trial(confidence, threshold=0.7)
+    println("Trial rejected due to low confidence")
+end
+```
+
+### Model Confidence in Practice
+
+```julia
+using NimbusSDK
+
+# Analyze posterior distributions
+for (i, pred) in enumerate(results.predictions)
+    posterior = results.posteriors[:, i]
+    confidence = results.confidences[i]
     
-    ```python
-    entropy = intent_posterior.entropy()
-    if entropy > high_uncertainty_threshold:
-        # Very uncertain - multiple possibilities
-        request_clarification()
-    ```
-  </Accordion>
-  
-  <Accordion title="Maximum Probability">
-    The probability of the most likely prediction:
+    # Entropy calculation (uncertainty measure)
+    entropy = -sum(posterior .* log.(posterior .+ 1e-10))
     
-    ```python
-    max_prob = intent_posterior.max()
-    if max_prob < confidence_threshold:
-        # Low confidence in top prediction
-        show_alternatives()
-    ```
-  </Accordion>
-  
-  <Accordion title="Prediction Intervals">
-    Range of plausible values for continuous outputs:
-    
-    ```python
-    cursor_position = nimbus.predict_cursor_position(eeg_signal)
-    confidence_interval = cursor_position.confidence_interval(0.95)
-    
-    # Show uncertainty visualization to user
-    display_cursor_with_uncertainty(cursor_position, confidence_interval)
-    ```
-  </Accordion>
-</AccordionGroup>
-
-### Bayesian Model Averaging
-
-Combine multiple models to capture model uncertainty:
-
-```python
-# Ensemble of BCI models
-models = [motor_imagery_model, p300_model, ssvep_model]
-
-# Weighted combination based on signal characteristics
-ensemble_prediction = nimbus.model_average(
-    models=models,
-    signal=eeg_data,
-    weights='adaptive'  # Automatically weight based on signal type
-)
+    println("Trial $i:")
+    println("  Prediction: $pred")
+    println("  Confidence: $(round(confidence, digits=3))")
+    println("  Entropy: $(round(entropy, digits=3))")
+    println("  Posterior: $(round.(posterior, digits=3))")
+end
 ```
 
 ## Adaptive Responses to Uncertainty
@@ -199,166 +212,64 @@ ensemble_prediction = nimbus.model_average(
 
 Adjust system behavior based on uncertainty levels:
 
-```python
-def adaptive_bci_response(prediction_result):
-    confidence = prediction_result.confidence()
-    
-    if confidence > 0.9:
-        # High confidence - execute immediately
-        execute_command(prediction_result.prediction)
-        
-    elif confidence > 0.7:
-        # Medium confidence - show options
-        show_confirmation_dialog(
-            primary=prediction_result.prediction,
-            alternatives=prediction_result.alternatives
-        )
-        
-    elif confidence > 0.5:
-        # Low confidence - request clearer signal
-        display_message("Please focus and try again")
-        
-    else:
-        # Very low confidence - pause and recalibrate
-        suggest_recalibration()
-```
+- **High confidence (>0.9)**: Execute command immediately
+- **Medium confidence (0.7-0.9)**: Show confirmation dialog with alternatives
+- **Low confidence (0.5-0.7)**: Request clearer signal or additional focus
+- **Very low confidence (<0.5)**: Reject trial, suggest recalibration
 
 ### Dynamic Thresholds
 
-Adjust decision thresholds based on context:
+Adjust decision thresholds based on application context:
 
-```python
-# Safety-critical application (wheelchair control)
-if application_context == 'wheelchair_navigation':
-    confidence_threshold = 0.95  # Very high threshold for safety
-    
-# Gaming application
-elif application_context == 'gaming':
-    confidence_threshold = 0.7   # Lower threshold for responsiveness
-    
-# Communication aid
-elif application_context == 'communication':
-    confidence_threshold = 0.8   # Balanced threshold
-```
+- **Safety-critical** (wheelchair, prosthetics): High threshold (0.95+)
+- **Gaming**: Lower threshold for responsiveness (0.7)
+- **Communication aids**: Balanced threshold (0.8)
+- **Research**: Variable based on study requirements
 
 ## User Interface for Uncertainty
 
 ### Visualizing Confidence
 
-Help users understand system confidence:
+Help users understand system confidence through:
 
-```python
-# Visual confidence indicators
-def display_prediction_with_confidence(prediction, confidence):
-    if confidence > 0.8:
-        color = 'green'
-        message = 'High confidence'
-    elif confidence > 0.6:
-        color = 'yellow'  
-        message = 'Medium confidence'
-    else:
-        color = 'red'
-        message = 'Low confidence - please focus'
-    
-    display_prediction(prediction, color=color, message=message)
-```
+- **Color coding**: Green (high), yellow (medium), red (low confidence)
+- **Confidence bars**: Visual indication of prediction strength
+- **Alternative suggestions**: Show top K predictions when uncertain
+- **Quality feedback**: Real-time signal quality indicators
 
 ### Progressive Disclosure
 
 Show more information when uncertainty is high:
-
-```python
-if prediction_result.entropy() > uncertainty_threshold:
-    # Show alternative predictions
-    display_alternatives(prediction_result.top_k(3))
-    
-    # Show confidence scores
-    display_confidence_bars(prediction_result.probabilities)
-    
-    # Suggest actions to improve signal
-    suggest_improvements(signal_quality_assessment)
-```
+- Display alternative predictions
+- Show confidence scores for each option
+- Suggest actions to improve signal quality
+- Provide feedback on current performance
 
 ## Clinical and Safety Applications
 
-### FDA Compliance
+### Regulatory Requirements
 
-For medical BCI devices, uncertainty quantification is crucial:
+For medical BCI devices, uncertainty quantification is essential:
 
 <Note>
-FDA guidance emphasizes the importance of understanding when AI systems are uncertain. Probabilistic BCI systems provide the transparency needed for regulatory approval.
+FDA and regulatory guidelines emphasize understanding when AI systems are uncertain. Probabilistic BCI systems provide the transparency needed for medical device approval.
 </Note>
 
-```python
-# Medical-grade uncertainty reporting
-def generate_clinical_report(bci_session):
-    report = {
-        'session_id': bci_session.id,
-        'predictions': bci_session.predictions,
-        'confidence_scores': bci_session.confidence_scores,
-        'uncertainty_flags': bci_session.uncertainty_events,
-        'signal_quality_metrics': bci_session.signal_quality,
-        'model_version': bci_session.model_version
-    }
-    
-    # Include uncertainty analysis
-    report['uncertainty_analysis'] = analyze_uncertainty_patterns(report)
-    
-    return report
-```
+**Required documentation:**
+- Session-level confidence scores
+- Uncertainty event flagging
+- Signal quality metrics
+- Model version tracking
+- Prediction audit trails
 
 ### Risk Management
 
 Use uncertainty for risk assessment:
 
-```python
-def assess_risk_level(prediction_result, application_context):
-    confidence = prediction_result.confidence()
-    
-    # High-risk actions require high confidence
-    if application_context.is_safety_critical():
-        if confidence < 0.95:
-            return RiskLevel.HIGH
-    
-    # Standard risk assessment
-    if confidence < 0.5:
-        return RiskLevel.HIGH
-    elif confidence < 0.7:
-        return RiskLevel.MEDIUM
-    else:
-        return RiskLevel.LOW
-```
-
-## Advanced Uncertainty Techniques
-
-### Active Learning
-
-Use uncertainty to guide data collection:
-
-```python
-# Identify uncertain regions for additional training
-uncertain_samples = nimbus.find_uncertain_regions(
-    user_data=training_data,
-    uncertainty_threshold=0.6
-)
-
-# Request additional training on uncertain cases
-for sample in uncertain_samples:
-    request_user_feedback(sample)
-```
-
-### Uncertainty Calibration
-
-Ensure confidence scores are well-calibrated:
-
-```python
-# Calibrate confidence scores on validation data
-calibrator = nimbus.UncertaintyCalibrator()
-calibrator.fit(validation_predictions, validation_labels)
-
-# Apply calibration to new predictions
-calibrated_confidence = calibrator.transform(raw_confidence)
-```
+- **High-risk actions**: Require very high confidence (>0.95)
+- **Medium-risk actions**: Standard confidence threshold (>0.8)
+- **Low-risk actions**: Lower threshold acceptable (>0.7)
+- **Monitoring**: Track confidence trends over time
 
 ## Getting Started with Uncertainty
 
