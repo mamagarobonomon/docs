@@ -13,6 +13,12 @@
     "isHidden": true
   },
   "favicon": "/favicon.svg",
+  "api": {
+    "baseUrl": "https://api.nimbusbci.com",
+    "playground": {
+      "mode": "simple"
+    }
+  },
   "navigation": {
     "groups": [
       {
@@ -32,7 +38,7 @@
           "api-reference/webhook-integration",
           "api-reference/julia-sdk"
         ]
-      },
+      }
       {
         "group": "Core concepts",
         "pages": [
