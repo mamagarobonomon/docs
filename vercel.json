@@ -1,7 +1,0 @@
-{
-  "buildCommand": "npx @mintlify/cli build",
-  "outputDirectory": ".mintlify-build",
-  "framework": null,
-  "installCommand": "npm install @mintlify/cli"
-}
-
