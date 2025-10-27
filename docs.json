@@ -38,7 +38,7 @@
           "api-reference/webhook-integration",
           "api-reference/julia-sdk"
         ]
-      }
+      },
       {
         "group": "Core concepts",
         "pages": [
@@ -109,7 +109,7 @@
     }
   ],
   "logo": {
-    "light": "/logo/Logo yellow.svg",
+    "light": "/logo/Logo black.svg",
     "dark": "/logo/Logo yellow.svg"
   },
   "navbar": {
