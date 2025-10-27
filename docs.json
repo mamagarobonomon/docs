@@ -13,122 +13,127 @@
     "isHidden": false
   },
   "favicon": "/favicon.svg",
-  "navigation": {
-    "tabs": [
-      {
-        "tab": "Documentation",
-        "groups": [
-          {
-            "group": "Getting started",
-            "pages": [
-              "index",
-              "quickstart",
-              "development"
-            ]
-          },
-          {
-            "group": "Core concepts",
-            "pages": [
-              "core-concepts/probabilistic-ai",
-              "core-concepts/real-time-processing",
-              "core-concepts/uncertainty-handling",
-              "core-concepts/message-passing"
-            ]
-          },
-          {
-            "group": "Model specification",
-            "pages": [
-              "model-specification/index",
-              "model-specification/bci-examples",
-              "model-specification/advanced-techniques"
-            ]
-          },
-          {
-            "group": "Inference configuration",
-            "pages": [
-              "inference-configuration/real-time-setup",
-              "inference-configuration/batch-processing",
-              "inference-configuration/streaming-inference",
-              "inference-configuration/preprocessing-requirements"
-            ]
-          },
-          {
-            "group": "BCI Models",
-            "pages": [
-              "models/rxlda",
-              "models/rxgmm"
-            ]
-          },
-          {
-            "group": "Advanced Models (Coming Soon)",
-            "pages": [
-              "models/ar-motor-rhythms",
-              "models/hmm-brain-states",
-              "models/kalman-eeg-filtering",
-              "models/pomdp-control",
-              "models/sensor-fusion"
-            ]
-          },
-          {
-            "group": "Examples & tutorials",
-            "pages": [
-              "examples/basic-examples",
-              "examples/advanced-applications",
-              "examples/industry-use-cases",
-              "examples/code-samples"
-            ]
-          },
-          {
-            "group": "Development",
-            "pages": [
-              "development",
-              "development/preprocessing-integration"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "API reference",
-        "groups": [
-          {
-            "group": "API documentation",
-            "pages": [
-              "api-reference/introduction",
-              "api-reference/authentication",
-              "api-reference/inference-endpoints",
-              "api-reference/streaming-api",
-              "api-reference/webhook-integration"
-            ]
-          },
-          {
-            "group": "SDK",
-            "pages": [
-              "api-reference/julia-sdk"
-            ]
-          }
-        ]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Website",
-          "href": "https://nimbusbci.com",
-          "icon": "globe"
-        },
-        {
-          "anchor": "Book a Demo",
-          "href": "https://nimbusbci.com",
-          "icon": "calendar"
-        },
-        {
-          "anchor": "GitHub",
-          "href": "https://github.com/nimbusbci",
-          "icon": "github"
-        }
+  "navigation": [
+    {
+      "group": "Getting started",
+      "pages": [
+        "index",
+        "quickstart"
+      ]
+    },
+    {
+      "group": "Core concepts",
+      "pages": [
+        "core-concepts/probabilistic-ai",
+        "core-concepts/real-time-processing",
+        "core-concepts/uncertainty-handling",
+        "core-concepts/message-passing"
+      ]
+    },
+    {
+      "group": "Model specification",
+      "pages": [
+        "model-specification/index",
+        "model-specification/bci-examples",
+        "model-specification/advanced-techniques"
+      ]
+    },
+    {
+      "group": "Inference configuration",
+      "pages": [
+        "inference-configuration/real-time-setup",
+        "inference-configuration/batch-processing",
+        "inference-configuration/streaming-inference",
+        "inference-configuration/preprocessing-requirements",
+        "inference-configuration/error-handling"
+      ]
+    },
+    {
+      "group": "BCI Models",
+      "pages": [
+        "models/rxlda",
+        "models/rxgmm"
+      ]
+    },
+    {
+      "group": "Advanced Models (Coming Soon)",
+      "pages": [
+        "models/ar-motor-rhythms",
+        "models/hmm-brain-states",
+        "models/kalman-eeg-filtering",
+        "models/pomdp-control",
+        "models/sensor-fusion"
+      ]
+    },
+    {
+      "group": "Examples & tutorials",
+      "pages": [
+        "examples/basic-examples",
+        "examples/advanced-applications",
+        "examples/industry-use-cases",
+        "examples/code-samples"
+      ]
+    },
+    {
+      "group": "AI Tools Integration",
+      "pages": [
+        "ai-tools/cursor",
+        "ai-tools/claude-code",
+        "ai-tools/windsurf"
+      ]
+    },
+    {
+      "group": "Documentation Essentials",
+      "pages": [
+        "essentials/markdown",
+        "essentials/code",
+        "essentials/images",
+        "essentials/navigation",
+        "essentials/settings",
+        "essentials/reusable-snippets"
+      ]
+    },
+    {
+      "group": "Development",
+      "pages": [
+        "development",
+        "development/preprocessing-integration"
+      ]
+    },
+    {
+      "group": "API documentation",
+      "pages": [
+        "api-reference/introduction",
+        "api-reference/authentication",
+        "api-reference/inference-endpoints",
+        "api-reference/streaming-api",
+        "api-reference/webhook-integration"
+      ]
+    },
+    {
+      "group": "SDK",
+      "pages": [
+        "api-reference/julia-sdk"
       ]
     }
-  },
+  ],
+  "anchors": [
+    {
+      "name": "Website",
+      "url": "https://nimbusbci.com",
+      "icon": "globe"
+    },
+    {
+      "name": "Book a Demo",
+      "url": "https://nimbusbci.com",
+      "icon": "calendar"
+    },
+    {
+      "name": "GitHub",
+      "url": "https://github.com/nimbusbci",
+      "icon": "github"
+    }
+  ],
   "logo": {
     "light": "/logo/Logo yellow.svg",
     "dark": "/logo/Logo yellow.svg"
