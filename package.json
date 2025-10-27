@@ -2,13 +2,9 @@
   "name": "nimbus-docs",
   "version": "2.0.1",
   "scripts": {
-    "dev": "mintlify dev",
-    "build": "node build.js",
-    "start": "mintlify dev --no-open"
+    "dev": "mintlify dev"
   },
   "dependencies": {
-    "@mintlify/cli": "latest",
-    "gray-matter": "^4.0.3",
-    "marked": "^16.4.1"
+    "@mintlify/cli": "latest"
   }
 }
