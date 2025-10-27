@@ -220,13 +220,12 @@ Metadata describing the BCI data properties.
 ```julia
 struct BCIMetadata
     sampling_rate::Float64       # Hz (e.g., 250.0)
-    paradigm::Symbol             # :motor_imagery, :p300, :ssvep, :custom
-    feature_type::Symbol         # :csp, :bandpower, :erp, :custom
+    paradigm::Symbol             # :motor_imagery, :p300, :ssvep, :erp
+    feature_type::Symbol         # :csp, :bandpower, :time_domain, :frequency_domain, :raw_filtered
     n_features::Int              # Number of features (e.g., 16 for CSP)
     n_classes::Int               # Number of classes (e.g., 4)
     chunk_size::Union{Nothing, Int}  # For streaming: samples per chunk
-    model_name::String           # Model identifier
-    description::String          # Model description
+    temporal_aggregation::Symbol # :mean, :median, :logvar, :none
 end
 ```
 
@@ -238,7 +237,8 @@ metadata = BCIMetadata(
     feature_type = :csp,
     n_features = 16,
     n_classes = 4,
-    chunk_size = nothing  # Batch mode
+    chunk_size = nothing,  # Batch mode
+    temporal_aggregation = :logvar  # For CSP features in MI
 )
 ```
 
@@ -266,8 +266,8 @@ predict_batch(
 struct BatchResult
     predictions::Vector{Int}       # Predicted class for each trial
     confidences::Vector{Float64}  # Confidence (max posterior) for each trial
-    posteriors::Array{Float64, 2} # Full posterior distributions (n_classes × n_trials)
-    inference_id::String          # Unique inference identifier
+    posteriors::Matrix{Float64}   # Full posterior distributions (n_trials × n_classes)
+    free_energy::Union{Float64, Nothing}  # RxInfer free energy if available
 end
 ```
 
@@ -323,13 +323,9 @@ process_chunk(session, chunk::Array{Float64, 2}) -> StreamingResult
 - `session::StreamingSession` - Active streaming session
 - `chunk::Array{Float64, 2}` - Chunk data (n_features × chunk_size)
 
-**Returns:**
+**Returns:** Named tuple `(prediction, confidence, posterior)`
 ```julia
-struct StreamingResult
-    prediction::Int           # Predicted class
-    confidence::Float64       # Confidence (max posterior)
-    posterior::Vector{Float64} # Full posterior distribution
-end
+(prediction=1, confidence=0.85, posterior=[0.1, 0.85, 0.05])  # Example
 ```
 
 **Example:**
@@ -347,15 +343,17 @@ Finalize a trial by aggregating results from all processed chunks.
 ```julia
 finalize_trial(
     session::StreamingSession;
-    method::Symbol = :weighted_vote
+    method::Symbol = :weighted_vote,
+    temporal_weighting::Bool = true
 ) -> StreamingResult
 ```
 
 **Parameters:**
 - `session::StreamingSession` - Active streaming session
-- `method::Symbol` - Aggregation method (`:weighted_vote`, `:majority_vote`)
+- `method::Symbol` - Aggregation method (`:weighted_vote`, `:max_confidence`, `:unanimous`)
+- `temporal_weighting::Bool` - Apply paradigm-specific temporal weights (default: true)
 
-**Returns:** Final aggregated result for the trial
+**Returns:** `StreamingResult` with final prediction and confidence
 
 **Example:**
 ```julia
@@ -365,8 +363,10 @@ for chunk in trial_chunks
 end
 
 # Get final prediction
-final_result = finalize_trial(session; method=:weighted_vote)
-println("Trial prediction: $(final_result.prediction)")
+final_result = finalize_trial(session; method=:weighted_vote, temporal_weighting=true)
+println("Final prediction: $(final_result.prediction)")
+println("Confidence: $(final_result.confidence)")
+println("Aggregation method: $(final_result.aggregation_method)")
 ```
 
 ## Utility Functions
@@ -447,6 +447,168 @@ end
 
 println("Quality score: $(round(report.quality_score * 100, digits=1))%")
 ```
+
+### compute_fisher_score()
+
+Compute Fisher discriminant scores for feature selection.
+
+```julia
+compute_fisher_score(features::Matrix{Float64}, labels::Vector{Int}) -> Vector{Float64}
+```
+
+**Parameters:**
+- `features::Matrix{Float64}` - Feature matrix (n_features × n_samples)
+- `labels::Vector{Int}` - Class labels
+
+**Returns:** Fisher scores for each feature (higher scores indicate better discriminability)
+
+**Example:**
+```julia
+# Compute discriminability of each feature
+fisher_scores = compute_fisher_score(features, labels)
+
+# Find most discriminative features
+for (i, score) in enumerate(fisher_scores)
+    println("Feature $i: Fisher score = $(round(score, digits=3))")
+end
+```
+
+### rank_features_by_discriminability()
+
+Rank features by their discriminability using Fisher scores.
+
+```julia
+rank_features_by_discriminability(features::Matrix{Float64}, labels::Vector{Int}) -> Vector{Int}
+```
+
+**Parameters:**
+- `features::Matrix{Float64}` - Feature matrix (n_features × n_samples)
+- `labels::Vector{Int}` - Class labels
+
+**Returns:** Indices of features sorted by discriminability (most discriminative first)
+
+**Example:**
+```julia
+# Get feature ranking
+ranked_indices = rank_features_by_discriminability(features, labels)
+
+println("Most discriminative features:")
+for (i, idx) in enumerate(ranked_indices[1:5])
+    println("$i. Feature $idx (Fisher score: $(round(fisher_scores[idx], digits=3)))")
+end
+```
+
+### aggregate_chunks()
+
+Aggregate chunk-level predictions and confidences into a final trial result.
+
+```julia
+aggregate_chunks(
+    predictions::Vector{Int},
+    confidences::Vector{Float64},
+    n_classes::Int;
+    method::Symbol = :weighted_vote
+) -> NamedTuple
+```
+
+**Parameters:**
+- `predictions::Vector{Int}` - Predictions from each chunk
+- `confidences::Vector{Float64}` - Confidences from each chunk
+- `n_classes::Int` - Number of classes
+- `method::Symbol` - Aggregation method (`:weighted_vote`, `:majority_vote`, `:max_confidence`)
+
+**Returns:** Named tuple with `prediction`, `confidence`, and `posterior`
+
+**Example:**
+```julia
+# Aggregate chunk results
+final_result = aggregate_chunks(
+    chunk_predictions,
+    chunk_confidences,
+    4;  # 4 classes
+    method = :weighted_vote
+)
+
+println("Final prediction: $(final_result.prediction)")
+println("Final confidence: $(round(final_result.confidence, digits=3))")
+```
+
+### get_paradigm_defaults()
+
+Get default parameters for a specific BCI paradigm.
+
+```julia
+get_paradigm_defaults(paradigm::Symbol) -> NamedTuple
+```
+
+**Parameters:**
+- `paradigm::Symbol`: Paradigm name (`:motor_imagery`, `:p300`, `:ssvep`, `:erp`)
+
+**Returns:** Named tuple with default parameters for the paradigm
+
+**Example:**
+```julia
+# Get motor imagery defaults
+defaults = get_paradigm_defaults(:motor_imagery)
+println("Chunk size: $(defaults.chunk_size) samples")
+println("Confidence threshold: $(defaults.confidence_threshold)")
+println("Aggregation method: $(defaults.aggregation_method)")
+
+# Use in metadata
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 16,
+    n_classes = 4,
+    chunk_size = defaults.chunk_size,
+    temporal_aggregation = :logvar
+)
+```
+
+## Data Validation
+
+### validate_data()
+
+Validate BCI data for common issues before inference.
+
+```julia
+validate_data(data::BCIData) -> Bool
+```
+
+**Description:**
+Validates data for NaN/Inf values, correct dimensions, and provides warnings for suspicious data patterns.
+
+**Returns:** `true` if validation passes
+
+**Throws:** Error if validation fails
+
+**Example:**
+```julia
+# Validate data before inference
+try
+    validate_data(data)
+    println("✓ Data validation passed")
+    results = predict_batch(model, data)
+catch e
+    if isa(e, DataValidationError)
+        @error "Data validation failed: $(error_msg(e))"
+    else
+        rethrow(e)
+    end
+end
+```
+
+### validate_chunk()
+
+Validate a single chunk for streaming inference.
+
+```julia
+validate_chunk(chunk::Matrix{Float64}, metadata::BCIMetadata) -> Bool
+```
+
+**Description:**
+Validates chunk dimensions and data quality for streaming inference.
 
 ## Performance Metrics
 

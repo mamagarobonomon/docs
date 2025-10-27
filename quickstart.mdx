@@ -135,7 +135,8 @@ train_data = BCIData(
         feature_type = :csp,
         n_features = 16,
         n_classes = 4,
-        chunk_size = nothing
+        chunk_size = nothing,  # Batch mode
+        temporal_aggregation = :logvar  # For CSP features in MI
     ),
     train_labels  # Required for training!
 )
@@ -177,7 +178,8 @@ metadata = BCIMetadata(
     feature_type = :csp,
     n_features = 16,
     n_classes = 4,
-    chunk_size = 250  # 1 second chunks
+    chunk_size = 250,  # 1 second chunks
+    temporal_aggregation = :logvar  # For CSP features in MI
 )
 
 session = init_streaming(model, metadata)

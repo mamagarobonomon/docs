@@ -149,13 +149,24 @@ Refresh API key credentials and get updated quota information.
 ```json
 {
   "valid": true,
+  "user_id": "usr_1234567890",
+  "email": "researcher@university.edu",
+  "name": "Dr. Jane Smith",
+  "organization": "Neuroscience Lab",
+  "license_type": "research",
+  "features": [
+    "batch_inference",
+    "streaming",
+    "training",
+    "model_export"
+  ],
   "quota": {
     "monthly_limit": 50000,
     "used": 1250,
     "remaining": 48750,
     "resets_at": "2025-11-01T00:00:00Z"
   },
-  "refreshed_at": "2025-10-27T14:30:00Z"
+  "expires_at": "2026-01-01T00:00:00Z"
 }
 ```
 
@@ -178,7 +189,7 @@ Revoke an API key, making it permanently inactive.
 ```json
 {
   "revoked": true,
-  "revoked_at": "2025-10-27T14:35:00Z"
+  "message": "API key successfully revoked"
 }
 ```
 
@@ -224,6 +235,21 @@ API keys should only be used in secure server environments or local development 
 - Commit keys to version control
 - Log API keys in application logs
 
+### AuthSession Structure
+
+The `authenticate()` function returns an `AuthSession` object:
+
+```julia
+struct AuthSession
+    api_key::String              # Your API key
+    user_id::String              # Unique user identifier
+    license_type::Symbol         # :trial, :research, :commercial, :enterprise
+    expires_at::DateTime         # When credentials expire
+    features_enabled::Vector{Symbol}  # Enabled features
+    usage_quota::Union{Int, Nothing}  # Remaining calls (nothing = unlimited)
+end
+```
+
 ### Julia Example with Environment Variables
 
 **.env file:**
@@ -240,8 +266,11 @@ using DotEnv
 # Load from .env file
 DotEnv.config()
 
-# Authenticate
-NimbusSDK.authenticate(ENV["NIMBUS_API_KEY"])
+# Authenticate and inspect session
+session = NimbusSDK.authenticate(ENV["NIMBUS_API_KEY"])
+println("License type: $(session.license_type)")
+println("Features: $(session.features_enabled)")
+println("Expires: $(session.expires_at)")
 ```
 
 ## Rate Limiting
