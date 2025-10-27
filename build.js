@@ -5,7 +5,7 @@ const matter = require('gray-matter');
 // Simple build script to generate static HTML from MDX files
 function buildStaticSite() {
   const sourceDir = path.join(__dirname);
-  const outputDir = path.join(__dirname, '..', '.vercel', 'output', 'static');
+  const outputDir = path.join(__dirname, '.vercel', 'output', 'static');
 
   // Ensure output directory exists
   fs.mkdirSync(outputDir, { recursive: true });
@@ -16,17 +16,51 @@ function buildStaticSite() {
     copyDir(publicDir, path.join(outputDir, 'public'));
   }
 
-  // Process index.mdx
-  const indexPath = path.join(sourceDir, 'index.mdx');
-  if (fs.existsSync(indexPath)) {
-    const fileContent = fs.readFileSync(indexPath, 'utf8');
-    const { data: frontmatter, content } = matter(fileContent);
-
-    const html = generateHTML(content, frontmatter);
-    fs.writeFileSync(path.join(outputDir, 'index.html'), html);
+  // Copy favicon and images
+  const faviconPath = path.join(sourceDir, 'favicon.svg');
+  if (fs.existsSync(faviconPath)) {
+    fs.copyFileSync(faviconPath, path.join(outputDir, 'favicon.svg'));
   }
 
+  const imagesDir = path.join(sourceDir, 'images');
+  if (fs.existsSync(imagesDir)) {
+    copyDir(imagesDir, path.join(outputDir, 'images'));
+  }
+
+  const logoDir = path.join(sourceDir, 'logo');
+  if (fs.existsSync(logoDir)) {
+    copyDir(logoDir, path.join(outputDir, 'logo'));
+  }
+
+  // Process all MDX files
+  processDirectory(sourceDir, outputDir, '');
+
   console.log('Static build completed');
+}
+
+function processDirectory(sourceDir, outputDir, relativePath) {
+  const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const srcPath = path.join(sourceDir, entry.name);
+    const relPath = path.join(relativePath, entry.name);
+
+    if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
+      // Recursively process subdirectories
+      const newOutputDir = path.join(outputDir, entry.name);
+      fs.mkdirSync(newOutputDir, { recursive: true });
+      processDirectory(srcPath, newOutputDir, relPath);
+    } else if (entry.name.endsWith('.mdx')) {
+      // Process all MDX files
+      const fileContent = fs.readFileSync(srcPath, 'utf8');
+      const { data: frontmatter, content } = matter(fileContent);
+
+      const html = generateHTML(content, frontmatter);
+      const outputName = entry.name === 'index.mdx' ? 'index.html' : entry.name.replace('.mdx', '.html');
+      const outputPath = path.join(outputDir, outputName);
+      fs.writeFileSync(outputPath, html);
+    }
+  }
 }
 
 function generateHTML(content, frontmatter) {
@@ -68,6 +102,28 @@ function generateHTML(content, frontmatter) {
             padding: 16px;
             border-radius: 8px;
             overflow-x: auto;
+        }
+        .card {
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+            background: #f8f9fa;
+        }
+        .card-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+            margin: 16px 0;
+        }
+        .steps {
+            margin: 16px 0;
+        }
+        .step {
+            margin: 8px 0;
+            padding: 8px;
+            border-left: 3px solid #007acc;
+            background: #f8f9fa;
         }
     </style>
 </head>
