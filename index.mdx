@@ -1,117 +1,349 @@
 ---
 title: "Nimbus BCI Engine"
-description: "The AI engine for BCI decisions under uncertainty. Turn probabilistic insights from the brain into real-time, adaptive control."
+description: "Bayesian inference for Brain-Computer Interfaces using RxInfer.jl reactive message passing"
 ---
 
-_The AI engine for Brain-Computer Interface applications with reactive probabilistic inference._
+_Production-ready Bayesian BCI inference with RxLDA and RxGMM models_
 
-Given neural signals and BCI models, Nimbus enables efficient probabilistic inference for real-time brain-computer interfaces. Built on RxInfer.jl for Bayesian inference, NimbusSDK.jl provides production-ready implementations of RxLDA and RxGMM models. The SDK uses reactive message-passing algorithms to generate ultra-low latency responses that adapt to uncertainty in neural data. Nimbus has been designed with a focus on performance, scalability, and maximum throughput for real-time BCI applications.
+NimbusSDK.jl provides fast, probabilistic inference for Brain-Computer Interface applications. Built on **RxInfer.jl**, the SDK delivers sub-20ms inference latency with full uncertainty quantification through **RxLDA** (Linear Discriminant Analysis) and **RxGMM** (Gaussian Mixture Model) implementations.
 
 ## Why Nimbus BCI
 
-Many critical BCI applications, including assistive technologies, gaming interfaces, medical devices, and research platforms require continually solving inference tasks in sophisticated probabilistic models with thousands of neural signals. Often, the inference task in these applications must be performed in real-time with sub-20ms latency in response to streaming brain data.
+Brain-Computer Interfaces face unique challenges: noisy neural signals, inherent uncertainty, real-time requirements, and the need for explainability in medical applications.
 
-Popular traditional BCI methods rely on deterministic classification approaches that cannot handle the inherent uncertainty in neural signals. These methods produce brittle, overconfident predictions that fail to adapt when brain states change or signal quality degrades. While machine learning approaches promise better performance, they typically require extensive training data and cannot provide the explainability needed for medical applications or the real-time performance required for responsive interfaces.
+**Current BCI Challenges:**
+- **High Latency**: Standard processing takes 200ms+ for trial classification
+- **No Uncertainty Quantification**: Deterministic outputs without confidence measures
+- **Limited Adaptability**: Cannot handle changing brain states or signal quality
+- **Black Box Models**: Deep learning lacks explainability for FDA approval
 
-**Current BCI systems face fundamental limitations:**
-- **High latency**: Standard BCI processing takes 200ms+ 
-- **Poor uncertainty handling**: Deterministic outputs with no confidence measures
-- **Limited adaptability**: Cannot adjust to changing brain states or signal quality
-- **Scalability issues**: Performance degrades with multi-channel, high-bandwidth data
-
-Nimbus aims to solve these challenges by providing **ultra-low latency probabilistic inference** (sub-20ms) that handles uncertainty naturally, adapts to changing conditions, and scales to thousands of neural channels while maintaining explainable, FDA-ready outputs. The NimbusSDK.jl Julia package provides two powerful Bayesian models (RxLDA and RxGMM) with batch and streaming inference capabilities.
+**Nimbus Solution:**
+- ✅ **Fast Inference**: 10-20ms per trial with Bayesian models
+- ✅ **Uncertainty Quantification**: Full posterior distributions, not just point estimates
+- ✅ **Training & Calibration**: Subject-specific personalization in minutes
+- ✅ **Explainable**: White-box probabilistic models for medical compliance
+- ✅ **Production-Ready**: Batch and streaming modes, quality assessment, performance tracking
 
 <Card
   title="Get started with Nimbus"
-  icon="play"
+  icon="rocket"
   href="/quickstart"
   horizontal
 >
-  Build your first real-time BCI application in minutes.
+  Build your first BCI application in 10 minutes with Julia and NimbusSDK.jl
 </Card>
 
 ## Core Features
 
-Nimbus provides everything needed for production-ready BCI applications.
-
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card
-    title="Ultra-low latency"
+    title="Fast Bayesian Inference"
     icon="bolt"
-    href="/core-concepts/real-time-processing"
-  >
-    Sub-20ms inference latency vs 200ms+ standard BCI processing.
-  </Card>
-  <Card
-    title="Probabilistic AI"
-    icon="lightbulb"
     href="/core-concepts/probabilistic-ai"
   >
-    Handle uncertainty in neural signals with confidence measures and adaptive responses.
+    RxLDA and RxGMM models with 10-20ms inference latency using RxInfer.jl reactive message passing
   </Card>
   <Card
-    title="Real-time streaming"
-    icon="signal"
+    title="Training & Calibration"
+    icon="graduation-cap"
+    href="/examples/advanced-applications"
+  >
+    Train custom models on your data or calibrate pre-trained models with 10-20 trials per subject
+  </Card>
+  <Card
+    title="Real-time Streaming"
+    icon="wave-square"
     href="/inference-configuration/streaming-inference"
   >
-    Process continuous neural data streams with reactive message passing.
+    Process EEG chunks as they arrive with chunk-by-chunk inference and weighted aggregation
   </Card>
   <Card
-    title="Explainable outputs"
+    title="Uncertainty Quantification"
     icon="shield"
     href="/core-concepts/uncertainty-handling"
   >
-    "White box" probabilistic models for FDA compliance and clinical trust.
+    Full posterior distributions with confidence scores for quality assessment and rejection
   </Card>
-</Columns>
+</CardGroup>
 
-## Built for the Entire BCI Ecosystem
+## Implemented Models
 
-Nimbus is designed to serve the full spectrum of neurotechnology applications.
+NimbusSDK.jl currently provides two production-ready Bayesian models:
 
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card
-    title="Consumer Neurotech"
-    icon="gamepad"
-    href="/examples/consumer-applications"
+    title="RxLDA"
+    icon="brain"
+    href="/models/rxlda"
   >
-    Power immersive gaming and wellness apps with ultra-low latency and adaptive user experiences.
+    **Linear Discriminant Analysis** with shared covariance. Fast (10-15ms), efficient, ideal for well-separated classes like motor imagery.
   </Card>
   <Card
-    title="Medical & Assistive Tech"
-    icon="heartbeat"
-    href="/examples/medical-applications"
+    title="RxGMM"
+    icon="brain"
+    href="/models/rxgmm"
   >
-    Build FDA-ready assistive technologies where explainability is critical for approval and trust.
+    **Gaussian Mixture Model** with class-specific covariances. More flexible (15-25ms), better for overlapping distributions like P300.
+  </Card>
+</CardGroup>
+
+## BCI Paradigms Supported
+
+<CardGroup cols={3}>
+  <Card
+    title="Motor Imagery"
+    icon="hand"
+  >
+    **2-4 class classification**
+    - Left/right hand
+    - Hands/feet/tongue
+    - 70-90% accuracy
+    - RxLDA recommended
   </Card>
   <Card
-    title="High-Bandwidth Research"
+    title="P300"
+    icon="eye"
+  >
+    **Binary classification**
+    - Target/non-target
+    - Speller applications
+    - 80-95% accuracy
+    - RxGMM recommended
+  </Card>
+  <Card
+    title="SSVEP"
+    icon="bolt"
+  >
+    **Multi-class frequency**
+    - 2-6 target frequencies
+    - High accuracy (85-98%)
+    - Works with both models
+  </Card>
+</CardGroup>
+
+## Quick Example
+
+```julia
+using NimbusSDK
+
+# 1. Authenticate
+NimbusSDK.authenticate("nbci_live_your_key")
+
+# 2. Load pre-trained model
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+# 3. Prepare preprocessed features (CSP, bandpower, etc.)
+data = BCIData(csp_features, metadata, labels)
+
+# 4. Run inference
+results = predict_batch(model, data)
+
+# 5. Analyze
+println("Accuracy: $(sum(results.predictions .== labels) / length(labels))")
+println("Mean confidence: $(mean(results.confidences))")
+println("ITR: $(calculate_ITR(accuracy, 4, 4.0)) bits/minute")
+```
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card
+    title="Assistive Technologies"
+    icon="wheelchair"
+    href="/examples/industry-use-cases"
+  >
+    Wheelchair control, prosthetic limbs, communication devices with explainable, FDA-ready probabilistic models
+  </Card>
+  <Card
+    title="Research Platforms"
     icon="microscope"
-    href="/examples/research-applications"
+    href="/examples/basic-examples"
   >
-    Provide real-time processing for next-generation invasive interfaces and research platforms.
+    Academic research with training capabilities, subject-specific calibration, and comprehensive performance metrics
   </Card>
   <Card
-    title="Julia SDK"
+    title="Neurofeedback"
+    icon="brain"
+    href="/inference-configuration/real-time-setup"
+  >
+    Real-time brain state monitoring with streaming inference and confidence-based quality control
+  </Card>
+  <Card
+    title="Gaming & Wellness"
+    icon="gamepad"
+    href="/examples/advanced-applications"
+  >
+    Low-latency brain control for immersive experiences with adaptive difficulty based on confidence
+  </Card>
+</CardGroup>
+
+## SDK Architecture
+
+```
+EEG Hardware → Preprocessing → NimbusSDK.jl → Application
+   (LSL/BrainFlow)  (MNE/EEGLAB)    (Local)      (Your Code)
+```
+
+**Key Design:**
+- **Local Inference**: No API calls during inference - all processing on your machine
+- **Privacy**: Your EEG data never leaves your computer
+- **Speed**: No network latency, consistent <20ms performance
+- **Offline Capable**: Works without internet after initial setup
+
+**API Role:**
+- Authentication and licensing
+- Pre-trained model distribution
+- Optional analytics logging
+
+## Getting Started
+
+<Steps>
+  <Step title="Install Julia SDK">
+    ```julia
+    using Pkg
+    Pkg.add("NimbusSDK")
+    ```
+  </Step>
+  <Step title="Get API Key">
+    Contact **hello@nimbusbci.com** for your API key and license tier
+  </Step>
+  <Step title="Preprocess EEG">
+    Use MNE-Python, EEGLAB, or your tool to extract features (CSP, bandpower, ERP)
+  </Step>
+  <Step title="Run Inference">
+    Load model, process features, get predictions with confidence scores
+  </Step>
+</Steps>
+
+## Documentation
+
+<CardGroup cols={3}>
+  <Card
+    title="Quickstart"
+    icon="rocket"
+    href="/quickstart"
+  >
+    10-minute guide to your first BCI application
+  </Card>
+  <Card
+    title="Julia SDK Reference"
     icon="code"
     href="/api-reference/julia-sdk"
   >
-    Production-ready Julia SDK with RxLDA and RxGMM models, batch and streaming inference, and comprehensive API integration.
+    Complete API documentation
   </Card>
-</Columns>
+  <Card
+    title="Model Training"
+    icon="graduation-cap"
+    href="/examples/advanced-applications"
+  >
+    Train custom models on your data
+  </Card>
+  <Card
+    title="Preprocessing Guide"
+    icon="filter"
+    href="/inference-configuration/preprocessing-requirements"
+  >
+    Required EEG preprocessing steps
+  </Card>
+  <Card
+    title="Code Examples"
+    icon="brackets-curly"
+    href="/examples/code-samples"
+  >
+    Working Julia code examples
+  </Card>
+  <Card
+    title="API Reference"
+    icon="server"
+    href="/api-reference/authentication"
+  >
+    Authentication and model registry
+  </Card>
+</CardGroup>
 
-## Performance That Matters
+## Performance
 
-Real-time BCI applications demand exceptional performance. Nimbus delivers a 10x improvement in processing latency.
+| Metric | RxLDA | RxGMM |
+|--------|-------|-------|
+| **Inference Latency** | 10-15ms | 15-25ms |
+| **Training Time** | 10-30s | 15-40s |
+| **Calibration Time** | 5-15s | 8-20s |
+| **Memory Usage** | Low | Moderate |
+| **Accuracy** | 70-90% (MI) | 80-95% (P300) |
 
-<Note>
-**Benchmark**: Nimbus achieves sub-20ms inference latency compared to 200ms+ for standard BCI processing pipelines, enabling truly responsive brain-computer interfaces.
-</Note>
+All measurements on standard CPU (no GPU required).
 
-<Card
-  title="See performance benchmarks"
-  icon="chart-bar"
-  href="https://nimbusbci.com"
->
-  Learn more about Nimbus performance advantages and validation studies.
-</Card>
+## Technology Stack
+
+- **Core**: Julia 1.9+
+- **Inference Engine**: [RxInfer.jl](https://rxinfer.ml/) - Reactive message passing for Bayesian inference
+- **Models**: RxLDA (shared covariance), RxGMM (class-specific covariances)
+- **Preprocessing**: MNE-Python, EEGLAB, BrainFlow (external)
+- **API**: TypeScript/Vercel serverless (authentication, model registry)
+
+## Roadmap
+
+**Currently Implemented:**
+- ✅ RxLDA and RxGMM models
+- ✅ Batch and streaming inference
+- ✅ Training and calibration
+- ✅ Quality assessment and ITR calculation
+- ✅ API authentication and model registry
+
+**Coming Soon:**
+- 🚧 Autoregressive (AR) models for rhythm analysis
+- 🚧 Hidden Markov Models (HMM) for state detection
+- 🚧 Kalman filtering for signal processing
+- 🚧 POMDP decision-making frameworks
+- 🚧 Multi-modal sensor fusion
+
+## Support
+
+<CardGroup cols={2}>
+  <Card
+    title="Email Support"
+    icon="envelope"
+    href="mailto:hello@nimbusbci.com"
+  >
+    **hello@nimbusbci.com** - Technical support and inquiries
+  </Card>
+  <Card
+    title="Book a Demo"
+    icon="calendar"
+    href="https://nimbusbci.com"
+  >
+    See Nimbus in action with live demonstration
+  </Card>
+  <Card
+    title="API Status"
+    icon="circle-check"
+    href="https://api.nimbusbci.com/api/health"
+  >
+    Check API availability and version
+  </Card>
+  <Card
+    title="GitHub"
+    icon="github"
+    href="https://github.com/nimbusbci"
+  >
+    NimbusSDK.jl source code and examples
+  </Card>
+</CardGroup>
+
+## License
+
+NimbusSDK.jl is commercial software with tiered licensing:
+
+- **Free**: 10K monthly inferences, basic models
+- **Research**: 50K monthly inferences, all features  
+- **Commercial**: 500K monthly inferences, priority support
+- **Enterprise**: Unlimited, custom models, on-premise deployment
+
+Contact **hello@nimbusbci.com** for licensing information.
+
+---
+
+**Built with ❤️ for the neurotechnology community**
+
+Nimbus BCI Engine - Bringing Bayesian inference to Brain-Computer Interfaces

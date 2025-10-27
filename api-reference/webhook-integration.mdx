@@ -1,681 +1,108 @@
 ---
 title: "Webhook Integration"
-description: "Event-driven BCI applications with Nimbus webhooks"
+description: "Real-time event notifications via webhooks"
 icon: "webhook"
 ---
 
+<Warning>
+**Coming Soon**: Webhook support is planned but not yet implemented in the Nimbus API.
+
+**Current Roadmap:**
+- Inference event notifications
+- Usage threshold alerts
+- Model update notifications
+- Custom event triggers
+
+Check back for updates or contact hello@nimbusbci.com to express interest in specific webhook features.
+</Warning>
+
 # Webhook Integration
 
-Nimbus webhooks enable event-driven BCI applications by sending real-time notifications to your endpoints when specific events occur. This allows you to build responsive systems that react immediately to BCI predictions, signal quality changes, and system events.
+Webhook support is under development for the Nimbus API. This feature will enable event-driven BCI applications by sending real-time notifications to your endpoints when specific events occur.
 
-## Overview
+## Planned Features
 
-Webhooks are ideal for:
-- **Event-driven architectures** that respond to BCI events
-- **Decoupled systems** where BCI processing is separate from application logic
-- **Multi-system integration** connecting BCI to external services
-- **Audit logging** and monitoring of BCI activities
-- **Real-time notifications** for critical BCI events
+### Event Types
+- **Inference Events**: Notifications when BCI predictions occur
+- **Quota Alerts**: Warnings when approaching usage limits
+- **Model Updates**: Notifications of new model releases
+- **System Status**: API health and maintenance notifications
 
-## Setting Up Webhooks
+### Security
+- HMAC signature verification
+- Request replay protection
+- IP allowlisting
+- Custom authentication headers
 
-### 1. Configure Webhook Endpoint
+### Configuration
+- Webhook URL management
+- Event filtering and subscriptions
+- Retry policies
+- Failure handling
 
-First, create an endpoint in your application to receive webhook events:
+## Current Alternative
 
-```python
-from flask import Flask, request, jsonify
-import hmac
-import hashlib
+Until webhook support is available, you can implement event-driven architectures using:
 
-app = Flask(__name__)
+### Polling Pattern
 
-@app.route('/webhooks/nimbus', methods=['POST'])
-def handle_nimbus_webhook():
-    # Verify webhook signature
-    signature = request.headers.get('X-Nimbus-Signature')
-    if not verify_signature(request.data, signature):
-        return jsonify({'error': 'Invalid signature'}), 401
+```julia
+using NimbusSDK
+
+# Process events and handle in your application
+function process_bci_trial(eeg_data)
+    result = predict_batch(model, data)
     
-    # Process webhook event
-    event = request.json
-    handle_bci_event(event)
+    # Handle result immediately in your application
+    if result.confidences[1] > 0.8
+        trigger_application_event(result)
+    end
     
-    return jsonify({'status': 'received'}), 200
-
-def verify_signature(payload, signature):
-    expected = hmac.new(
-        WEBHOOK_SECRET.encode(),
-        payload,
-        hashlib.sha256
-    ).hexdigest()
-    return hmac.compare_digest(f'sha256={expected}', signature)
+    return result
+end
 ```
 
-### 2. Register Webhook with Nimbus
+### Message Queue Integration
 
-Register your webhook endpoint with the Nimbus API:
+For distributed systems, consider using a message queue:
 
-```bash
-curl -X POST "https://api.nimbusbci.com/v1/webhooks" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://your-app.com/webhooks/nimbus",
-    "events": [
-      "inference.completed",
-      "signal_quality.changed",
-      "session.started",
-      "session.ended"
-    ],
-    "secret": "your_webhook_secret",
-    "active": true
-  }'
-```
+```julia
+using NimbusSDK
+using RabbitMQ  # or your preferred message broker
 
-#### Response
-
-```json
-{
-  "webhook_id": "wh_1234567890abcdef",
-  "url": "https://your-app.com/webhooks/nimbus",
-  "events": [
-    "inference.completed",
-    "signal_quality.changed", 
-    "session.started",
-    "session.ended"
-  ],
-  "secret": "your_webhook_secret",
-  "active": true,
-  "created_at": "2024-01-01T12:00:00Z"
-}
-```
-
-## Webhook Events
-
-### Inference Events
-
-#### inference.completed
-
-Sent when a BCI inference is completed:
-
-```json
-{
-  "event": "inference.completed",
-  "timestamp": "2024-01-01T12:00:00Z",
-  "data": {
-    "inference_id": "inf_1234567890abcdef",
-    "model": "motor-imagery-classifier",
-    "result": {
-      "class": "left_hand",
-      "confidence": 0.87,
-      "probabilities": {
-        "left_hand": 0.87,
-        "right_hand": 0.08,
-        "rest": 0.05
-      }
-    },
-    "latency_ms": 15,
-    "metadata": {
-      "session_id": "sess_abcdef1234567890",
-      "user_id": "user_123",
-      "timestamp": 1640995200000
-    }
-  }
-}
-```
-
-#### inference.failed
-
-Sent when inference fails:
-
-```json
-{
-  "event": "inference.failed",
-  "timestamp": "2024-01-01T12:00:00Z",
-  "data": {
-    "inference_id": "inf_1234567890abcdef",
-    "model": "motor-imagery-classifier",
-    "error": {
-      "code": "model_error",
-      "message": "Insufficient data quality for reliable inference",
-      "details": {
-        "signal_quality": 0.3,
-        "artifacts_detected": 5
-      }
-    },
-    "metadata": {
-      "session_id": "sess_abcdef1234567890"
-    }
-  }
-}
-```
-
-### Signal Quality Events
-
-#### signal_quality.changed
-
-Sent when signal quality changes significantly:
-
-```json
-{
-  "event": "signal_quality.changed",
-  "timestamp": "2024-01-01T12:00:00Z",
-  "data": {
-    "session_id": "sess_abcdef1234567890",
-    "quality": {
-      "overall": 0.45,
-      "previous": 0.85,
-      "channels": {
-        "C3": 0.42,
-        "C4": 0.48,
-        "Cz": 0.45
-      }
-    },
-    "change": {
-      "type": "degraded",
-      "magnitude": 0.40,
-      "cause": "electrode_disconnection"
-    }
-  }
-}
-```
-
-#### signal_quality.threshold
-
-Sent when signal quality crosses a configured threshold:
-
-```json
-{
-  "event": "signal_quality.threshold",
-  "timestamp": "2024-01-01T12:00:00Z",
-  "data": {
-    "session_id": "sess_abcdef1234567890",
-    "threshold": {
-      "type": "minimum",
-      "value": 0.5,
-      "crossed": "below"
-    },
-    "current_quality": 0.42,
-    "affected_channels": ["C3", "Cz"]
-  }
-}
-```
-
-### Session Events
-
-#### session.started
-
-Sent when a BCI session begins:
-
-```json
-{
-  "event": "session.started",
-  "timestamp": "2024-01-01T12:00:00Z",
-  "data": {
-    "session_id": "sess_abcdef1234567890",
-    "model": "motor-imagery-classifier",
-    "config": {
-      "channels": ["C3", "C4", "Cz"],
-      "sampling_rate": 250,
-      "confidence_threshold": 0.7
-    },
-    "user_id": "user_123",
-    "session_type": "streaming"
-  }
-}
-```
-
-#### session.ended
-
-Sent when a BCI session ends:
-
-```json
-{
-  "event": "session.ended",
-  "timestamp": "2024-01-01T12:00:00Z",
-  "data": {
-    "session_id": "sess_abcdef1234567890",
-    "duration_ms": 300000,
-    "statistics": {
-      "total_inferences": 1250,
-      "successful_inferences": 1200,
-      "failed_inferences": 50,
-      "average_confidence": 0.78,
-      "average_latency_ms": 16
-    },
-    "end_reason": "user_disconnected"
-  }
-}
-```
-
-### System Events
-
-#### model.updated
-
-Sent when a model is updated or retrained:
-
-```json
-{
-  "event": "model.updated",
-  "timestamp": "2024-01-01T12:00:00Z",
-  "data": {
-    "model_id": "motor-imagery-classifier",
-    "version": "2.1.0",
-    "changes": {
-      "accuracy_improvement": 0.03,
-      "latency_reduction_ms": 2,
-      "new_features": ["adaptive_threshold", "artifact_detection"]
-    },
-    "deployment_status": "active"
-  }
-}
-```
-
-#### rate_limit.warning
-
-Sent when approaching rate limits:
-
-```json
-{
-  "event": "rate_limit.warning",
-  "timestamp": "2024-01-01T12:00:00Z",
-  "data": {
-    "current_usage": 280,
-    "limit": 300,
-    "window": "1 minute",
-    "utilization": 0.93,
-    "time_to_reset": 15
-  }
-}
-```
-
-## Webhook Management
-
-### List Webhooks
-
-```bash
-curl -X GET "https://api.nimbusbci.com/v1/webhooks" \
-  -H "Authorization: Bearer YOUR_API_KEY"
-```
-
-### Update Webhook
-
-```bash
-curl -X PUT "https://api.nimbusbci.com/v1/webhooks/wh_1234567890abcdef" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "events": [
-      "inference.completed",
-      "inference.failed",
-      "signal_quality.threshold"
-    ],
-    "active": true
-  }'
-```
-
-### Delete Webhook
-
-```bash
-curl -X DELETE "https://api.nimbusbci.com/v1/webhooks/wh_1234567890abcdef" \
-  -H "Authorization: Bearer YOUR_API_KEY"
-```
-
-## Security
-
-### Signature Verification
-
-All webhook payloads are signed with HMAC-SHA256:
-
-```python
-import hmac
-import hashlib
-
-def verify_webhook_signature(payload, signature, secret):
-    """Verify webhook signature for security."""
-    expected_signature = hmac.new(
-        secret.encode('utf-8'),
-        payload,
-        hashlib.sha256
-    ).hexdigest()
+function bci_processor(queue_connection)
+    model = load_model(RxLDAModel, "motor_imagery_4class_v1")
     
-    return hmac.compare_digest(
-        signature,
-        f'sha256={expected_signature}'
-    )
-
-# Usage in your webhook handler
-@app.route('/webhooks/nimbus', methods=['POST'])
-def handle_webhook():
-    signature = request.headers.get('X-Nimbus-Signature')
-    
-    if not verify_webhook_signature(request.data, signature, WEBHOOK_SECRET):
-        return jsonify({'error': 'Invalid signature'}), 401
-    
-    # Process webhook safely
-    event = request.json
-    process_bci_event(event)
-    
-    return jsonify({'status': 'ok'}), 200
-```
-
-### Best Practices
-
-**Security:**
-- Always verify webhook signatures
-- Use HTTPS endpoints only
-- Keep webhook secrets secure
-- Implement rate limiting on your endpoint
-
-**Reliability:**
-- Return 2xx status codes for successful processing
-- Implement idempotency for duplicate events
-- Handle webhook retries gracefully
-- Log webhook events for debugging
-
-**Performance:**
-- Process webhooks asynchronously when possible
-- Respond quickly (within 10 seconds)
-- Implement proper error handling
-- Monitor webhook endpoint health
-
-## Implementation Examples
-
-### Real-time BCI Control System
-
-```python
-from flask import Flask, request, jsonify
-import asyncio
-import websockets
-
-app = Flask(__name__)
-
-class BCIControlSystem:
-    def __init__(self):
-        self.connected_clients = set()
-        self.current_state = {'prediction': None, 'confidence': 0}
-    
-    async def broadcast_to_clients(self, message):
-        """Send updates to all connected WebSocket clients."""
-        if self.connected_clients:
-            await asyncio.gather(
-                *[client.send(message) for client in self.connected_clients],
-                return_exceptions=True
-            )
-    
-    def handle_inference_event(self, event_data):
-        """Process BCI inference results."""
-        result = event_data['result']
+    while true
+        # Get EEG data from queue
+        eeg_data = receive_from_queue(queue_connection, "eeg_input")
         
-        # Update system state
-        self.current_state = {
-            'prediction': result['class'],
-            'confidence': result['confidence'],
-            'timestamp': event_data['timestamp']
-        }
+        # Process with NimbusSDK
+        result = predict_batch(model, eeg_data)
         
-        # Trigger control actions based on prediction
-        if result['confidence'] > 0.8:
-            self.execute_bci_command(result['class'])
-        
-        # Broadcast to connected clients
-        asyncio.create_task(
-            self.broadcast_to_clients(json.dumps(self.current_state))
-        )
-    
-    def execute_bci_command(self, command):
-        """Execute BCI control command."""
-        if command == 'left_hand':
-            self.move_cursor_left()
-        elif command == 'right_hand':
-            self.move_cursor_right()
-        elif command == 'rest':
-            self.stop_cursor()
-
-bci_system = BCIControlSystem()
-
-@app.route('/webhooks/nimbus', methods=['POST'])
-def nimbus_webhook():
-    # Verify signature
-    signature = request.headers.get('X-Nimbus-Signature')
-    if not verify_signature(request.data, signature):
-        return jsonify({'error': 'Invalid signature'}), 401
-    
-    event = request.json
-    
-    # Route event to appropriate handler
-    if event['event'] == 'inference.completed':
-        bci_system.handle_inference_event(event['data'])
-    elif event['event'] == 'signal_quality.changed':
-        handle_quality_change(event['data'])
-    elif event['event'] == 'session.ended':
-        handle_session_end(event['data'])
-    
-    return jsonify({'status': 'processed'}), 200
+        # Publish result to output queue
+        publish_to_queue(queue_connection, "bci_results", result)
+    end
+end
 ```
 
-### Neurofeedback Training System
+## Get Notified
 
-```python
-class NeurofeedbackSystem:
-    def __init__(self):
-        self.training_session = None
-        self.feedback_history = []
-        self.target_states = ['relaxed', 'focused']
-    
-    def handle_inference_webhook(self, event_data):
-        """Process neurofeedback inference results."""
-        result = event_data['result']
-        
-        # Calculate feedback score
-        feedback_score = self.calculate_feedback_score(result)
-        
-        # Store in history
-        self.feedback_history.append({
-            'timestamp': event_data['timestamp'],
-            'prediction': result['class'],
-            'confidence': result['confidence'],
-            'feedback_score': feedback_score
-        })
-        
-        # Update training interface
-        self.update_feedback_display(feedback_score)
-        
-        # Check for training milestones
-        self.check_training_progress()
-    
-    def calculate_feedback_score(self, result):
-        """Calculate feedback score based on training goals."""
-        if result['class'] in self.target_states:
-            return result['confidence']
-        else:
-            return 1.0 - result['confidence']
-    
-    def handle_quality_webhook(self, event_data):
-        """Handle signal quality changes."""
-        quality = event_data['quality']['overall']
-        
-        if quality < 0.5:
-            self.show_quality_warning()
-            self.pause_training_if_needed()
-        elif quality > 0.8:
-            self.resume_training_if_paused()
-
-neurofeedback = NeurofeedbackSystem()
-```
-
-### Multi-User BCI Platform
-
-```python
-class BCIPlatform:
-    def __init__(self):
-        self.active_sessions = {}
-        self.user_statistics = {}
-    
-    def handle_session_webhook(self, event_data):
-        """Handle session lifecycle events."""
-        session_id = event_data['session_id']
-        
-        if event['event'] == 'session.started':
-            self.active_sessions[session_id] = {
-                'user_id': event_data['user_id'],
-                'model': event_data['model'],
-                'start_time': event_data['timestamp']
-            }
-            
-        elif event['event'] == 'session.ended':
-            # Update user statistics
-            user_id = self.active_sessions[session_id]['user_id']
-            stats = event_data['statistics']
-            
-            self.update_user_statistics(user_id, stats)
-            
-            # Clean up session
-            del self.active_sessions[session_id]
-    
-    def handle_inference_webhook(self, event_data):
-        """Handle inference results for analytics."""
-        session_id = event_data['metadata']['session_id']
-        
-        if session_id in self.active_sessions:
-            user_id = self.active_sessions[session_id]['user_id']
-            
-            # Update real-time analytics
-            self.update_user_analytics(user_id, event_data['result'])
-            
-            # Check for achievements or milestones
-            self.check_user_achievements(user_id, event_data)
-
-platform = BCIPlatform()
-```
-
-## Testing Webhooks
-
-### Local Development
-
-Use tools like ngrok to expose your local server for webhook testing:
-
-```bash
-# Install ngrok
-npm install -g ngrok
-
-# Expose local server
-ngrok http 5000
-
-# Use the ngrok URL for webhook registration
-curl -X POST "https://api.nimbusbci.com/v1/webhooks" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://abc123.ngrok.io/webhooks/nimbus",
-    "events": ["inference.completed"]
-  }'
-```
-
-### Webhook Testing Tool
-
-```python
-import requests
-import json
-
-def test_webhook_endpoint(url, event_data, secret):
-    """Test your webhook endpoint with sample data."""
-    
-    # Create test payload
-    payload = json.dumps(event_data).encode('utf-8')
-    
-    # Generate signature
-    signature = hmac.new(
-        secret.encode('utf-8'),
-        payload,
-        hashlib.sha256
-    ).hexdigest()
-    
-    # Send test request
-    headers = {
-        'Content-Type': 'application/json',
-        'X-Nimbus-Signature': f'sha256={signature}'
-    }
-    
-    response = requests.post(url, data=payload, headers=headers)
-    
-    print(f"Status: {response.status_code}")
-    print(f"Response: {response.text}")
-
-# Test with sample inference event
-sample_event = {
-    "event": "inference.completed",
-    "timestamp": "2024-01-01T12:00:00Z",
-    "data": {
-        "inference_id": "test_inference",
-        "model": "motor-imagery-classifier",
-        "result": {
-            "class": "left_hand",
-            "confidence": 0.87
-        }
-    }
-}
-
-test_webhook_endpoint(
-    'http://localhost:5000/webhooks/nimbus',
-    sample_event,
-    'your_webhook_secret'
-)
-```
-
-## Monitoring and Debugging
-
-### Webhook Logs
-
-Monitor webhook delivery status:
-
-```bash
-curl -X GET "https://api.nimbusbci.com/v1/webhooks/wh_1234567890abcdef/logs" \
-  -H "Authorization: Bearer YOUR_API_KEY"
-```
-
-### Retry Configuration
-
-Configure retry behavior for failed webhooks:
-
-```bash
-curl -X PUT "https://api.nimbusbci.com/v1/webhooks/wh_1234567890abcdef" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "retry_config": {
-      "max_attempts": 5,
-      "backoff_factor": 2,
-      "timeout_seconds": 30
-    }
-  }'
-```
+Want to be notified when webhook support is available? Contact us at **hello@nimbusbci.com** to join the waitlist.
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Python SDK" icon="python" href="/api-reference/python-sdk">
-    Integrate webhooks with the Python SDK
-  </Card>
-  <Card title="Streaming API" icon="wave-square" href="/api-reference/streaming-api">
-    Combine webhooks with real-time streaming
-  </Card>
-  <Card title="Code Examples" icon="code" href="/examples/code-samples">
-    Complete webhook implementation examples
-  </Card>
   <Card title="Authentication" icon="key" href="/api-reference/authentication">
-    Secure your webhook endpoints
+    API key management and validation
+  </Card>
+  <Card title="Analytics" icon="chart-line" href="/api-reference/inference-endpoints">
+    Current logging and analytics options
+  </Card>
+  <Card title="Streaming Inference" icon="wave-square" href="/api-reference/streaming-api">
+    Real-time processing with the SDK
+  </Card>
+  <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
+    Complete SDK reference
   </Card>
 </CardGroup>
-
-## Support
-
-Need help with webhook integration?
-
-- **Email**: hello@nimbusbci.com
-- **Documentation**: Comprehensive guides and examples
-- **Webhook Testing**: Tools and utilities for development
-- **Enterprise Support**: Dedicated support for production deployments
-
-Webhooks provide a powerful way to build event-driven BCI applications with real-time responsiveness and scalable architecture.

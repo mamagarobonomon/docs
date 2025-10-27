@@ -1,374 +1,412 @@
 ---
 title: "RxGMM Model"
-description: "Gaussian Mixture Model with class-specific covariances for complex BCI distributions"
+description: "Gaussian Mixture Model with class-specific covariances using RxInfer.jl"
 icon: "brain"
 ---
 
 # RxGMM - Bayesian Gaussian Mixture Model
 
-RxGMM (Reactive Gaussian Mixture Model) is a flexible Bayesian classification model with **class-specific covariance matrices**. Unlike RxLDA which shares a covariance matrix across classes, RxGMM allows each class to have its own covariance structure.
+RxGMM (Reactive Gaussian Mixture Model) is a Bayesian classification model with **class-specific covariance matrices**, making it more flexible than RxLDA for modeling complex class distributions. Implemented using RxInfer.jl's reactive message passing.
+
+<Note>
+**RxGMM is currently implemented** in NimbusSDK.jl and ready for production BCI applications.
+</Note>
 
 ## Overview
 
-RxGMM extends traditional GMM with **Bayesian inference** using RxInfer.jl's reactive message passing. It provides:
+RxGMM extends beyond traditional Gaussian classifiers by allowing each class to have its own covariance structure:
 
-- **Flexible class distributions** - different covariance for each class
-- **Posterior probability distributions** with uncertainty quantification
-- **Robust handling** of overlapping or irregular class shapes
-- **Probabilistic confidence** for each prediction
+- ✅ **Class-specific covariances** (unlike RxLDA's shared covariance)
+- ✅ **More flexible modeling** of heterogeneous distributions
+- ✅ **Posterior probability distributions** with uncertainty quantification
+- ✅ **Fast inference** (~15-25ms per trial)
+- ✅ **Training and calibration** support
+- ✅ **Batch and streaming** inference modes
 
 ### When to Use RxGMM
 
 **RxGMM is ideal for:**
-- Complex class distributions with different spreads
-- Overlapping classes that LDA struggles with
-- Irregular or non-spherical class shapes
-- P300 detection with varying event-related potential patterns
-- SSVEP with complex frequency responses
+- Complex, overlapping class distributions
+- Classes with significantly different variances
+- P300 detection (target/non-target with different spreads)
+- When RxLDA accuracy is unsatisfactory
+- When you need maximum flexibility
 
-**Consider RxLDA instead if:**
-- Classes are well-separated and similar shape
-- Fast inference is critical (<10ms)
-- Simpler interpretability is required
+**Use [RxLDA](/models/rxlda) instead if:**
+- Classes are well-separated and have similar spreads
+- Speed is critical (RxLDA is faster)
+- Training data is limited (RxLDA needs less data)
+- Memory is constrained (RxLDA uses less memory)
 
 ## Model Architecture
 
-RxGMM uses class-specific precision matrices, making it more flexible (and slightly slower) than RxLDA.
-
 ### Mathematical Foundation
 
-**Class-Conditional Distribution:**
+RxGMM models class-conditional distributions with **class-specific precision matrices**:
+
 ```
 p(x | y=k) = N(μ_k, W_k^-1)
 ```
 
 Where:
 - `μ_k` = mean vector for class k
-- `W_k` = class-specific precision matrix (different for each class)
-- Allows each class to have its own covariance structure
+- `W_k` = **class-specific** precision matrix (different for each class)
+- Allows different covariance structures per class
 
-**Inference:**
+**Key Difference from RxLDA**: Each class can have its own covariance structure, making the model more flexible but also more parameter-heavy.
+
+### Model Structure
+
+```julia
+struct RxGMMModel <: BCIModel
+    means::Vector{Vector{Float64}}       # Class means [μ₁, μ₂, ..., μₖ]
+    precisions::Vector                   # Class-specific precisions [W₁, W₂, ..., Wₖ]
+    metadata::ModelMetadata              # Model info
+end
 ```
-p(y=k | x) = posterior probability of class k given features x
+
+### RxInfer Implementation
+
+**Learning Phase:**
+```julia
+@model function RxGMM_learning_model(y, labels, n_features, n_classes)
+    # Priors on class means
+    for k in 1:n_classes
+        m[k] ~ MvNormal(0, 10*I)
+    end
+    
+    # Priors on class-specific precisions
+    for k in 1:n_classes
+        W[k] ~ Wishart(n_features + 5, I)  # Each class has its own W
+    end
+    
+    # Likelihood
+    for i in eachindex(y)
+        k = labels[i]
+        y[i] ~ MvNormal(m[k], inv(W[k]))  # Class-specific precision
+    end
+end
 ```
 
-Posterior computed via variational message passing in RxInfer.jl.
+## Usage
 
-### Advantages
-
-1. **Flexibility**: Can model complex, irregular distributions
-2. **Adaptive**: Fits class-specific covariance naturally
-3. **Robust**: Better for overlapping classes
-4. **Interpretable**: Clear probabilistic formulation
-
-### Limitations
-
-1. **Slower**: More parameters to estimate = slower training/inference
-2. **More data needed**: Requires more trials to estimate class-specific covariances
-3. **Computational cost**: More expensive than RxLDA
-
-## Using RxGMM
-
-### Loading a Pre-trained Model
+### 1. Load Pre-trained Model
 
 ```julia
 using NimbusSDK
 
-# Authenticate first
-NimbusSDK.authenticate("your-api-key")
+# Authenticate
+NimbusSDK.authenticate("nbci_live_your_key")
 
 # Load from Nimbus model zoo
 model = load_model(RxGMMModel, "p300_gmm_v1")
 
-# Or load from file
-model = load_model(RxGMMModel, "my_gmm_model.jld2")
+println("Model loaded:")
+println("  Features: $(get_n_features(model))")
+println("  Classes: $(get_n_classes(model))")
+println("  Paradigm: $(get_paradigm(model))")
 ```
 
-### Training a Custom Model
+### 2. Train Custom Model
 
 ```julia
 using NimbusSDK
 
-# Prepare training data (must have labels!)
+# Prepare training data with labels
+train_features = erp_features  # (8 × 200 × 150) - preprocessed P300 features
+train_labels = [1, 2, 1, 2, ...]  # 150 labels (1=target, 2=non-target)
+
 train_data = BCIData(
-    erp_features,  # (n_features × n_samples × n_trials) - preprocessed!
+    train_features,
     BCIMetadata(
         sampling_rate = 250.0,
         paradigm = :p300,
         feature_type = :erp,
-        n_features = 20,
-        n_classes = 2,  # target vs non-target
+        n_features = 8,
+        n_classes = 2,
         chunk_size = nothing
     ),
-    train_labels  # [1, 2, 1, 1, 2, ...] - REQUIRED!
+    train_labels  # Required for training!
 )
 
-# Train the model (similar to RxLDA)
+# Train RxGMM model
 model = train_model(
-    RxGMMModel,  # Different model type
+    RxGMMModel,
     train_data;
-    iterations = 50,
-    showprogress = true,
-    name = "my_p300_gmm_model"
+    iterations = 50,        # Inference iterations
+    showprogress = true,    # Show progress bar
+    name = "my_p300_gmm",
+    description = "P300 binary classifier with RxGMM"
 )
 
 # Save for later use
-save_model(model, "p300_gmm_v1.jld2")
+save_model(model, "my_p300_gmm.jld2")
 ```
 
-### Running Inference
+**Training Parameters:**
+- `iterations`: Number of variational inference iterations (default: 50)
+  - More iterations = better convergence, typical range: 50-100
+- `showprogress`: Display progress bar during training
+- `name`: Model identifier
+- `description`: Model description
+
+### 3. Subject-Specific Calibration
 
 ```julia
-using NimbusSDK
+# Load base model
+base_model = load_model(RxGMMModel, "p300_baseline_v1")
 
-# Load model
-model = load_model(RxGMMModel, "p300_gmm_v1")
+# Collect calibration trials (10-20 per class)
+calib_data = BCIData(calib_features, metadata, calib_labels)
 
-# Prepare test data
-test_data = BCIData(
-    test_features,
-    BCIMetadata(
-        sampling_rate = 250.0,
-        paradigm = :p300,
-        feature_type = :erp,
-        n_features = 20,
-        n_classes = 2
-    ),
-    test_labels  # Optional
+# Calibrate model
+personalized_model = calibrate_model(
+    base_model,
+    calib_data;
+    iterations = 20  # Fewer iterations needed
 )
+
+save_model(personalized_model, "subject_001_p300_calibrated.jld2")
+```
+
+### 4. Batch Inference
+
+```julia
+# Prepare test data
+test_data = BCIData(test_features, metadata, test_labels)
 
 # Run batch inference
 results = predict_batch(model, test_data; iterations=10)
 
 # Analyze results
 println("Predictions: ", results.predictions)
-println("Mean confidence: ", round(mean(results.confidences), digits=3))
+println("Mean confidence: ", mean(results.confidences))
 
-if !isnothing(test_labels)
-    accuracy = sum(results.predictions .== test_labels) / length(test_labels)
-    println("Accuracy: ", round(accuracy * 100, digits=1), "%")
-end
+# Calculate metrics
+accuracy = sum(results.predictions .== test_labels) / length(test_labels)
+println("Accuracy: $(round(accuracy * 100, digits=1))%")
 ```
 
-## Training Parameters
-
-### iterations (default: 50)
-
-Like RxLDA, but RxGMM may need more iterations due to increased model complexity.
+### 5. Streaming Inference
 
 ```julia
-# For small datasets (100-200 trials)
-model = train_model(RxGMMModel, data; iterations=50)
+# Initialize streaming session
+session = init_streaming(model, metadata_with_chunk_size)
 
-# For complex, overlapping classes
-model = train_model(RxGMMModel, data; iterations=100)
+# Process chunks
+for chunk in eeg_feature_stream
+    result = process_chunk(session, chunk; iterations=10)
+    println("Chunk: pred=$(result.prediction), conf=$(round(result.confidence, digits=3))")
+end
+
+# Finalize trial
+final_result = finalize_trial(session; method=:weighted_vote)
+println("Final: pred=$(final_result.prediction), conf=$(round(final_result.confidence, digits=3))")
 ```
+
+## Training Requirements
 
 ### Data Requirements
 
-**Minimum:**
-- 100-150 trials per class (more than RxLDA)
-- Clean, preprocessed features
-- Representative class distributions
+- **Minimum**: 40 trials per class (80 total for 2-class)
+- **Recommended**: 80+ trials per class
+- **For calibration**: 10-20 trials per class
 
-**Recommended:**
-- 300+ trials per class
-- Multiple subjects for generalization
-- Cross-validation for robust performance
+<Warning>
+**RxGMM requires at least 2 observations per class** to estimate class-specific statistics. Training will fail if any class has fewer than 2 observations.
+</Warning>
 
-<Note>
-RxGMM typically needs more training data than RxLDA because it estimates more parameters (separate covariance for each class).
-</Note>
+### Feature Requirements
 
-## Model Structure
+RxGMM expects **preprocessed features**, not raw EEG:
 
-RxGMM stores:
+✅ **Required preprocessing:**
+- Bandpass filtering (paradigm-specific)
+- Artifact removal
+- Feature extraction (CSP, ERP amplitude, bandpower, etc.)
+- Proper temporal aggregation
 
-```julia
-struct RxGMMModel <: BCIModel
-    means::Vector{Vector{Float64}}         # Class means [μ1, μ2, ..., μk]
-    precisions::Vector                    # Class-specific precisions [W1, W2, ..., Wk]
-    metadata::ModelMetadata               # Sampling rate, paradigm, etc.
-end
-```
+❌ **NOT accepted:**
+- Raw EEG channels
+- Unfiltered data
 
-**Differences from RxLDA:**
-- No `global_precision` field (each class has its own)
-- `precisions` can be matrices or Wishart distributions
-- More flexible structure
-
-**Accessing model information:**
-
-```julia
-model = load_model(RxGMMModel, "p300_gmm_v1")
-
-println("Number of features: ", get_n_features(model))
-println("Number of classes: ", get_n_classes(model))
-println("Paradigm: ", get_paradigm(model))
-```
+See [Preprocessing Requirements](/inference-configuration/preprocessing-requirements).
 
 ## Performance Characteristics
 
-### Training Speed
+### Computational Performance
 
-| Dataset Size | Training Time | Notes |
-|--------------|---------------|-------|
-| 200 trials | 15-25 seconds | More parameters to estimate |
-| 500 trials | 40-60 seconds | Medium dataset |
-| 1000 trials | 90-120 seconds | Large dataset, maximum performance |
+| Operation | Latency | Notes |
+|-----------|---------|-------|
+| **Training** | 15-40 seconds | 50 iterations, 100 trials per class |
+| **Calibration** | 8-20 seconds | 20 iterations, 20 trials per class |
+| **Batch Inference** | 15-25ms per trial | 10 iterations |
+| **Streaming Chunk** | 15-25ms | 10 iterations per chunk |
 
-**RxGMM is 2-3x slower than RxLDA** due to additional parameters.
+Slightly slower than RxLDA due to class-specific covariances.
 
-### Inference Speed
+### Classification Accuracy
 
-| Batch Size | Latency (per trial) | Notes |
-|------------|---------------------|-------|
-| 1 trial | <10ms | Single prediction |
-| 20 trials | <5ms | Batch processing efficient |
-| 100 trials | <3ms | Optimal for large batches |
-
-**Slightly slower than RxLDA** but still very fast.
-
-### Accuracy
-
-Typical accuracy improvements over RxLDA:
-- **Complex P300 patterns**: 3-8% improvement
-- **Overlapping Motor Imagery**: 2-5% improvement
-- **Variable SSVEP**: 5-10% improvement
-
-The improvement depends on how much the classes vary in covariance structure.
-
-## Example: P300 Detection
-
-RxGMM is particularly useful for P300 detection where target and non-target events have different variance patterns:
-
-```julia
-using NimbusSDK
-
-# Authenticate
-NimbusSDK.authenticate("your-api-key")
-
-# Prepare P300 data (ERP features from -0.2 to 0.8 seconds)
-train_data = BCIData(
-    erp_amplitudes,  # (n_channels × n_timepoints × n_trials)
-    BCIMetadata(
-        sampling_rate = 250.0,
-        paradigm = :p300,
-        feature_type = :erp,
-        n_features = 20,  # 4 channels × 5 time points
-        n_classes = 2,    # target vs non-target
-        chunk_size = nothing
-    ),
-    train_labels
-)
-
-# Train RxGMM (better for varying ERP patterns than LDA)
-model = train_model(
-    RxGMMModel,
-    train_data;
-    iterations = 50,
-    showprogress = true,
-    name = "p300_detector_v1"
-)
-
-# Test on held-out data
-test_results = predict_batch(model, test_data)
-
-# P300 benefits from averaging multiple trials
-target_probabilities = test_results.posteriors[1, :]  # Class 1 = target
-println("Mean target probability: ", round(mean(target_probabilities), digits=3))
-```
-
-## Calibration
-
-Like RxLDA, RxGMM supports subject-specific calibration:
-
-```julia
-# Load baseline model
-base_model = load_model(RxGMMModel, "p300_baseline_v1")
-
-# Calibrate with small subject-specific dataset
-calib_model = calibrate_model(base_model, calib_data; iterations=20)
-save_model(calib_model, "subject_001_p300.jld2")
-```
-
-**Calibration benefits:**
-- Personalizes to subject-specific ERP patterns
-- Improves accuracy 5-15% over generic model
-- Faster than training from scratch
-
-## Comparison with RxLDA
-
-| Aspect | RxLDA | RxGMM |
-|--------|-------|-------|
-| **Covariance** | Shared (W) | Class-specific (W₁, W₂, ..., Wₖ) |
-| **Flexibility** | Less flexible | More flexible |
-| **Training Data** | 50-100 trials/class | 100-150 trials/class |
-| **Training Speed** | 5-30 seconds | 15-60 seconds |
-| **Inference Speed** | <5ms | <10ms |
-| **Accuracy (simple)** | Similar | Similar |
-| **Accuracy (complex)** | Lower | Higher (up to 10% gain) |
-| **Best For** | Well-separated classes | Overlapping, irregular classes |
-
-## Choosing Between RxLDA and RxGMM
-
-### Use RxLDA if:
-- ✅ Classes are well-separated
-- ✅ Fast training required (<30 seconds)
-- ✅ Interpretability is important
-- ✅ Simpler model is acceptable
-- ✅ Limited training data (<100 trials/class)
-
-### Use RxGMM if:
-- ✅ Classes have different covariance structures
-- ✅ Complex, overlapping distributions
-- ✅ Irregular or non-spherical class shapes
-- ✅ P300 with varying ERP patterns
-- ✅ More training data available (200+ trials/class)
+| Paradigm | Classes | Typical Accuracy | When to Use RxGMM |
+|----------|---------|------------------|-------------------|
+| P300 | 2 (Target/Non-target) | 85-95% | Target/non-target have different variances |
+| Motor Imagery | 2-4 | 70-85% | When RxLDA accuracy insufficient |
+| SSVEP | 2-6 | 85-98% | Complex frequency responses |
 
 <Note>
-**Recommendation**: Start with RxLDA. If accuracy is insufficient or classes have very different shapes, try RxGMM.
+RxGMM typically provides 2-5% higher accuracy than RxLDA when class covariances differ significantly, at the cost of ~5-10ms additional latency.
 </Note>
 
-## Best Practices
+## Model Inspection
 
-1. **More training data**: RxGMM benefits from 200+ trials per class
-2. **Cross-validation**: Always validate on held-out test data
-3. **Feature selection**: Ensure features capture class differences
-4. **Quality checks**: Use `diagnose_preprocessing()` before training
-5. **Iterations**: Consider increasing iterations for complex distributions (100 instead of 50)
-6. **Calibration**: Use subject-specific calibration for better accuracy
-
-## Advanced: Custom Distributions
-
-RxGMM's flexibility allows modeling Wishart-distributed precisions:
+### View Model Parameters
 
 ```julia
-# The model structure supports Wishart distributions
-# This is handled internally by RxInfer.jl
+# Class means
+println("Class means:")
+for (k, mean) in enumerate(model.means)
+    println("  Class $k: ", mean)
+end
 
-# You can access the full posterior if needed
-results = predict_batch(model, data)
-posterior = results.posteriors  # Full posterior distribution
+# Class-specific precisions
+println("\nClass-specific precision matrices:")
+for (k, prec) in enumerate(model.precisions)
+    println("  Class $k (first 3x3):")
+    println(prec[1:3, 1:3])
+end
+
+# Compare covariances across classes
+println("\nCovariance structure comparison:")
+for k in 1:length(model.precisions)
+    cov_k = inv(model.precisions[k])
+    println("  Class $k variance (diagonal): ", diag(cov_k))
+end
+```
+
+### Visualize Class Differences
+
+```julia
+using Plots
+
+# Compare class covariances
+for k in 1:length(model.precisions)
+    cov_k = inv(model.precisions[k])
+    heatmap(cov_k, title="Class $k Covariance", colorbar=true)
+end
+```
+
+## Advantages & Limitations
+
+### Advantages
+
+✅ **Flexible Modeling**: Each class has its own covariance  
+✅ **Better for Complex Data**: Handles heterogeneous distributions  
+✅ **Higher Accuracy**: 2-5% improvement when classes differ significantly  
+✅ **Uncertainty Quantification**: Full Bayesian posteriors  
+✅ **Production-Ready**: Battle-tested in P300 applications  
+
+### Limitations
+
+❌ **More Parameters**: Requires more training data than RxLDA  
+❌ **Slower Inference**: ~15-25ms vs ~10-15ms for RxLDA  
+❌ **Higher Memory**: Stores n_classes precision matrices  
+❌ **More Complex**: Longer training time  
+
+## Comparison: RxGMM vs RxLDA
+
+| Aspect | RxGMM | RxLDA |
+|--------|-------|-------|
+| **Precision Matrix** | Class-specific | Shared (one for all) |
+| **Training Speed** | Slower | Faster |
+| **Inference Speed** | 15-25ms | 10-15ms |
+| **Flexibility** | High | Moderate |
+| **Data Requirements** | More | Less |
+| **Memory Usage** | Higher | Lower |
+| **Best For** | Heterogeneous classes | Homogeneous classes |
+| **Accuracy Gain** | +2-5% (when applicable) | Baseline |
+
+### Decision Tree
+
+```
+Is speed critical (<15ms)?
+├─ Yes → Use RxLDA
+└─ No → Do classes have similar spreads?
+    ├─ Yes → Use RxLDA (faster, same accuracy)
+    └─ No → Use RxGMM (more accurate)
+```
+
+## Practical Examples
+
+### P300 Detection
+
+```julia
+# RxGMM is ideal for P300 where target/non-target have different variances
+
+# Train on P300 data
+p300_data = BCIData(erp_features, p300_metadata, labels)  # 1=target, 2=non-target
+model = train_model(RxGMMModel, p300_data; iterations=50)
+
+# Test
+results = predict_batch(model, test_data)
+
+# Calculate sensitivity/specificity
+targets = test_labels .== 1
+target_preds = results.predictions .== 1
+
+sensitivity = sum(target_preds .& targets) / sum(targets)
+specificity = sum(.!target_preds .& .!targets) / sum(.!targets)
+
+println("Sensitivity: $(round(sensitivity * 100, digits=1))%")
+println("Specificity: $(round(specificity * 100, digits=1))%")
+```
+
+### When RxLDA Fails
+
+```julia
+# Try RxLDA first
+rxlda_model = train_model(RxLDAModel, train_data)
+rxlda_results = predict_batch(rxlda_model, test_data)
+rxlda_acc = sum(rxlda_results.predictions .== test_labels) / length(test_labels)
+
+# If accuracy insufficient, try RxGMM
+if rxlda_acc < 0.75
+    println("RxLDA accuracy low ($(round(rxlda_acc*100, digits=1))%), trying RxGMM...")
+    rxgmm_model = train_model(RxGMMModel, train_data)
+    rxgmm_results = predict_batch(rxgmm_model, test_data)
+    rxgmm_acc = sum(rxgmm_results.predictions .== test_labels) / length(test_labels)
+    
+    println("RxGMM accuracy: $(round(rxgmm_acc*100, digits=1))%")
+    println("Improvement: +$(round((rxgmm_acc-rxlda_acc)*100, digits=1))%")
+end
 ```
 
 ## Next Steps
 
 <CardGroup cols={2}>
   <Card title="RxLDA Model" icon="brain" href="/models/rxlda">
-    Learn about RxLDA for simpler distributions
+    Faster model with shared covariance
   </Card>
-  <Card title="Julia SDK Reference" icon="code" href="/api-reference/julia-sdk">
-    Complete SDK API documentation
+  <Card title="Training Guide" icon="graduation-cap" href="/examples/advanced-applications">
+    Complete training tutorial
   </Card>
-  <Card title="P300 Detection" icon="chart-line" href="/examples/advanced-applications">
-    Detailed P300 example with RxGMM
+  <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
+    Full SDK reference
   </Card>
-  <Card title="Model Comparison" icon="balance-scale" href="/model-specification/bci-examples">
-    Compare RxLDA vs RxGMM
-  </Card>
-  <Card title="Code Examples" icon="file-code" href="/examples/code-samples">
-    Complete working examples
+  <Card title="Code Examples" icon="brackets-curly" href="/examples/code-samples">
+    Working examples
   </Card>
 </CardGroup>
 
+## References
+
+**Implementation:**
+- RxInfer.jl: https://rxinfer.ml/
+- Source code: `/src/models/rxgmm/` in NimbusSDK.jl
+
+**Theory:**
+- McLachlan, G. J., & Peel, D. (2000). "Finite Mixture Models"
+- Bishop, C. M. (2006). "Pattern Recognition and Machine Learning" (Chapter 9)
+
+**BCI Applications:**
+- Farwell, L. A., & Donchin, E. (1988). "Talking off the top of your head"
+- Lotte et al. (2018). "A review of classification algorithms for EEG-based BCI"

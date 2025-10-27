@@ -1,76 +1,111 @@
 ---
 title: "Streaming Inference"
-description: "Real-time chunk-by-chunk BCI processing with NimbusSDK.jl"
+description: "Real-time chunk-by-chunk BCI processing with NimbusSDK"
 icon: "wave-square"
 ---
 
 # Streaming Inference
 
-NimbusSDK.jl provides **client-side streaming inference** for real-time BCI applications. Process EEG data chunk-by-chunk with automatic aggregation and quality assessment.
-
 <Note>
-Streaming inference runs **locally on your machine** using the Julia SDK. This is different from a server-based WebSocket API - all processing happens client-side for maximum performance and privacy.
+**Important**: Streaming inference is performed **locally** by NimbusSDK.jl, not via API calls. This provides low-latency real-time processing without network overhead.
 </Note>
 
 ## Overview
 
-Streaming inference is ideal for:
-- **Real-time BCI control** (cursor movement, prosthetics)
-- **Live neurofeedback** applications
-- **Continuous monitoring** systems
-- **Interactive BCI** experiences
+Streaming inference allows you to process EEG data in real-time, chunk-by-chunk, as it arrives from your BCI hardware. This is essential for:
 
-### Key Features
+- **Real-time BCI applications**: Wheelchair control, gaming, assistive devices
+- **Online feedback systems**: Neurofeedback, training applications
+- **Low-latency requirements**: Systems requiring <100ms response times
+- **Continuous monitoring**: Long-duration BCI sessions
 
-- **Chunk-by-chunk processing**: Process data as it arrives
-- **Weighted aggregation**: Automatic voting across chunks
-- **Quality assessment**: Real-time confidence monitoring
-- **Low latency**: <10ms per chunk processing
-- **Local processing**: No network calls required
+## How Streaming Works
 
-## Basic Streaming Example
+Unlike batch inference which processes complete trials, streaming inference processes data incrementally:
+
+```
+EEG Hardware → Preprocessing → Feature Chunks → NimbusSDK → Predictions
+                 (MNE/LSL)        (CSP/etc)      (Local)      (Real-time)
+```
+
+### Architecture
+
+1. **Hardware Acquisition**: EEG amplifier streams data (e.g., via LSL, BrainFlow)
+2. **Preprocessing**: Apply filters and feature extraction in chunks
+3. **SDK Streaming**: Process features chunk-by-chunk with `process_chunk()`
+4. **Aggregation**: Combine chunk predictions with `finalize_trial()`
+
+**Key Benefit**: All processing happens locally - no API calls during inference.
+
+## Quick Start
+
+### Initialize Streaming Session
 
 ```julia
 using NimbusSDK
 
-# Step 1: Authenticate and load model
-NimbusSDK.authenticate("your-api-key")
+# 1. Authenticate (one-time, can cache offline)
+NimbusSDK.authenticate("nbci_live_your_key")
+
+# 2. Load model
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")
 
-# Step 2: Initialize streaming session
-# Define chunk size: 250 samples = 1 second at 250 Hz
+# 3. Configure streaming metadata
 metadata = BCIMetadata(
     sampling_rate = 250.0,
     paradigm = :motor_imagery,
     feature_type = :csp,
     n_features = 16,
     n_classes = 4,
-    chunk_size = 250  # CRITICAL: Set chunk size for streaming
+    chunk_size = 250  # 1 second chunks at 250 Hz
 )
 
+# 4. Initialize streaming session
 session = init_streaming(model, metadata)
-
-# Step 3: Process chunks as they arrive
-for chunk in eeg_stream()
-    # chunk is Array{Float64, 2} with shape (n_features × chunk_size)
-    result = process_chunk(session, chunk)
-    
-    println("Chunk prediction: $(result.prediction) " *
-            "(confidence: $(round(result.confidence, digits=3)))")
-end
-
-# Step 4: Finalize trial with weighted voting
-final_result = finalize_trial(session; method=:weighted_vote)
-println("✓ Final prediction: $(final_result.prediction)")
 ```
 
-## Complete Motor Imagery Streaming Pipeline
+### Process Chunks in Real-Time
+
+```julia
+# Process chunks as they arrive
+for chunk in eeg_feature_stream
+    # chunk: (n_features × chunk_size) array
+    result = process_chunk(session, chunk)
+    
+    println("Chunk prediction: $(result.prediction)")
+    println("Confidence: $(round(result.confidence, digits=3))")
+    println("Posterior: $(result.posterior)")
+end
+```
+
+### Finalize Trial
+
+After processing all chunks for a trial, aggregate the results:
+
+```julia
+# Aggregate chunk predictions
+final_result = finalize_trial(session; method=:weighted_vote)
+
+println("Final prediction: $(final_result.prediction)")
+println("Final confidence: $(round(final_result.confidence, digits=3))")
+
+# Check if trial quality is acceptable
+if should_reject_trial(final_result.confidence, 0.7)
+    println("⚠️  Low confidence - trial rejected")
+else
+    println("✓ High confidence - trial accepted")
+end
+```
+
+## Complete Example
+
+### Motor Imagery Streaming
 
 ```julia
 using NimbusSDK
 
-# Initialize
-NimbusSDK.authenticate("your-api-key")
+# Setup
+NimbusSDK.authenticate("nbci_live_your_key")
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")
 
 metadata = BCIMetadata(
@@ -84,336 +119,331 @@ metadata = BCIMetadata(
 
 session = init_streaming(model, metadata)
 
-# Simulate real-time EEG stream
-function simulate_eeg_stream()
-    # In practice, this would come from your EEG hardware
-    for trial in 1:20
-        for chunk_idx in 1:4  # 4 seconds total, 4 chunks
-            chunk = randn(16, 250)  # 16 features × 250 samples
-            yield chunk
+# Real-time trial processing
+function process_trial(csp_chunks)
+    # Process each chunk as it arrives
+    for chunk in csp_chunks
+        chunk_result = process_chunk(session, chunk)
+        
+        # Real-time feedback
+        @info "Chunk $(length(session.chunk_history))" prediction=chunk_result.prediction confidence=chunk_result.confidence
+        
+        # Optional: Early stopping
+        if chunk_result.confidence > 0.95
+            @info "High confidence reached early - consider stopping"
         end
     end
-end
-
-# Process streaming data
-for chunk in simulate_eeg_stream()
-    result = process_chunk(session, chunk)
     
-    # Implement your real-time control logic here
-    if result.prediction == 1 && result.confidence > 0.7
-        println("🔄 Moving cursor left (confidence: $(result.confidence))")
-    elseif result.prediction == 2 && result.confidence > 0.7
-        println("🔄 Moving cursor right (confidence: $(result.confidence))")
-    end
+    # Finalize with weighted voting
+    final = finalize_trial(session; method=:weighted_vote)
+    
+    return final
 end
 
-# Get final trial result
-final = finalize_trial(session; method=:weighted_vote)
-println("\n✓ Trial complete: Class $(final.prediction), Confidence: $(final.confidence)")
+# Simulate streaming from BCI system
+trial_chunks = [
+    randn(16, 250),  # Chunk 1: 0-1s
+    randn(16, 250),  # Chunk 2: 1-2s
+    randn(16, 250),  # Chunk 3: 2-3s
+    randn(16, 250)   # Chunk 4: 3-4s
+]
+
+final_result = process_trial(trial_chunks)
+
+println("\nFinal Result:")
+println("  Prediction: $(final_result.prediction)")
+println("  Confidence: $(round(final_result.confidence, digits=3))")
+println("  Quality: $(should_reject_trial(final_result.confidence, 0.7) ? "Rejected" : "Accepted")")
 ```
 
-## Aggregation Methods
+## Streaming Functions
 
-Streaming uses multiple chunks per trial and aggregates them into a final prediction.
+### init_streaming()
+
+Initialize a streaming session for a model.
+
+```julia
+init_streaming(model, metadata::BCIMetadata) -> StreamingSession
+```
+
+**Parameters:**
+- `model`: Loaded RxLDA or RxGMM model
+- `metadata`: BCIMetadata with `chunk_size` specified
+
+**Returns:** StreamingSession object
+
+### process_chunk()
+
+Process a single chunk of features.
+
+```julia
+process_chunk(session::StreamingSession, chunk::Matrix{Float64}; iterations::Int=10) -> StreamingResult
+```
+
+**Parameters:**
+- `session`: Active streaming session
+- `chunk`: Feature matrix (n_features × chunk_size)
+- `iterations`: Number of RxInfer iterations (default: 10)
+
+**Returns:**
+```julia
+struct StreamingResult
+    prediction::Int           # Predicted class
+    confidence::Float64       # Confidence (max posterior)
+    posterior::Vector{Float64} # Full posterior distribution
+end
+```
+
+### finalize_trial()
+
+Aggregate chunk predictions into final trial result.
+
+```julia
+finalize_trial(session::StreamingSession; method::Symbol=:weighted_vote) -> StreamingResult
+```
+
+**Aggregation Methods:**
+- `:weighted_vote`: Weight predictions by confidence (recommended)
+- `:majority_vote`: Simple majority vote across chunks
+- `:last_chunk`: Use only the last chunk's prediction
+- `:max_confidence`: Use chunk with highest confidence
+
+**Parameters:**
+- `session`: Streaming session with processed chunks
+- `method`: Aggregation strategy
+
+**Returns:** Final aggregated StreamingResult
+
+## Chunk Size Selection
+
+Choose chunk size based on your paradigm and latency requirements:
+
+| Paradigm | Recommended Chunk Size | Rationale |
+|----------|----------------------|-----------|
+| **Motor Imagery** | 250-500 samples (1-2s at 250 Hz) | Balance between latency and accuracy |
+| **P300** | 100-200 samples (0.4-0.8s at 250 Hz) | Short epochs for rapid serial visual presentation |
+| **SSVEP** | 500-1000 samples (2-4s at 250 Hz) | Longer windows for frequency analysis |
+
+**Trade-offs:**
+- **Smaller chunks**: Lower latency, more frequent updates, lower per-chunk accuracy
+- **Larger chunks**: Higher latency, fewer updates, higher per-chunk accuracy
+
+## Aggregation Strategies
 
 ### Weighted Vote (Recommended)
 
-Weights chunks by confidence:
-
-```julia
-final_result = finalize_trial(session; method=:weighted_vote)
-```
-
-**How it works:**
-- Each chunk gets a vote weighted by its confidence
-- Class with highest weighted vote wins
-- More reliable than majority vote
-
-### Majority Vote
-
-Simple majority across all chunks:
-
-```julia
-final_result = finalize_trial(session; method=:majority_vote)
-```
-
-### Example: 4-Chunk Trial
-
-```julia
-# Chunk 1: Class 1, confidence 0.7
-# Chunk 2: Class 1, confidence 0.8
-# Chunk 3: Class 2, confidence 0.6
-# Chunk 4: Class 1, confidence 0.9
-
-# Weighted vote: Class 1 (0.7 + 0.8 + 0.9 = 2.4) > Class 2 (0.6)
-# Majority vote: Class 1 (3 votes) > Class 2 (1 vote)
-```
-
-## Quality Assessment
-
-Monitor trial quality in real-time:
-
-```julia
-results = process_chunk(session, chunk)
-
-# Check if chunk should be rejected
-if should_reject_trial(results.confidence, 0.7)
-    println("⚠️ Low confidence chunk - consider rejection")
-end
-
-# Get final quality assessment
-final = finalize_trial(session)
-quality = assess_trial_quality([final])
-
-if !quality.confidence_acceptable
-    println("⚠️ Final trial quality insufficient")
-end
-```
-
-## Streaming Session Lifecycle
-
-### 1. Initialize Session
-
-```julia
-session = init_streaming(model, metadata)
-# Session is ready to process chunks
-```
-
-### 2. Process Chunks
-
-```julia
-for chunk in data_stream
-    result = process_chunk(session, chunk)
-    # Handle real-time predictions
-end
-```
-
-### 3. Finalize Trial
+Weight each chunk's prediction by its confidence:
 
 ```julia
 final = finalize_trial(session; method=:weighted_vote)
-# Get aggregate prediction for the entire trial
 ```
 
-### 4. Reset for Next Trial
+**Best for:** Most applications, especially with variable confidence across chunks
+
+### Majority Vote
+
+Simple democratic vote across chunks:
 
 ```julia
-# Start a new trial with the same session
-# (session automatically resets after finalize_trial)
+final = finalize_trial(session; method=:majority_vote)
 ```
 
-## Configuration
+**Best for:** Consistent predictions across chunks
 
-### Chunk Size
+### Max Confidence
 
-Set `chunk_size` in metadata to enable streaming:
+Use prediction from most confident chunk:
 
 ```julia
-metadata = BCIMetadata(
-    # ... other fields ...
-    chunk_size = 250  # Samples per chunk
-)
+final = finalize_trial(session; method=:max_confidence)
 ```
 
-**Recommendations:**
-- **Motor Imagery**: 250-500 samples (1-2 seconds at 250 Hz)
-- **P300**: 200-250 samples (0.8-1 seconds at 250 Hz)
-- **SSVEP**: 500-1000 samples (2-4 seconds at 250 Hz)
+**Best for:** When one chunk is clearly more reliable
 
-### Number of Chunks per Trial
+### Last Chunk
 
-Control how many chunks aggregate into one trial:
+Use only the most recent chunk:
 
 ```julia
-# Example: 4-second motor imagery trial
-# If chunk_size = 250 (1 second), then:
-# - 4 chunks total
-# - Trial duration = 4 seconds
+final = finalize_trial(session; method=:last_chunk)
+```
 
-# Process all chunks
-for chunk in 1:4
-    result = process_chunk(session, get_chunk(chunk))
+**Best for:** Real-time systems where latest information is most relevant
+
+## Quality Assessment
+
+### Confidence Thresholds
+
+Set confidence thresholds to reject low-quality trials:
+
+```julia
+confidence_threshold = 0.7
+
+if should_reject_trial(final_result.confidence, confidence_threshold)
+    @warn "Trial rejected - confidence too low" confidence=final_result.confidence
+    # Ask user to repeat trial
+else
+    @info "Trial accepted" confidence=final_result.confidence
+    # Use prediction
 end
-
-# Get final result
-final = finalize_trial(session)
 ```
 
-## Performance
+### Per-Chunk Quality Monitoring
 
-### Latency
+Monitor quality during streaming:
 
-| Operation | Typical Latency |
-|-----------|-----------------|
-| Single chunk processing | 5-10 ms |
-| Aggregation (4 chunks) | <1 ms |
-| Total trial latency | 20-40 ms |
+```julia
+for chunk in chunks
+    result = process_chunk(session, chunk)
+    
+    if result.confidence < 0.5
+        @warn "Low confidence chunk detected" chunk_idx=length(session.chunk_history)
+    end
+end
+```
 
-### Throughput
+## Integration with Hardware
 
-- **At 250 Hz**: Process one chunk every second
-- **4 chunks per trial**: ~4 second trials
-- **Overhead**: Minimal (<1 ms per chunk)
-
-## Real-Time BCI Control Example
+### Lab Streaming Layer (LSL)
 
 ```julia
 using NimbusSDK
+# Assuming you have LSL.jl or PyCall with pylsl
 
-# Setup streaming
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
-session = init_streaming(model, metadata)
-
-# Real-time cursor control
-function handle_cursor_control(result)
-    pred = result.prediction
-    conf = result.confidence
+function stream_from_lsl(stream_name, model, session)
+    # Connect to LSL stream (pseudocode)
+    inlet = LSL.resolve_stream("name", stream_name)
     
-    if conf > 0.7
-        if pred == 1
-            move_cursor_left()
-        elseif pred == 2
-            move_cursor_right()
-        elseif pred == 3
-            move_cursor_up()
-        elseif pred == 4
-            move_cursor_down()
+    buffer = []
+    chunk_samples = session.metadata.chunk_size
+    
+    while true
+        # Pull sample from LSL
+        sample, timestamp = inlet.pull_sample()
+        
+        # Apply preprocessing (filter, CSP, etc.)
+        features = preprocess_sample(sample)
+        
+        push!(buffer, features)
+        
+        # Process when chunk is ready
+        if length(buffer) >= chunk_samples
+            chunk = hcat(buffer[1:chunk_samples]...)
+            result = process_chunk(session, chunk)
+            
+            println("Real-time prediction: $(result.prediction)")
+            
+            # Slide window
+            buffer = buffer[(chunk_samples+1):end]
         end
     end
 end
+```
 
-# Continuous processing loop
-while true
-    chunk = await_next_eeg_chunk()  # Your data acquisition
-    result = process_chunk(session, chunk)
-    handle_cursor_control(result)
-    
-    # Check trial end condition
-    if is_trial_complete()
-        final = finalize_trial(session)
-        println("Trial complete: $(final.prediction)")
-        # Reset for next trial
+### BrainFlow
+
+```julia
+using NimbusSDK
+# Assuming BrainFlow.jl or PyCall with brainflow
+
+function stream_from_brainflow(board, model, session)
+    while true
+        # Get data from BrainFlow board
+        data = BrainFlow.get_current_board_data(board)
+        
+        # Apply preprocessing
+        filtered = apply_filters(data)
+        csp_features = apply_csp(filtered)
+        
+        # Process chunk
+        result = process_chunk(session, csp_features)
+        
+        # Real-time feedback
+        display_prediction(result.prediction, result.confidence)
+        
+        sleep(1.0)  # 1-second chunks
     end
 end
 ```
 
-## Comparison: Batch vs Streaming
+## Performance Optimization
 
-### Batch Inference
+### Minimize Latency
 
 ```julia
-# Process all data at once (offline)
-data = BCIData(features, metadata, labels)  # All trials at once
-results = predict_batch(model, data)
+# Use fewer iterations for faster processing
+result = process_chunk(session, chunk; iterations=5)  # ~10-20ms
 ```
 
-**Best for:**
-- Offline analysis
-- Research datasets
-- Multiple trials at once
-
-### Streaming Inference
+### Precompute Models
 
 ```julia
-# Process chunk by chunk (online)
+# Load and compile model before streaming starts
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
 session = init_streaming(model, metadata)
-for chunk in stream
-    result = process_chunk(session, chunk)
-end
-final = finalize_trial(session)
+
+# Warm-up: process dummy chunk to compile functions
+dummy_chunk = randn(16, 250)
+process_chunk(session, dummy_chunk)
+
+# Now ready for real-time processing
 ```
 
-**Best for:**
-- Real-time control
-- Live feedback
-- Continuous monitoring
-
-## Error Handling
+### Parallel Processing
 
 ```julia
-try
-    result = process_chunk(session, chunk)
-catch e
-    if isa(e, DataValidationError)
-        @error "Invalid chunk data" size(chunk)
-    elseif isa(e, ModelCompatibilityError)
-        @error "Model incompatible with streaming config"
-        # Try batch mode instead
-    else
-        rethrow(e)
-    end
+using Base.Threads
+
+# Process multiple channels in parallel
+@threads for channel_session in channel_sessions
+    result = process_chunk(channel_session, chunks[Threads.threadid()])
 end
 ```
 
-## Best Practices
+## Typical Latencies
 
-### 1. Optimal Chunk Size
+| Operation | Latency | Notes |
+|-----------|---------|-------|
+| **Chunk processing** | 10-30ms | RxInfer inference (10 iterations) |
+| **Feature extraction** | 5-20ms | CSP transform, bandpower |
+| **Trial finalization** | <5ms | Aggregate chunk results |
+| **Total (end-to-end)** | <100ms | Including preprocessing |
 
-Choose chunk size based on your paradigm:
+<Note>
+All latencies are for local processing. No network calls are made during streaming.
+</Note>
 
-```julia
-# Motor Imagery: 1-2 seconds
-chunk_size = 250  # 1 second at 250 Hz
+## Comparison: Streaming vs Batch
 
-# P300: 1 second
-chunk_size = 250
-
-# SSVEP: 2-4 seconds
-chunk_size = 500  # 2 seconds at 250 Hz
-```
-
-### 2. Confidence Thresholds
-
-Set appropriate thresholds for your application:
-
-```julia
-# For safety-critical applications
-threshold = 0.8
-
-# For research/exploration
-threshold = 0.6
-
-if result.confidence < threshold
-    # Reject or ask for user confirmation
-end
-```
-
-### 3. Quality Monitoring
-
-Monitor signal quality:
-
-```julia
-# Use preprocessing diagnostics
-report = diagnose_preprocessing(data)
-
-if report.quality_score < 0.7
-    @warn "Signal quality low: $(report.recommendations)"
-end
-```
+| Aspect | Streaming | Batch |
+|--------|-----------|-------|
+| **Latency** | Low (<100ms per chunk) | Higher (full trial) |
+| **Use Case** | Real-time BCI | Offline analysis |
+| **Feedback** | Continuous | After trial completion |
+| **Memory** | Low (per-chunk) | Higher (full trials) |
+| **Accuracy** | Aggregated over chunks | Single prediction |
 
 ## Next Steps
 
 <CardGroup cols={2}>
+  <Card title="Real-time Setup" icon="gauge" href="/inference-configuration/real-time-setup">
+    Hardware integration guide
+  </Card>
   <Card title="Batch Processing" icon="list" href="/inference-configuration/batch-processing">
-    Offline batch inference for research data
+    Offline analysis workflow
   </Card>
-  <Card title="Julia SDK Reference" icon="code" href="/api-reference/julia-sdk">
-    Complete SDK API documentation
+  <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
+    Complete SDK reference
   </Card>
-  <Card title="Real-time Setup" icon="rocket" href="/inference-configuration/real-time-setup">
-    Configure real-time processing
-  </Card>
-  <Card title="Code Examples" icon="file-code" href="/examples/code-samples">
-    Complete working examples
+  <Card title="Examples" icon="brackets-curly" href="/examples/code-samples">
+    Working code examples
   </Card>
 </CardGroup>
 
 ## Support
 
-Need help with streaming inference?
+For streaming and real-time processing questions:
 
 - **Email**: hello@nimbusbci.com
 - **Documentation**: https://docs.nimbusbci.com
-- **SDK Repository**: https://github.com/nimbusbci/NimbusSDK.jl
-
-Streaming inference is designed for production use with enterprise-grade performance and reliability.
+- **Examples**: See `/examples/motor_imagery_streaming.jl` in SDK

@@ -1,125 +1,38 @@
 ---
 title: "API Endpoints"
-description: "Nimbus API endpoints for authentication, licensing, and model management"
-icon: "plug"
+description: "Nimbus API endpoints for model registry and analytics"
+icon: "server"
 ---
 
 # API Endpoints
 
-The Nimbus API provides **authentication, licensing, analytics, and model registry** services. **Inference is handled client-side** via the NimbusSDK.jl Julia package, not through API endpoints.
+The Nimbus API provides backend services for model management and analytics. **Note**: Inference is performed locally by NimbusSDK.jl, not via API calls.
 
 ## Base URL
 
 ```
-https://api.nimbusbci.com/v1
+https://api.nimbusbci.com
 ```
-
-## Architecture
-
-<Note>
-**Important**: The Nimbus API does **not** provide inference endpoints. All BCI inference happens **client-side** using the Julia SDK (NimbusSDK.jl) for maximum performance and privacy.
-</Note>
-
-The API provides:
-- **Authentication** - API key validation and authorization
-- **License Management** - Quota tracking, feature gates
-- **Analytics** - Usage logging and metrics
-- **Model Registry** - Model catalog and metadata
-
-## Authentication Endpoints
-
-### POST /v1/auth/validate
-
-Validate an API key and return user permissions.
-
-**Request:**
-```bash
-curl -X POST "https://api.nimbusbci.com/v1/auth/validate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "api_key": "nbci_live_..."
-  }'
-```
-
-**Response:**
-```json
-{
-  "valid": true,
-  "user_id": "...",
-  "license_type": "research",
-  "features": ["batch_inference", "streaming", "custom_training"],
-  "quota": {
-    "monthly_limit": 100000,
-    "used": 1234,
-    "remaining": 98766,
-    "resets_at": "2025-02-01T00:00:00Z"
-  },
-  "expires_at": "2025-12-31T23:59:59Z"
-}
-```
-
-### POST /v1/auth/refresh
-
-Refresh API key credentials and update quota information.
-
-**Request:**
-```bash
-curl -X POST "https://api.nimbusbci.com/v1/auth/refresh" \
-  -H "Content-Type: application/json" \
-  -d '{"api_key": "nbci_live_..."}'
-```
-
-### POST /v1/auth/revoke
-
-Revoke an API key (makes it inactive).
-
-**Request:**
-```bash
-curl -X POST "https://api.nimbusbci.com/v1/auth/revoke" \
-  -H "Content-Type: application/json" \
-  -d '{"api_key": "nbci_live_..."}'
-```
-
-## Analytics Endpoints
-
-### POST /v1/analytics/log
-
-Log inference events and usage metrics (called automatically by Julia SDK).
-
-**Request:**
-```json
-{
-  "api_key": "nbci_live_...",
-  "event_type": "inference",
-  "model_name": "motor_imagery_4class_v1",
-  "inference_type": "batch",
-  "duration_ms": 245,
-  "metadata": {
-    "n_trials": 20,
-    "mean_confidence": 0.85
-  }
-}
-```
-
-<Note>
-The Julia SDK handles analytics logging automatically. You typically don't need to call this endpoint directly.
-</Note>
 
 ## Model Registry
 
 ### GET /v1/models/list
 
-List available models based on your license.
+List available pre-trained models based on your license tier.
+
+**Authentication**: Required (API key)
 
 **Query Parameters:**
-- `api_key` (required)
-- `paradigm` (optional) - Filter by BCI paradigm (`motor_imagery`, `p300`, `ssvep`)
-- `type` (optional) - Filter by model type (`RxLDA`, `RxGMM`)
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `api_key` | string | Your Nimbus API key (required) |
+| `paradigm` | string | Filter by BCI paradigm: `motor_imagery`, `p300`, `ssvep` (optional) |
+| `type` | string | Filter by model type: `RxLDA`, `RxGMM` (optional) |
 
 **Request:**
 ```bash
-curl -X GET "https://api.nimbusbci.com/v1/models/list?api_key=nbci_live_...&paradigm=motor_imagery" \
-  -H "Content-Type: application/json"
+curl "https://api.nimbusbci.com/v1/models/list?api_key=nbci_live_your_key"
 ```
 
 **Response:**
@@ -133,166 +46,308 @@ curl -X GET "https://api.nimbusbci.com/v1/models/list?api_key=nbci_live_...&para
       "paradigm": "motor_imagery",
       "n_features": 16,
       "n_classes": 4,
+      "size_mb": 2.3,
+      "download_url": "https://models.nimbusbci.com/rxlda/motor_imagery_4class_v1.jld2",
+      "checksum": "sha256:abc123...",
       "requires_license": "free",
-      "download_url": "https://models.nimbusbci.com/motor_imagery_4class_v1.jld2",
-      "checksum": "...",
-      "file_size_mb": 0.5
+      "metadata": {
+        "description": "4-class motor imagery classifier (left/right/feet/tongue)",
+        "training_subjects": 50,
+        "accuracy": "72-88%",
+        "feature_type": "csp",
+        "recommended_use": "Motor imagery BCI applications"
+      }
+    },
+    {
+      "name": "p300_binary_v1",
+      "version": "1.0.0",
+      "type": "RxGMM",
+      "paradigm": "p300",
+      "n_features": 8,
+      "n_classes": 2,
+      "size_mb": 1.8,
+      "download_url": "https://models.nimbusbci.com/rxgmm/p300_binary_v1.jld2",
+      "checksum": "sha256:def456...",
+      "requires_license": "research",
+      "metadata": {
+        "description": "P300 target/non-target classifier",
+        "training_subjects": 30,
+        "accuracy": "85-92%",
+        "feature_type": "erp",
+        "recommended_use": "P300 speller applications"
+      }
     }
   ],
-  "total": 1
+  "total": 2
 }
 ```
 
-## Utilities
+**Response Fields:**
+
+- `name` (string): Unique model identifier
+- `version` (string): Model version
+- `type` (string): Model type (`RxLDA` or `RxGMM`)
+- `paradigm` (string): BCI paradigm (`motor_imagery`, `p300`, `ssvep`, etc.)
+- `n_features` (number): Expected number of input features
+- `n_classes` (number): Number of output classes
+- `size_mb` (number): Model file size in megabytes
+- `download_url` (string): Direct download URL for model file
+- `checksum` (string): SHA-256 checksum for verification
+- `requires_license` (string): Minimum license tier required
+- `metadata` (object): Additional model information
+
+**Filtering Examples:**
+
+```bash
+# Get only motor imagery models
+curl "https://api.nimbusbci.com/v1/models/list?api_key=nbci_live_...&paradigm=motor_imagery"
+
+# Get only RxLDA models
+curl "https://api.nimbusbci.com/v1/models/list?api_key=nbci_live_...&type=RxLDA"
+```
+
+### Using in Julia SDK
+
+The SDK automatically uses this endpoint when loading pre-trained models:
+
+```julia
+using NimbusSDK
+
+# Authenticate
+NimbusSDK.authenticate("nbci_live_your_key")
+
+# Load pre-trained model (SDK calls /v1/models/list internally)
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+# SDK downloads, verifies checksum, and caches the model locally
+```
+
+## Analytics & Logging
+
+### POST /v1/analytics/log
+
+Log inference events and usage metrics (optional, for analytics tracking).
+
+**Authentication**: Required (API key)
+
+**Request:**
+```json
+{
+  "api_key": "nbci_live_...",
+  "event_type": "inference",
+  "model_name": "motor_imagery_4class_v1",
+  "inference_type": "batch",
+  "duration_ms": 245,
+  "success": true,
+  "metadata": {
+    "n_trials": 20,
+    "accuracy": 0.85,
+    "mean_confidence": 0.78
+  }
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `api_key` | string | Yes | Your API key |
+| `event_type` | string | Yes | Event type: `inference`, `model_load`, `error` |
+| `model_name` | string | No | Model identifier |
+| `inference_type` | string | No | `batch` or `streaming` |
+| `duration_ms` | number | No | Duration in milliseconds |
+| `success` | boolean | No | Whether operation succeeded |
+| `error_message` | string | No | Error description if failed |
+| `metadata` | object | No | Additional event data |
+
+**Response:**
+```json
+{
+  "logged": true,
+  "event_id": "evt_1234567890",
+  "quota": {
+    "used": 1235,
+    "remaining": 48765
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X POST https://api.nimbusbci.com/v1/analytics/log \
+  -H "Content-Type: application/json" \
+  -d '{
+    "api_key": "nbci_live_...",
+    "event_type": "inference",
+    "model_name": "motor_imagery_4class_v1",
+    "inference_type": "batch",
+    "duration_ms": 245,
+    "metadata": {"n_trials": 20}
+  }'
+```
+
+<Note>
+Analytics logging is **optional**. The SDK works without sending analytics data. Use this endpoint if you want to track usage patterns and performance metrics in the Nimbus dashboard (coming soon).
+</Note>
+
+## Health Check
 
 ### GET /api/health
 
-Health check endpoint for monitoring.
+Check API status and availability.
+
+**Authentication**: Not required
 
 **Request:**
 ```bash
-curl -X GET "https://api.nimbusbci.com/api/health"
+curl https://api.nimbusbci.com/api/health
 ```
 
 **Response:**
 ```json
 {
   "status": "healthy",
-  "timestamp": "2024-01-01T12:00:00Z",
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "uptime_seconds": 1234567,
+  "timestamp": "2025-10-27T14:30:00Z"
 }
 ```
-
-## How Inference Works
-
-Since the API does **not** provide inference endpoints, here's how BCI inference works with Nimbus:
-
-### 1. Client-Side Inference (Julia SDK)
-
-```julia
-using NimbusSDK
-
-# Authenticate with API (validates license)
-NimbusSDK.authenticate("nbci_live_...")
-
-# Load model (may download from API registry)
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
-
-# Run inference locally (fast, private)
-data = BCIData(features, metadata, labels)
-results = predict_batch(model, data)  # Client-side!
-```
-
-### Benefits of Client-Side Inference
-
-1. **Ultra-low latency** - No network round-trip
-2. **Privacy** - EEG data never leaves your machine
-3. **Performance** - Sub-10ms inference locally
-4. **Offline capable** - Works without internet after initial authentication
-5. **Scalability** - No server load for inference
-
-### 2. API Provides Authentication Only
-
-```julia
-# Authentication happens once
-session = NimbusSDK.authenticate("api-key")
-
-# Credentials cached locally for 30 days
-# Subsequent inference doesn't call API
-results = predict_batch(model, data)  # No API call!
-```
-
-## License Tiers
-
-API validates your license and grants access to appropriate features:
-
-| Tier | Monthly Quota | Features |
-|------|---------------|----------|
-| **Free** | 50,000 | Basic models, batch inference |
-| **Research** | 100,000 | All models, batch + streaming, custom training |
-| **Commercial** | 500,000 | All features, priority support, custom models |
-| **Enterprise** | Unlimited | All features, dedicated support |
 
 ## Error Responses
 
-### 401 Unauthorized
+All endpoints return consistent error responses:
 
 ```json
 {
-  "error": "Invalid or expired API key",
-  "code": "UNAUTHORIZED"
+  "error": "Error description",
+  "code": "ERROR_CODE"
 }
 ```
 
-### 403 Forbidden
+**Common Error Codes:**
 
-```json
-{
-  "error": "License insufficient for requested feature",
-  "code": "FORBIDDEN",
-  "required_license": "research",
-  "current_license": "free"
-}
-```
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `MISSING_KEY` | 400 | API key not provided |
+| `INVALID_FORMAT` | 400 | API key format invalid |
+| `INVALID_KEY` | 401 | API key is invalid or inactive |
+| `KEY_EXPIRED` | 401 | API key has expired |
+| `QUOTA_EXCEEDED` | 429 | Monthly quota limit reached |
+| `RATE_LIMIT_EXCEEDED` | 429 | Too many requests |
+| `SERVER_ERROR` | 500 | Internal server error |
 
-### 429 Rate Limit Exceeded
+## Rate Limits
 
-```json
-{
-  "error": "Quota exceeded. Reset at start of next month",
-  "code": "QUOTA_EXCEEDED",
-  "retry_after": "2025-02-01T00:00:00Z"
-}
-```
+| Endpoint | Requests per Minute |
+|----------|-------------------|
+| `/v1/models/list` | 60 |
+| `/v1/analytics/log` | 1000 |
+| `/api/health` | Unlimited |
 
-## Example: Complete Workflow
+## Usage Examples
+
+### Complete Workflow in Julia
 
 ```julia
 using NimbusSDK
-using HTTP, JSON
 
-# 1. Authenticate via API
-NimbusSDK.authenticate("nbci_live_...")
+# 1. Authenticate
+NimbusSDK.authenticate("nbci_live_your_key")
 
-# 2. List available models from API
-models_url = "https://api.nimbusbci.com/v1/models/list"
-response = HTTP.get("$models_url?api_key=nbci_live_...")
-models = JSON.parse(String(response.body))
-
-println("Available models:")
-for m in models["models"]
-    println("  $(m["name"]) - $(m["type"])")
-end
-
-# 3. Load and use model locally (no API calls)
+# 2. Load pre-trained model (calls /v1/models/list)
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+
+# 3. Run inference (local, no API call)
+data = BCIData(features, metadata, labels)
 results = predict_batch(model, data)
 
-# 4. Analytics logged automatically by SDK
-# (runs in background, doesn't block inference)
+# 4. Optional: Log analytics
+# (SDK can automatically log if configured)
+println("Accuracy: $(sum(results.predictions .== labels) / length(labels))")
 ```
+
+### List All Available Models
+
+```bash
+# Get all models your license allows
+curl -X GET "https://api.nimbusbci.com/v1/models/list?api_key=nbci_live_your_key" | jq '.models[] | {name, type, paradigm}'
+```
+
+### Check Model Availability
+
+```bash
+# Check if specific model is available
+curl -X GET "https://api.nimbusbci.com/v1/models/list?api_key=nbci_live_your_key" \
+  | jq '.models[] | select(.name=="motor_imagery_4class_v1")'
+```
+
+## License Requirements
+
+Different models require different license tiers:
+
+| Model | License Required | Description |
+|-------|------------------|-------------|
+| `motor_imagery_4class_v1` | Free | Basic 4-class motor imagery |
+| `motor_imagery_2class_v1` | Free | Binary motor imagery |
+| `p300_binary_v1` | Research | P300 target detection |
+| `ssvep_multiclass_v1` | Research | SSVEP multi-frequency |
+| Custom models | Commercial+ | Customer-specific trained models |
+
+<Note>
+Your API key's license tier determines which models you can access. Attempting to load a model above your tier will return a `403 Forbidden` error.
+</Note>
+
+## Important Notes
+
+### Inference is Local
+
+**The Nimbus API does NOT perform inference.** Inference happens locally via NimbusSDK.jl using RxInfer.jl. This approach provides:
+
+✅ **Privacy**: Your EEG data never leaves your machine  
+✅ **Speed**: No network latency  
+✅ **Reliability**: Works offline after initial setup  
+✅ **Scalability**: No API server bottlenecks  
+
+The API only provides:
+- Authentication and licensing
+- Pre-trained model distribution
+- Optional analytics collection
+
+### Model Caching
+
+Models are downloaded once and cached locally:
+
+```julia
+# First call: downloads from API
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")  # ~2-3 seconds
+
+# Subsequent calls: loads from cache
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")  # <100ms
+```
+
+Cache location: `~/.nimbus/models/`
 
 ## Next Steps
 
 <CardGroup cols={2}>
   <Card title="Authentication" icon="key" href="/api-reference/authentication">
-    Detailed authentication documentation
+    API key setup and management
   </Card>
   <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
-    Client-side inference SDK
+    Complete SDK reference
   </Card>
-  <Card title="Streaming Inference" icon="wave-square" href="/api-reference/streaming-api">
-    Real-time chunk-by-chunk processing
+  <Card title="Training Models" icon="graduation-cap" href="/examples/advanced-applications">
+    Train custom models
   </Card>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Get started with Nimbus
+  <Card title="Code Examples" icon="brackets-curly" href="/examples/code-samples">
+    Working examples
   </Card>
 </CardGroup>
 
 ## Support
 
-Need help with the API?
+For API questions or model requests:
 
 - **Email**: hello@nimbusbci.com
+- **API Status**: https://api.nimbusbci.com/api/health
 - **Documentation**: https://docs.nimbusbci.com
-- **API Status**: Check health endpoint

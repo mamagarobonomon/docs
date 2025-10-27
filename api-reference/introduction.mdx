@@ -1,33 +1,83 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: 'API Reference'
+description: 'Nimbus API for authentication, licensing, and model registry'
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+# Nimbus API
 
-## Welcome
+The Nimbus API provides backend services for the NimbusSDK.jl ecosystem, including:
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+- **Authentication**: API key validation and licensing
+- **Model Registry**: Access to pre-trained models
+- **Analytics**: Usage tracking and performance metrics
+- **Quota Management**: License-based usage limits
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+## API Base URL
+
+```
+https://api.nimbusbci.com
+```
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+All API requests require authentication via API key. Include your API key in requests either as:
 
-```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+- JSON body parameter: `"api_key": "nbci_live_..."`
+- Query parameter: `?api_key=nbci_live_...`
+- Header: `X-API-Key: nbci_live_...`
+
+### API Key Format
+
+- **Production keys**: `nbci_live_` + 48 hex characters
+- **Test keys**: `nbci_test_` + 48 hex characters
+
+### License Tiers
+
+| Tier | Monthly Quota | Features | Use Case |
+|------|---------------|----------|----------|
+| **Free** | 10,000 inferences | Basic models, batch inference | Personal projects, evaluation |
+| **Research** | 50,000 inferences | All models, streaming, training | Academic research |
+| **Commercial** | 500,000 inferences | Priority support, custom models | Production applications |
+| **Enterprise** | Unlimited | Dedicated support, on-premise | Large-scale deployments |
+
+## Quick Start
+
+```julia
+using NimbusSDK
+
+# Authentication is handled automatically by the SDK
+NimbusSDK.authenticate("nbci_live_your_key_here")
+
+# The SDK communicates with the API for:
+# - Key validation
+# - Model downloads
+# - Usage logging (optional)
 ```
+
+## Endpoints Overview
+
+The Nimbus API provides the following endpoints:
+
+- **Authentication**: `/v1/auth/validate`, `/v1/auth/refresh`, `/v1/auth/revoke`
+- **Models**: `/v1/models/list`
+- **Analytics**: `/v1/analytics/log`
+- **Health**: `/api/health`
+
+Detailed documentation for each endpoint is available in the following pages.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api-reference/authentication">
+    API key validation and management
+  </Card>
+  <Card title="Model Registry" icon="database" href="/api-reference/inference-endpoints">
+    List and download pre-trained models
+  </Card>
+  <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
+    Complete Julia SDK reference
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get started with NimbusSDK
+  </Card>
+</CardGroup>
