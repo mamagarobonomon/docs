@@ -29,7 +29,8 @@
           "api-reference/authentication",
           "api-reference/inference-endpoints",
           "api-reference/streaming-api",
-          "api-reference/webhook-integration"
+          "api-reference/webhook-integration",
+          "api-reference/julia-sdk"
         ]
       },
       {
@@ -86,35 +87,10 @@
         ]
       },
       {
-        "group": "AI Tools Integration",
-        "pages": [
-          "ai-tools/cursor",
-          "ai-tools/claude-code",
-          "ai-tools/windsurf"
-        ]
-      },
-      {
-        "group": "Documentation Essentials",
-        "pages": [
-          "essentials/markdown",
-          "essentials/code",
-          "essentials/images",
-          "essentials/navigation",
-          "essentials/settings",
-          "essentials/reusable-snippets"
-        ]
-      },
-      {
         "group": "Development",
         "pages": [
           "development",
           "development/preprocessing-integration"
-        ]
-      },
-      {
-        "group": "SDK",
-        "pages": [
-          "api-reference/julia-sdk"
         ]
       }
     ]
