@@ -6,7 +6,7 @@
     "build": "mintlify build"
   },
   "devDependencies": {
-    "@mintlify/cli": "^9.0.0"
+    "@mintlify/cli": "latest"
   }
 }
 
