@@ -607,12 +607,8 @@ for neural_signal in bci_stream():
 ### Decision Quality
 
 <CardGroup cols={2}>
-  <Card title="Accuracy vs. Speed" icon="balance-scale">
-    **Conservative Policy**: High accuracy (90-95%) with moderate speed
-    
-    **Aggressive Policy**: Higher speed with acceptable accuracy (80-85%)
-    
-    **Adaptive Threshold**: Balances based on context and user performance
+  <Card title="Accuracy vs. Speed" icon="scale">
+    POMDPs allow a trade-off between decision accuracy and speed, crucial for real-time BCI. Slower, more confident decisions can be prioritized in critical applications.
   </Card>
   
   <Card title="Safety & Reliability" icon="shield">

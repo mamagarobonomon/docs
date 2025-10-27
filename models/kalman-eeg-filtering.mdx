@@ -361,13 +361,8 @@ for trial_data in motor_imagery_trials():
 ### Noise Reduction Performance
 
 <CardGroup cols={2}>
-  <Card title="SNR Improvement" icon="chart-line">
-    **15-25 dB** typical improvement in signal-to-noise ratio
-    
-    Particularly effective for removing:
-    - Eye blink artifacts (>90% reduction)
-    - Muscle artifacts (70-85% reduction)
-    - Power line interference (>95% reduction)
+  <Card title="SNR Improvement" icon="line-chart">
+    Kalman filters can improve Signal-to-Noise Ratio (SNR) by over 5dB in typical EEG recordings, making subsequent classification more robust.
   </Card>
   
   <Card title="Real-Time Performance" icon="clock">

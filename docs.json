@@ -108,8 +108,11 @@
       "icon": "github"
     }
   ],
+  "icons": {
+    "library": "lucide"
+  },
   "logo": {
-    "light": "/logo/Logo black.svg",
+    "light": "/logo/Logo yellow.svg",
     "dark": "/logo/Logo yellow.svg"
   },
   "navbar": {
