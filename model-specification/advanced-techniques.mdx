@@ -49,9 +49,9 @@ Combining cortical activity (EEG) with muscle activity (EMG) could provide:
 
 **Conceptual Model:**
 
-\[
+$$
 p(\text{intent} | \text{EEG}, \text{EMG}) \propto p(\text{EEG}|\text{intent}) \cdot p(\text{EMG}|\text{intent}) \cdot p(\text{intent})
-\]
+$$
 
 **Status**: Not implemented - requires multi-modal data collection and validation
 
@@ -72,9 +72,9 @@ Combining fast electrical (EEG) with slow hemodynamic (fNIRS) signals:
 
 **Concept**: Model sequences of brain states over time
 
-\[
+$$
 p(s_1, \ldots, s_T, x_1, \ldots, x_T) = p(s_1) \prod_{t=2}^{T} p(s_t|s_{t-1}) \prod_{t=1}^{T} p(x_t|s_t)
-\]
+$$
 
 **Potential Applications:**
 - Continuous brain state tracking
@@ -93,12 +93,12 @@ p(s_1, \ldots, s_T, x_1, \ldots, x_T) = p(s_1) \prod_{t=2}^{T} p(s_t|s_{t-1}) \p
 
 **Concept**: Continuous state estimation with linear dynamics
 
-\[
+$$
 s_t = A s_{t-1} + w_t \quad \text{(State evolution)}
-\]
-\[
+$$
+$$
 x_t = H s_t + v_t \quad \text{(Observations)}
-\]
+$$
 
 **Potential Applications:**
 - Smooth cursor control
@@ -118,9 +118,9 @@ x_t = H s_t + v_t \quad \text{(Observations)}
 
 **Concept**: Model population, subject, and session levels
 
-\[
+$$
 \theta_{\text{population}} \rightarrow \theta_{\text{subject}} \rightarrow \theta_{\text{session}}
-\]
+$$
 
 **Potential Benefits:**
 - Transfer learning across subjects
@@ -277,9 +277,9 @@ personalized = calibrate_model(baseline, calib_data)
 
 RxLDA and RxGMM assume Gaussian feature distributions:
 
-\[
+$$
 p(x|c) = \mathcal{N}(x | \mu_c, \Sigma_c)
-\]
+$$
 
 **This works well for many BCI features** (CSP, bandpower, ERP amplitudes).
 
@@ -300,9 +300,9 @@ p(x|c) = \mathcal{N}(x | \mu_c, \Sigma_c)
 
 Models that automatically select relevant features:
 
-\[
+$$
 p(x|\text{class}, \text{active features})
-\]
+$$
 
 **Potential Benefits:**
 - Reduced overfitting

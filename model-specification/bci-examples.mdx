@@ -21,14 +21,14 @@ For **working code examples**, see:
 
 Motor imagery BCI can be understood through this probabilistic lens:
 
-\[
+$$
 p(\text{class}, \text{features}) = p(\text{class}) \cdot p(\text{features}|\text{class})
-\]
+$$
 
 **Components:**
-1. **Prior**: \( p(\text{class}) \) - Equal probability for each motor imagery class (left, right, feet, tongue)
-2. **Likelihood**: \( p(\text{features}|\text{class}) \) - Gaussian distribution of EEG features given the class
-3. **Posterior**: \( p(\text{class}|\text{features}) \) - Computed via Bayes' rule
+1. **Prior**: $ p(\text{class}) $ - Equal probability for each motor imagery class (left, right, feet, tongue)
+2. **Likelihood**: $ p(\text{features}|\text{class}) $ - Gaussian distribution of EEG features given the class
+3. **Posterior**: $ p(\text{class}|\text{features}) $ - Computed via Bayes' rule
 
 ### RxLDA Implementation
 
@@ -63,15 +63,15 @@ results = predict_batch(trained_model, test_data)
 
 **Mathematical Model:**
 
-\[
+$$
 p(x|c) = \mathcal{N}(x | \mu_c, \Sigma)
-\]
+$$
 
 Where:
-- \( x \): CSP-extracted features (16-dimensional)
-- \( c \in \{1,2,3,4\} \): Motor imagery class
-- \( \mu_c \): Class-specific mean (learned from data)
-- \( \Sigma \): Shared covariance matrix (learned from data)
+- $ x $: CSP-extracted features (16-dimensional)
+- $ c \in \{1,2,3,4\} $: Motor imagery class
+- $ \mu_c $: Class-specific mean (learned from data)
+- $ \Sigma $: Shared covariance matrix (learned from data)
 
 ### Performance Expectations
 
@@ -88,14 +88,14 @@ Where:
 
 P300 detection distinguishes target from non-target stimuli:
 
-\[
+$$
 p(\text{target}, \text{ERP features}) = p(\text{target}) \cdot p(\text{ERP}|\text{target})
-\]
+$$
 
 **Components:**
-1. **Prior**: \( p(\text{target}) \) - Low probability (e.g., 1/6 for 6×6 speller)
-2. **Likelihood**: \( p(\text{ERP}|\text{target}) \) - Gaussian distribution with P300 component
-3. **Posterior**: \( p(\text{target}|\text{ERP}) \) - Target probability given ERP
+1. **Prior**: $ p(\text{target}) $ - Low probability (e.g., 1/6 for 6×6 speller)
+2. **Likelihood**: $ p(\text{ERP}|\text{target}) $ - Gaussian distribution with P300 component
+3. **Posterior**: $ p(\text{target}|\text{ERP}) $ - Target probability given ERP
 
 ### RxGMM Implementation
 
@@ -130,15 +130,15 @@ results = predict_batch(trained_model, test_data)
 
 **Mathematical Model:**
 
-\[
+$$
 p(x|\text{target}) = \mathcal{N}(x | \mu_{\text{target}}, \Sigma_{\text{target}})
-\]
-\[
+$$
+$$
 p(x|\text{non-target}) = \mathcal{N}(x | \mu_{\text{non-target}}, \Sigma_{\text{non-target}})
-\]
+$$
 
 Where:
-- \( x \): ERP features (12-dimensional)
+- $ x $: ERP features (12-dimensional)
 - Class-specific means and covariances capture P300 morphology
 
 ### Performance Expectations
@@ -157,12 +157,12 @@ Where:
 <Card title="Coming Soon" icon="clock">
   **HMM for BCI** would model temporal sequences:
   
-  \[
+  38915
   p(s_t | s_{t-1}) \quad \text{(State transitions)}
-  \]
-  \[
+  38915
+  38915
   p(x_t | s_t) \quad \text{(Observations)}
-  \]
+  38915
   
   **Use cases:**
   - Continuous tracking of brain states
@@ -177,12 +177,12 @@ Where:
 <Card title="Future Work" icon="signal">
   **Kalman filters** for continuous state estimation:
   
-  \[
+  38915
   s_t = A s_{t-1} + w_t \quad \text{(State dynamics)}
-  \]
-  \[
+  38915
+  38915
   x_t = H s_t + v_t \quad \text{(Observations)}
-  \]
+  38915
   
   **Use cases:**
   - Smooth cursor control
@@ -198,9 +198,9 @@ Where:
 
 Combining cortical (EEG) and peripheral (EMG) signals:
 
-\[
+$$
 p(\text{intent} | \text{EEG}, \text{EMG}) \propto p(\text{EEG}|\text{intent}) \cdot p(\text{EMG}|\text{intent}) \cdot p(\text{intent})
-\]
+$$
 
 **Potential benefits:**
 - Robustness to noise
@@ -215,9 +215,9 @@ p(\text{intent} | \text{EEG}, \text{EMG}) \propto p(\text{EEG}|\text{intent}) \c
 
 Continuously updating models during use:
 
-\[
+$$
 \theta_{t+1} = \theta_t + \eta \nabla_\theta \log p(x_t | \theta_t)
-\]
+$$
 
 **Potential benefits:**
 - Adapt to non-stationarity

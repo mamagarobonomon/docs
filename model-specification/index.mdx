@@ -32,7 +32,7 @@ trained_model = train_model(RxLDAModel, training_data; iterations=50)
 - **Shared covariance** across all classes (Gaussian assumption)
 - **Fast inference**: 10-20ms per trial
 - **Best for**: Well-separated classes (motor imagery, P300)
-- **Mathematical model**: \( p(x|c) = \mathcal{N}(x | \mu_c, \Sigma) \)
+- **Mathematical model**: $ p(x|c) = \mathcal{N}(x | \mu_c, \Sigma) $
 
 ### RxGMM (Reactive Gaussian Mixture Model)
 
@@ -52,7 +52,7 @@ trained_model = train_model(RxGMMModel, training_data; iterations=50)
 - **Class-specific covariances** (more flexible)
 - **Moderate inference**: 15-25ms per trial
 - **Best for**: Overlapping classes, complex distributions
-- **Mathematical model**: \( p(x|c) = \mathcal{N}(x | \mu_c, \Sigma_c) \)
+- **Mathematical model**: $ p(x|c) = \mathcal{N}(x | \mu_c, \Sigma_c) $
 
 ## Model Architecture
 
@@ -71,14 +71,14 @@ Both RxLDA and RxGMM are built on factor graphs with reactive message passing:
 
 Factor graphs represent the joint probability distribution:
 
-\[
+$$
 p(\text{class}, \text{data}) = p(\text{class}) \cdot p(\text{data}|\text{class})
-\]
+$$
 
 **Components:**
-1. **Prior**: \( p(\text{class}) \) - uniform or learned class probabilities
-2. **Likelihood**: \( p(\text{data}|\text{class}) \) - Gaussian distributions
-3. **Posterior**: \( p(\text{class}|\text{data}) \) - computed via message passing
+1. **Prior**: $ p(\text{class}) $ - uniform or learned class probabilities
+2. **Likelihood**: $ p(\text{data}|\text{class}) $ - Gaussian distributions
+3. **Posterior**: $ p(\text{class}|\text{data}) $ - computed via message passing
 
 ### Reactive Message Passing
 
@@ -130,8 +130,8 @@ model = train_model(
 ```
 
 **What happens during training:**
-1. **Initialize parameters**: \( \mu_c, \Sigma \) (RxLDA) or \( \mu_c, \Sigma_c \) (RxGMM)
-2. **E-step**: Compute posterior probabilities \( p(c|x_i) \)
+1. **Initialize parameters**: $ \mu_c, \Sigma $ (RxLDA) or $ \mu_c, \Sigma_c $ (RxGMM)
+2. **E-step**: Compute posterior probabilities $ p(c|x_i) $
 3. **M-step**: Update model parameters to maximize likelihood
 4. **Iterate**: Repeat until convergence
 
@@ -151,9 +151,9 @@ personalized_model = calibrate_model(baseline_model, calib_data; iterations = 20
 ```
 
 **Calibration updates:**
-- **Class means** \( \mu_c \) to match user-specific patterns
-- **Covariance** \( \Sigma \) to reflect user variability
-- **Prior probabilities** \( p(c) \) based on user performance
+- **Class means** $ \mu_c $ to match user-specific patterns
+- **Covariance** $ \Sigma $ to reflect user variability
+- **Prior probabilities** $ p(c) $ based on user performance
 
 ## Inference Modes
 

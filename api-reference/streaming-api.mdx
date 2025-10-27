@@ -16,7 +16,7 @@ Streaming inference allows you to process EEG data in real-time, chunk-by-chunk,
 
 - **Real-time BCI applications**: Wheelchair control, gaming, assistive devices
 - **Online feedback systems**: Neurofeedback, training applications
-- **Low-latency requirements**: Systems requiring <100ms response times
+- **Low-latency requirements**: Systems requiring &lt;100ms response times
 - **Continuous monitoring**: Long-duration BCI sessions
 
 ## How Streaming Works
@@ -406,8 +406,8 @@ end
 |-----------|---------|-------|
 | **Chunk processing** | 10-30ms | RxInfer inference (10 iterations) |
 | **Feature extraction** | 5-20ms | CSP transform, bandpower |
-| **Trial finalization** | <5ms | Aggregate chunk results |
-| **Total (end-to-end)** | <100ms | Including preprocessing |
+| **Trial finalization** | &lt;5ms | Aggregate chunk results |
+| **Total (end-to-end)** | &lt;100ms | Including preprocessing |
 
 <Note>
 All latencies are for local processing. No network calls are made during streaming.
@@ -417,7 +417,7 @@ All latencies are for local processing. No network calls are made during streami
 
 | Aspect | Streaming | Batch |
 |--------|-----------|-------|
-| **Latency** | Low (<100ms per chunk) | Higher (full trial) |
+| **Latency** | Low (&lt;100ms per chunk) | Higher (full trial) |
 | **Use Case** | Real-time BCI | Offline analysis |
 | **Feedback** | Continuous | After trial completion |
 | **Memory** | Low (per-chunk) | Higher (full trials) |
