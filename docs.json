@@ -23,6 +23,16 @@
         ]
       },
       {
+        "group": "API documentation",
+        "pages": [
+          "api-reference/introduction",
+          "api-reference/authentication",
+          "api-reference/inference-endpoints",
+          "api-reference/streaming-api",
+          "api-reference/webhook-integration"
+        ]
+      },
+      {
         "group": "Core concepts",
         "pages": [
           "core-concepts/probabilistic-ai",
@@ -99,16 +109,6 @@
         "pages": [
           "development",
           "development/preprocessing-integration"
-        ]
-      },
-      {
-        "group": "API documentation",
-        "pages": [
-          "api-reference/introduction",
-          "api-reference/authentication",
-          "api-reference/inference-endpoints",
-          "api-reference/streaming-api",
-          "api-reference/webhook-integration"
         ]
       },
       {
