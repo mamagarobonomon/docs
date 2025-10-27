@@ -68,16 +68,6 @@
         ]
       },
       {
-        "group": "Advanced Models (Coming Soon)",
-        "pages": [
-          "models/ar-motor-rhythms",
-          "models/hmm-brain-states",
-          "models/kalman-eeg-filtering",
-          "models/pomdp-control",
-          "models/sensor-fusion"
-        ]
-      },
-      {
         "group": "Examples & tutorials",
         "pages": [
           "examples/basic-examples",
