@@ -164,10 +164,6 @@ Refresh API key credentials and get updated quota information.
 ```json
 {
   "valid": true,
-  "user_id": "usr_1234567890",
-  "email": "researcher@university.edu",
-  "name": "Dr. Jane Smith",
-  "organization": "Neuroscience Lab",
   "license_type": "research",
   "features": [
     "batch_inference",
@@ -196,9 +192,14 @@ Revoke an API key, making it permanently inactive.
 **Request:**
 ```json
 {
-  "api_key": "nbci_live_a1b2c3..."
+  "api_key": "nbci_live_a1b2c3...",
+  "reason": "No longer needed"
 }
 ```
+
+**Request Fields:**
+- `api_key` (required): The API key to revoke
+- `reason` (optional): Reason for revocation (logged for audit purposes)
 
 **Response:**
 ```json
@@ -208,16 +209,115 @@ Revoke an API key, making it permanently inactive.
 }
 ```
 
+**Error Response:**
+```json
+{
+  "error": "API key not found or already revoked",
+  "code": "KEY_NOT_FOUND"
+}
+```
+
+## SDK Installation
+
+### GET /v1/installer/github-token
+
+Get a GitHub access token for installing the proprietary NimbusSDKCore package. This endpoint is used by the `install_core()` function in NimbusSDK.jl.
+
+**Authentication**: Required (API key)
+
+**Request Methods**: GET or POST
+
+**Query Parameters (GET):**
+```bash
+curl "https://api.nimbusbci.com/v1/installer/github-token?api_key=nbci_live_your_key"
+```
+
+**Request Body (POST):**
+```json
+{
+  "api_key": "nbci_live_a1b2c3..."
+}
+```
+
+**Alternative Authentication:**
+You can also provide the API key via header:
+```bash
+curl https://api.nimbusbci.com/v1/installer/github-token \
+  -H "X-API-Key: nbci_live_your_key"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "github_token": "ghp_xxxxxxxxxxxxxxxxxxxx",
+  "expires_at": null,
+  "message": "GitHub token retrieved successfully"
+}
+```
+
+**Response Fields:**
+- `success` (boolean): Whether the request was successful
+- `github_token` (string): Temporary GitHub Personal Access Token for package installation
+- `expires_at` (string|null): Token expiration time (null for non-expiring tokens)
+- `message` (string): Success message
+
+**Error Responses:**
+```json
+{
+  "error": "API key is required",
+  "code": "MISSING_KEY"
+}
+```
+
+```json
+{
+  "error": "Invalid or inactive API key",
+  "code": "INVALID_KEY"
+}
+```
+
+```json
+{
+  "error": "GitHub token not configured",
+  "code": "NOT_CONFIGURED",
+  "message": "GitHub token is not configured on the server. Please contact support."
+}
+```
+
+**Usage in Julia SDK:**
+This endpoint is called automatically by `NimbusSDK.install_core()`:
+
+```julia
+using NimbusSDK
+
+# This internally calls /v1/installer/github-token
+NimbusSDK.install_core("nbci_live_your_key")
+```
+
+<Note>
+**Security**: The GitHub token is temporary and scoped only to read access for the private NimbusSDKCore repository. It cannot be used to access other repositories or perform write operations.
+</Note>
+
+<Warning>
+**Do not share or store the GitHub token**. It is provided temporarily for installation purposes only. The token may be rotated or revoked at any time.
+</Warning>
+
 ## Error Codes
 
 | Code | HTTP Status | Description |
 |------|-------------|-------------|
+| `MISSING_KEY` | 400 | API key not provided |
 | `INVALID_FORMAT` | 400 | API key format is invalid |
+| `MISSING_EVENT_TYPE` | 400 | Event type not provided (analytics endpoint) |
 | `INVALID_KEY` | 401 | API key is invalid or inactive |
 | `KEY_EXPIRED` | 401 | API key has expired |
+| `KEY_NOT_FOUND` | 404 | API key not found (revoke endpoint) |
+| `METHOD_NOT_ALLOWED` | 405 | HTTP method not allowed for this endpoint |
 | `QUOTA_EXCEEDED` | 429 | Monthly usage quota exceeded |
 | `RATE_LIMIT_EXCEEDED` | 429 | Too many requests in short time |
 | `SERVER_ERROR` | 500 | Internal server error |
+| `NOT_CONFIGURED` | 503 | Server configuration issue |
 
 ## Security Best Practices
 

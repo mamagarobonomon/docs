@@ -207,9 +207,24 @@ curl https://api.nimbusbci.com/api/health
 ```json
 {
   "status": "healthy",
-  "version": "1.0.0",
-  "uptime_seconds": 1234567,
-  "timestamp": "2025-10-27T14:30:00Z"
+  "timestamp": "2025-10-27T14:30:00Z",
+  "version": "v1",
+  "database": "connected"
+}
+```
+
+**Response Fields:**
+- `status` (string): API status - `"healthy"` or `"unhealthy"`
+- `timestamp` (string): Current server timestamp (ISO 8601)
+- `version` (string): API version
+- `database` (string): Database connection status - `"connected"` or `"disconnected"`
+
+**Unhealthy Response:**
+```json
+{
+  "status": "unhealthy",
+  "timestamp": "2025-10-27T14:30:00Z",
+  "error": "Health check failed"
 }
 ```
 
@@ -230,19 +245,38 @@ All endpoints return consistent error responses:
 |------|-------------|-------------|
 | `MISSING_KEY` | 400 | API key not provided |
 | `INVALID_FORMAT` | 400 | API key format invalid |
+| `MISSING_EVENT_TYPE` | 400 | Event type not provided (analytics endpoint) |
 | `INVALID_KEY` | 401 | API key is invalid or inactive |
 | `KEY_EXPIRED` | 401 | API key has expired |
+| `KEY_NOT_FOUND` | 404 | API key not found (revoke endpoint) |
+| `METHOD_NOT_ALLOWED` | 405 | HTTP method not allowed |
 | `QUOTA_EXCEEDED` | 429 | Monthly quota limit reached |
 | `RATE_LIMIT_EXCEEDED` | 429 | Too many requests |
 | `SERVER_ERROR` | 500 | Internal server error |
+| `NOT_CONFIGURED` | 503 | Server configuration issue |
 
 ## Rate Limits
 
+All API endpoints implement rate limiting to ensure fair usage and system stability.
+
 | Endpoint | Requests per Minute |
 |----------|-------------------|
+| `/v1/auth/validate` | 100 |
+| `/v1/auth/refresh` | 10 |
+| `/v1/auth/revoke` | 10 |
+| `/v1/installer/github-token` | 20 |
 | `/v1/models/list` | 60 |
 | `/v1/analytics/log` | 1000 |
 | `/api/health` | Unlimited |
+
+**Rate Limit Headers:**
+When you make an API request, the response includes rate limit information in the headers:
+- `X-RateLimit-Limit`: Maximum requests allowed per minute
+- `X-RateLimit-Remaining`: Requests remaining in current window
+- `X-RateLimit-Reset`: Unix timestamp when the limit resets
+
+**Exceeding Limits:**
+If you exceed the rate limit, you'll receive a `429 Too Many Requests` response with a `Retry-After` header indicating when you can retry.
 
 ## Usage Examples
 
