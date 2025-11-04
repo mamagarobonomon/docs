@@ -53,7 +53,7 @@ final_result = finalize_trial(session)
 using NimbusSDK
 
 # 1. Authenticate and load model
-NimbusSDK.authenticate("your-api-key")
+NimbusSDK.install_core("your-api-key")
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")
 
 # 2. Configure streaming metadata
@@ -158,7 +158,7 @@ Fastest response, but ignores trial history. Use for ultra-responsive applicatio
 using NimbusSDK
 
 # Setup
-NimbusSDK.authenticate("your-api-key")
+NimbusSDK.install_core("your-api-key")
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")
 
 metadata = BCIMetadata(

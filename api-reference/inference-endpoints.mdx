@@ -114,7 +114,7 @@ The SDK automatically uses this endpoint when loading pre-trained models:
 using NimbusSDK
 
 # Authenticate
-NimbusSDK.authenticate("nbci_live_your_key")
+NimbusSDK.install_core("nbci_live_your_key")
 
 # Load pre-trained model (SDK calls /v1/models/list internally)
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")
@@ -252,7 +252,7 @@ All endpoints return consistent error responses:
 using NimbusSDK
 
 # 1. Authenticate
-NimbusSDK.authenticate("nbci_live_your_key")
+NimbusSDK.install_core("nbci_live_your_key")
 
 # 2. Load pre-trained model (calls /v1/models/list)
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")

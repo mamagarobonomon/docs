@@ -63,9 +63,9 @@ Add NimbusSDK to your project:
 # Start Julia REPL
 julia --project=.
 
-# Install NimbusSDK
+# Install NimbusSDK from Julia General Registry
 using Pkg
-Pkg.add(url="https://github.com/nimbusbci/NimbusSDK.jl")
+Pkg.add("NimbusSDK")
 
 # Verify installation
 using NimbusSDK
@@ -82,11 +82,11 @@ Set up your API credentials:
 # In Julia
 using NimbusSDK
 
-# Authenticate (stores credentials locally)
-NimbusSDK.authenticate("your-api-key-here")
+# One-time setup (installs core and authenticates)
+NimbusSDK.install_core("your-api-key-here")
 
-# Verify authentication
-println("✓ Authenticated successfully")
+# Verify installation
+println("✓ Core installed successfully")
 ```
 
 **Security Best Practice:**
@@ -101,7 +101,7 @@ export NIMBUS_API_KEY="your-api-key-here"
 ```julia
 # In Julia
 api_key = ENV["NIMBUS_API_KEY"]
-NimbusSDK.authenticate(api_key)
+NimbusSDK.install_core(api_key)
 ```
 
 </Step>
@@ -336,7 +336,7 @@ function run_realtime_bci(model_path::String; duration_seconds::Int=60)
     println("="^60)
     
     # 1. Authenticate
-    NimbusSDK.authenticate(ENV["NIMBUS_API_KEY"])
+    NimbusSDK.install_core(ENV["NIMBUS_API_KEY"])
     
     # 2. Load model
     println("\nLoading model...")

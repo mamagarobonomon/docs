@@ -127,8 +127,8 @@ NimbusSDK.jl currently provides two production-ready Bayesian models:
 ```julia
 using NimbusSDK
 
-# 1. Authenticate
-NimbusSDK.authenticate("nbci_live_your_key")
+# 1. One-time setup: Install core with your API key
+NimbusSDK.install_core("nbci_live_your_key")
 
 # 2. Load pre-trained model
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")
@@ -203,6 +203,10 @@ EEG Hardware → Preprocessing → NimbusSDK.jl → Application
     ```julia
     using Pkg
     Pkg.add("NimbusSDK")
+    
+    # One-time setup: Install core with your API key
+    using NimbusSDK
+    NimbusSDK.install_core("your-api-key")
     ```
   </Step>
   <Step title="Get API Key">
@@ -326,9 +330,9 @@ All measurements on standard CPU (no GPU required).
   <Card
     title="GitHub"
     icon="github"
-    href="https://github.com/nimbusbci"
+    href="https://github.com/nimbusbci/NimbusSDK.jl"
   >
-    NimbusSDK.jl source code and examples
+    NimbusSDK.jl source code, issues, and examples
   </Card>
 </CardGroup>
 

@@ -96,7 +96,7 @@ end
 using NimbusSDK
 
 # Authenticate
-NimbusSDK.authenticate("nbci_live_your_key")
+NimbusSDK.install_core("nbci_live_your_key")
 
 # Load from Nimbus model zoo
 model = load_model(RxGMMModel, "p300_gmm_v1")

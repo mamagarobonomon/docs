@@ -108,7 +108,7 @@ end
 using NimbusSDK
 
 # Authenticate
-NimbusSDK.authenticate("nbci_live_your_key")
+NimbusSDK.install_core("nbci_live_your_key")
 
 # Load from Nimbus model zoo
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")

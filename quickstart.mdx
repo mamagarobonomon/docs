@@ -31,23 +31,30 @@ API keys are typically issued within 24 hours. Include details about your BCI ap
 
 ## Step 2: Install NimbusSDK.jl
 
-Add the Nimbus registry and install the SDK:
+NimbusSDK.jl is now available in the public Julia General Registry:
 
 ```julia
 using Pkg
 
-# Add Nimbus registry (one-time setup)
-Pkg.Registry.add("https://github.com/nimbusbci/NimbusRegistry")
-
-# Install NimbusSDK
+# Install the public wrapper (no private registry needed!)
 Pkg.add("NimbusSDK")
 ```
 
-<Tip>
-If you don't have access to the Nimbus registry, you can install from source:
+After installing the wrapper, install the proprietary core with your API key:
+
 ```julia
-Pkg.add("https://github.com/nimbusbci/NimbusSDK.jl")
+using NimbusSDK
+
+# One-time setup: Install the commercial core
+NimbusSDK.install_core("your-api-key-here")
 ```
+
+<Note>
+**What changed?** NimbusSDK.jl is now a public wrapper package. No more private registry setup! Just `Pkg.add("NimbusSDK")` and then install the core with your API key.
+</Note>
+
+<Tip>
+The core installation is persistent. You only need to run `install_core()` once per machine. After that, simply `using NimbusSDK` will work in any Julia project.
 </Tip>
 
 ## Step 3: Your First BCI Inference
@@ -57,8 +64,8 @@ Create a new Julia script and run your first BCI inference:
 ```julia
 using NimbusSDK
 
-# Step 1: Authenticate with your API key
-NimbusSDK.authenticate("your-api-key-here")
+# Step 1: One-time setup with your API key
+NimbusSDK.install_core("your-api-key-here")
 
 # Step 2: Load a pre-trained RxLDA model
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")
@@ -120,8 +127,8 @@ Train a custom RxLDA model on your labeled data:
 ```julia
 using NimbusSDK
 
-# Authenticate
-NimbusSDK.authenticate("your-api-key")
+# One-time setup: Install core with your API key
+NimbusSDK.install_core("your-api-key")
 
 # Prepare training data (features already preprocessed!)
 train_features = load_your_csp_features()  # (n_features × n_samples × n_trials)
@@ -167,8 +174,10 @@ For real-time applications, use streaming inference:
 ```julia
 using NimbusSDK
 
-# Authenticate and load model
-NimbusSDK.authenticate("your-api-key")
+# One-time setup: Install core with your API key
+NimbusSDK.install_core("your-api-key")
+
+# Load model (core is already installed)
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")
 
 # Initialize streaming session (1 second chunks at 250 Hz)

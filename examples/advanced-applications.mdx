@@ -17,7 +17,7 @@ Train models that generalize across multiple subjects.
 ```julia
 using NimbusSDK
 
-NimbusSDK.authenticate("your-api-key")
+NimbusSDK.install_core("your-api-key")
 
 # Collect data from multiple subjects
 subjects = ["S001", "S002", "S003", "S004", "S005"]
@@ -106,7 +106,7 @@ Combine motor imagery and P300 for robust control.
 ```julia
 using NimbusSDK
 
-NimbusSDK.authenticate("your-api-key")
+NimbusSDK.install_core("your-api-key")
 
 # Load both models
 mi_model = load_model(RxLDAModel, "motor_imagery_4class_v1")
@@ -364,8 +364,8 @@ function run_experiment_session(
     println("Date: $(Dates.now())")
     println("="^60)
     
-    # Authenticate
-    NimbusSDK.authenticate("your-api-key")
+    # Authenticate    
+    NimbusSDK.install_core("your-api-key")
     
     # Load appropriate model
     model = if model_type == :rxlda

@@ -31,7 +31,7 @@ Batch processing trades real-time responsiveness for computational efficiency. U
 using NimbusSDK
 
 # 1. Authenticate
-NimbusSDK.authenticate("your-api-key")
+NimbusSDK.install_core("your-api-key")
 
 # 2. Load model
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")
@@ -86,7 +86,7 @@ Train a custom model on your own labeled data:
 using NimbusSDK
 
 # Authenticate
-NimbusSDK.authenticate("your-api-key")
+NimbusSDK.install_core("your-api-key")
 
 # Prepare training data with labels
 train_features = load_training_features()  # (n_features × n_samples × n_trials)

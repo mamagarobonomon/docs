@@ -36,17 +36,29 @@ Example: `nbci_live_a1b2c3d4e5f678901234567890abcdef12345678901234567890`
 
 ## Authentication in Julia SDK
 
-The NimbusSDK.jl package handles authentication automatically:
+The NimbusSDK.jl package uses a two-step approach:
+
+### One-Time Setup
+
+Install the proprietary core with your API key (one-time setup):
 
 ```julia
 using NimbusSDK
 
-# Authenticate with your API key
-NimbusSDK.authenticate("nbci_live_your_key_here")
+# One-time setup: Downloads core and validates API key
+NimbusSDK.install_core("nbci_live_your_key_here")
 
-# SDK is now authenticated
-# Credentials are cached locally for offline use
+# SDK is now ready to use
+# The core and credentials are cached locally
 ```
+
+<Note>
+**What happens during install_core:**
+1. Validates your API key with the Nimbus API
+2. Downloads the proprietary NimbusSDKCore package
+3. Caches your credentials locally for offline use
+4. You only need to do this once per machine
+</Note>
 
 ### Environment Variables
 
@@ -57,16 +69,19 @@ using NimbusSDK
 
 # Set in shell: export NIMBUS_API_KEY="nbci_live_..."
 api_key = ENV["NIMBUS_API_KEY"]
-NimbusSDK.authenticate(api_key)
+NimbusSDK.install_core(api_key)
 ```
 
-### Offline Mode
+### After Installation
 
-After initial validation, the SDK caches credentials locally:
+Once the core is installed, you can use the SDK in any project without re-authenticating:
 
 ```julia
-# Skip remote validation (uses cached credentials)
-NimbusSDK.authenticate(api_key; offline_mode=true)
+using NimbusSDK
+
+# No authentication needed - already installed!
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+results = predict_batch(model, data)
 ```
 
 ## API Endpoints
@@ -267,7 +282,7 @@ using DotEnv
 DotEnv.config()
 
 # Authenticate and inspect session
-session = NimbusSDK.authenticate(ENV["NIMBUS_API_KEY"])
+session = NimbusSDK.install_core(ENV["NIMBUS_API_KEY"])
 println("License type: $(session.license_type)")
 println("Features: $(session.features_enabled)")
 println("Expires: $(session.expires_at)")
@@ -291,7 +306,7 @@ Track your API usage through the SDK:
 using NimbusSDK
 
 # Check current quota
-session = NimbusSDK.authenticate(api_key)
+session = NimbusSDK.install_core(api_key)
 
 # Usage information is available in the session
 println("Quota remaining: $(session.quota_remaining)")
@@ -354,7 +369,7 @@ using NimbusSDK
 function authenticate_with_retry(api_key; max_retries=3)
     for attempt in 1:max_retries
         try
-            return NimbusSDK.authenticate(api_key)
+            return NimbusSDK.install_core(api_key)
         catch e
             if attempt == max_retries
                 rethrow(e)

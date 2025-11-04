@@ -10,30 +10,43 @@ The NimbusSDK.jl Julia package provides production-ready Bayesian inference for 
 
 ## Installation
 
+NimbusSDK.jl is now available in the public Julia General Registry:
+
 ```julia
 using Pkg
 
-# Add Nimbus registry (one-time setup)
-Pkg.Registry.add("https://github.com/nimbusbci/NimbusRegistry")
-
-# Install NimbusSDK
+# Install the public wrapper (registered package)
 Pkg.add("NimbusSDK")
 ```
+
+After installing the wrapper, install the proprietary core with your license key:
+
+```julia
+using NimbusSDK
+
+# Install the commercial core (one-time setup)
+NimbusSDK.install_core("your-api-key-here")
+```
+
+Get your API key at: [nimbusbci.com/dashboard](https://nimbusbci.com/dashboard)
 
 ### Requirements
 
 - Julia ≥ 1.9
-- RxInfer.jl ≥ 2.12
+- Valid NimbusSDK license key
 - Preprocessed EEG features (CSP, bandpower, etc.) - **not raw EEG**
-- Valid API key for authentication
+
+<Note>
+**What changed?** NimbusSDK.jl is now a public wrapper package in the Julia General Registry. The proprietary inference core (NimbusSDKCore) is automatically installed when you provide your API key. No more private registry setup needed!
+</Note>
 
 ## Quick Start
 
 ```julia
 using NimbusSDK
 
-# Authenticate
-NimbusSDK.authenticate("your-api-key")
+# One-time setup: Install core with your API key
+NimbusSDK.install_core("your-api-key")
 
 # Load model
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")
@@ -45,35 +58,46 @@ data = BCIData(features, metadata, labels)
 results = predict_batch(model, data)
 ```
 
-## Authentication
+## Setup
 
-### authenticate()
+### install_core()
 
-Initialize the SDK with an API key. Validates the key remotely and caches credentials locally.
+Install the proprietary NimbusSDKCore with your API key. This is a **one-time setup** that downloads and configures the commercial inference engine.
 
 ```julia
-authenticate(api_key::String; offline_mode::Bool=false) -> AuthSession
+install_core(api_key::String) -> Bool
 ```
 
 **Parameters:**
-- `api_key::String` - Your NimbusSDK API key
-- `offline_mode::Bool` - If true, skip remote validation and use cached credentials
+- `api_key::String` - Your NimbusSDK API key (format: `nbci_live_...` or `nbci_test_...`)
+
+**Returns:** `true` if installation successful
 
 **Example:**
 ```julia
 using NimbusSDK
 
-session = NimbusSDK.authenticate("nbci_live_...")
-# SDK is now authenticated and ready to use
+# One-time setup (downloads and installs core)
+NimbusSDK.install_core("nbci_live_...")
+
+# After installation, you can use the SDK in any project
+using NimbusSDK
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
 ```
 
-### invalidate_session()
+<Note>
+The core installation is persistent. You only need to run `install_core()` once per machine. After that, simply `using NimbusSDK` will work in any Julia project.
+</Note>
 
-Clear the current authentication session and cached credentials.
+### check_installation()
+
+Verify that the core is installed and working correctly.
 
 ```julia
-invalidate_session()
+check_installation() -> Bool
 ```
+
+**Returns:** `true` if core is installed and operational
 
 ## Models
 
@@ -726,4 +750,6 @@ Returns validation status and any error messages.
 - **Email**: hello@nimbusbci.com
 - **Documentation**: https://docs.nimbusbci.com
 - **GitHub**: https://github.com/nimbusbci/NimbusSDK.jl
+- **Issues**: https://github.com/nimbusbci/NimbusSDK.jl/issues
+
 

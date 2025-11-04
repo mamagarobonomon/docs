@@ -134,7 +134,7 @@ metadata = BCIMetadata(
 bci_data = BCIData(features, metadata, labels)
 
 # Authenticate and run inference
-NimbusSDK.authenticate("your-api-key")
+NimbusSDK.install_core("your-api-key")
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")
 results = predict_batch(model, bci_data)
 

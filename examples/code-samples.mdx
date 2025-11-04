@@ -16,10 +16,10 @@ Complete example for 4-class Motor Imagery classification using RxLDA.
 using NimbusSDK
 using Statistics
 
-# Step 1: Authenticate
-println("Authenticating...")
-NimbusSDK.authenticate("nbci_live_your_api_key_here")
-println("✓ Authentication successful")
+# Step 1: Setup (one-time)
+println("Installing core...")
+NimbusSDK.install_core("nbci_live_your_api_key_here")
+println("✓ Core installation successful")
 
 # Step 2: Load model
 println("\nLoading model...")
@@ -89,8 +89,8 @@ println("="^60)
 println("Training Custom RxLDA Model")
 println("="^60)
 
-# Step 1: Authenticate
-NimbusSDK.authenticate("your-api-key")
+# Step 1: Setup (one-time)
+NimbusSDK.install_core("your-api-key")
 
 # Step 2: Prepare training data
 println("\n1. Loading training data...")

@@ -23,8 +23,8 @@ Classify left vs right hand motor imagery:
 ```julia
 using NimbusSDK
 
-# 1. Authenticate
-NimbusSDK.authenticate("your-api-key")
+# 1. Setup (one-time)
+NimbusSDK.install_core("your-api-key")
 
 # 2. Load pre-trained 2-class model
 model = load_model(RxLDAModel, "motor_imagery_2class_v1")
@@ -66,7 +66,7 @@ Classify left hand, right hand, feet, and tongue movements:
 using NimbusSDK
 
 # Authenticate and load 4-class model
-NimbusSDK.authenticate("your-api-key")
+NimbusSDK.install_core("your-api-key")
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")
 
 # Prepare 4-class data
@@ -105,7 +105,7 @@ Train a model on your own data:
 ```julia
 using NimbusSDK
 
-NimbusSDK.authenticate("your-api-key")
+NimbusSDK.install_core("your-api-key")
 
 # Collect training data
 # Minimum: 50 trials per class recommended
@@ -163,8 +163,8 @@ Detect target vs non-target stimuli:
 ```julia
 using NimbusSDK
 
-# Authenticate and load P300 model
-NimbusSDK.authenticate("your-api-key")
+# Setup and load P300 model
+NimbusSDK.install_core("your-api-key")
 model = load_model(RxLDAModel, "p300_binary_v1")
 
 # Prepare P300 ERP features
@@ -202,7 +202,7 @@ Implement a P300-based speller:
 ```julia
 using NimbusSDK
 
-NimbusSDK.authenticate("your-api-key")
+NimbusSDK.install_core("your-api-key")
 model = load_model(RxLDAModel, "p300_speller_v1")
 
 # Spelling matrix (6x6 for 36 characters)
@@ -258,7 +258,7 @@ Real-time cursor control with streaming inference:
 using NimbusSDK
 
 # Setup
-NimbusSDK.authenticate("your-api-key")
+NimbusSDK.install_core("your-api-key")
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")
 
 metadata = BCIMetadata(
@@ -359,7 +359,7 @@ Personalize a model with minimal calibration data:
 ```julia
 using NimbusSDK
 
-NimbusSDK.authenticate("your-api-key")
+NimbusSDK.install_core("your-api-key")
 
 # Load baseline model
 baseline_model = load_model(RxLDAModel, "motor_imagery_baseline_v1")
@@ -488,7 +488,7 @@ Compare the two models:
 ```julia
 using NimbusSDK
 
-NimbusSDK.authenticate("your-api-key")
+NimbusSDK.install_core("your-api-key")
 
 # Train both models on same data
 println("Training RxLDA...")

@@ -12,66 +12,70 @@ Robust error handling is critical for BCI applications, especially in medical an
 
 ### Authentication Errors
 
-Common authentication-related issues:
+Common installation and setup issues:
 
 ```julia
 using NimbusSDK
 
 # 1. Invalid API Key Format
 try
-    NimbusSDK.authenticate("short_key")  # Too short
+    NimbusSDK.install_core("short_key")  # Too short
 catch e
     # Error: "Invalid API key format. API keys must be at least 20 characters."
-    println("Authentication failed: Please check your API key")
+    println("Installation failed: Please check your API key")
 end
 
-# 2. Expired Credentials (Offline Mode)
-try
-    NimbusSDK.authenticate("your-api-key"; offline_mode=true)
-catch e
-    # Error: "Cached credentials have expired. Please authenticate online."
-    println("Please reconnect to the internet to renew your license")
+# 2. Core Already Installed
+# The core is installed once per machine.
+# To reinstall or update, you can force reinstall:
+if NimbusSDK.is_core_installed()
+    println("Core already installed - no need to reinstall")
+else
+    NimbusSDK.install_core("your-api-key")
 end
 
-# 3. Missing Cached Credentials
+# 3. Network Issues During Installation
 try
-    NimbusSDK.authenticate("your-api-key"; offline_mode=true)
+    NimbusSDK.install_core("your-api-key")
 catch e
-    # Error: "Offline mode requested but no cached credentials found..."
-    println("You must authenticate online at least once")
+    # Error: "Cannot connect to Nimbus API. Please check your internet connection."
+    println("Please check your internet connection and try again")
 end
 ```
 
-**Best Practice: Handle Auth Errors Gracefully**
+**Best Practice: Handle Installation Errors Gracefully**
 
 ```julia
-function safe_authenticate(api_key::String; retry_offline::Bool=true)
-    try
-        # Try online authentication
-        NimbusSDK.authenticate(api_key; offline_mode=false)
-        println("✓ Authenticated successfully")
+function safe_install_core(api_key::String; max_retries::Int=3)
+    # Check if already installed
+    if NimbusSDK.is_core_installed()
+        println("✓ Core already installed")
         return true
-    catch e
-        @warn "Online authentication failed" exception=e
-        
-        if retry_offline
-            println("Attempting offline mode...")
-            try
-                NimbusSDK.authenticate(api_key; offline_mode=true)
-                println("✓ Using cached credentials")
-                return true
-            catch offline_error
-                @error "Offline authentication failed" exception=offline_error
+    end
+    
+    for attempt in 1:max_retries
+        try
+            NimbusSDK.install_core(api_key)
+            println("✓ Core installed successfully")
+            return true
+        catch e
+            @warn "Installation attempt $attempt failed" exception=e
+            if attempt < max_retries
+                sleep_time = 2^attempt  # Exponential backoff
+                println("Retrying in $sleep_time seconds...")
+                sleep(sleep_time)
+            else
+                @error "Installation failed after $max_retries attempts"
                 return false
             end
         end
-        return false
     end
+    return false
 end
 
 # Usage
-if !safe_authenticate("your-api-key")
-    println("❌ Cannot proceed without authentication")
+if !safe_install_core("your-api-key")
+    println("❌ Cannot proceed without core installation")
     exit(1)
 end
 ```
@@ -445,7 +449,7 @@ function production_bci_inference(api_key::String, model_name::String,
                                   features::Array, metadata::BCIMetadata)
     # 1. Authentication
     try
-        NimbusSDK.authenticate(api_key)
+        NimbusSDK.install_core(api_key)
     catch e
         @error "Authentication failed" exception=e
         return nothing
