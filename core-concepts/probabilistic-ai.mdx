@@ -214,7 +214,7 @@ NimbusSDK uses **RxInfer.jl** for efficient Bayesian inference through reactive 
 4. **Automatic inference** - RxInfer generates efficient inference algorithms automatically
 
 <Tip>
-The mathematical details are handled automatically by RxInfer. NimbusSDK provides the RxLDA and RxGMM models pre-configured for optimal BCI performance.
+The mathematical details are handled automatically by RxInfer. NimbusSDK provides the Bayesian LDA (RxLDA) and Bayesian GMM (RxGMM) models pre-configured for optimal BCI performance.
 </Tip>
 
 ### Performance Characteristics
@@ -227,15 +227,19 @@ NimbusSDK achieves:
 
 ### Supported Models
 
-**RxLDA (Linear Discriminant Analysis)**
+**Bayesian LDA (RxLDA) - Pooled Gaussian Classifier**
+- API Name: `RxLDAModel`
 - Shared covariance across classes
 - Fast inference and training
 - Best for well-separated classes
 - Typical accuracy: 70-90% (motor imagery)
 
-**RxGMM (Gaussian Mixture Model)**
+**Bayesian GMM (RxGMM) - Heteroscedastic Gaussian Classifier**
+- API Name: `RxGMMModel`
 - Class-specific covariances
 - More flexible for overlapping distributions
+- Slightly slower than Bayesian LDA
+- Better for complex distributions
 - Handles complex class structures
 - Slightly slower but more robust
 

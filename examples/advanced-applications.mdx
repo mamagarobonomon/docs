@@ -6,7 +6,7 @@ icon: "rocket"
 
 # Advanced BCI Applications
 
-This section demonstrates sophisticated applications of NimbusSDK for complex BCI scenarios. All examples use the actual RxLDA and RxGMM models with real Julia SDK code.
+This section demonstrates sophisticated applications of NimbusSDK for complex BCI scenarios. All examples use the actual Bayesian LDA (RxLDA) and Bayesian GMM (RxGMM) models with real Julia SDK code.
 
 ## Cross-Subject Model Training
 
@@ -54,7 +54,7 @@ train_data = BCIData(
 )
 
 cross_subject_model = train_model(
-    RxLDAModel,  # or RxGMMModel for more flexibility
+    RxLDAModel,  # Bayesian LDA - or use RxGMMModel for Bayesian GMM with more flexibility
     train_data;
     iterations = 75,  # More iterations for larger dataset
     showprogress = true,
@@ -109,8 +109,8 @@ using NimbusSDK
 NimbusSDK.install_core("your-api-key")
 
 # Load both models
-mi_model = load_model(RxLDAModel, "motor_imagery_4class_v1")
-p300_model = load_model(RxLDAModel, "p300_binary_v1")
+mi_model = load_model(RxLDAModel, "motor_imagery_4class_v1")  # Bayesian LDA
+p300_model = load_model(RxLDAModel, "p300_binary_v1")  # Bayesian LDA
 
 struct HybridBCIResult
     mi_prediction::Int
@@ -285,7 +285,7 @@ Update model parameters online based on implicit feedback.
 ```julia
 using NimbusSDK
 
-# Start with baseline model
+# Start with baseline Bayesian LDA model
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")
 
 # Collect online data with implicit labels
@@ -369,9 +369,9 @@ function run_experiment_session(
     
     # Load appropriate model
     model = if model_type == :rxlda
-        load_model(RxLDAModel, "motor_imagery_4class_v1")
+        load_model(RxLDAModel, "motor_imagery_4class_v1")  # Bayesian LDA
     else
-        load_model(RxGMMModel, "motor_imagery_4class_gmm_v1")
+        load_model(RxGMMModel, "motor_imagery_4class_gmm_v1")  # Bayesian GMM
     end
     
     # Collect data
@@ -429,7 +429,7 @@ function run_multi_session_experiment()
         session1 = run_experiment_session(
             subject,
             "$(subject)_session1_rxlda",
-            :rxlda,
+            :rxlda,  # Bayesian LDA
             80
         )
         push!(sessions, session1)
@@ -438,7 +438,7 @@ function run_multi_session_experiment()
         session2 = run_experiment_session(
             subject,
             "$(subject)_session2_rxgmm",
-            :rxgmm,
+            :rxgmm,  # Bayesian GMM
             80
         )
         push!(sessions, session2)
@@ -462,8 +462,8 @@ function run_multi_session_experiment()
     println("\n" * "="^60)
     println("Model Comparison")
     println("="^60)
-    println("RxLDA mean accuracy: $(round(mean(rxlda_accs) * 100, digits=1))% ± $(round(std(rxlda_accs) * 100, digits=1))%")
-    println("RxGMM mean accuracy: $(round(mean(rxgmm_accs) * 100, digits=1))% ± $(round(std(rxgmm_accs) * 100, digits=1))%")
+    println("Bayesian LDA mean accuracy: $(round(mean(rxlda_accs) * 100, digits=1))% ± $(round(std(rxlda_accs) * 100, digits=1))%")
+    println("Bayesian GMM mean accuracy: $(round(mean(rxgmm_accs) * 100, digits=1))% ± $(round(std(rxgmm_accs) * 100, digits=1))%")
     
     return sessions
 end
@@ -633,5 +633,5 @@ end
 ---
 
 <Note>
-All examples use actual NimbusSDK.jl functions and real RxLDA/RxGMM models. These are production-ready patterns used in real BCI applications.
+All examples use actual NimbusSDK.jl functions and real Bayesian LDA (RxLDA) and Bayesian GMM (RxGMM) models. These are production-ready patterns used in real BCI applications.
 </Note>

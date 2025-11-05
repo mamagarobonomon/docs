@@ -104,7 +104,7 @@ train_data = BCIData(
     train_labels  # Labels required for training!
 )
 
-# Train RxLDA model
+# Train Bayesian LDA model
 model = train_model(
     RxLDAModel,
     train_data;
@@ -172,8 +172,8 @@ println("✓ Model calibrated for subject")
 - Calibration: 10-20 trials per class sufficient
 
 **Model selection:**
-- **RxLDA**: Faster, shared covariance, good for well-separated classes
-- **RxGMM**: More flexible, class-specific covariances, better for overlapping classes
+- **Bayesian LDA (RxLDA)**: Faster, shared covariance, good for well-separated classes
+- **Bayesian GMM (RxGMM)**: More flexible, class-specific covariances, better for overlapping classes
 
 **Iteration count:**
 - Training: 50-100 iterations (default: 50)

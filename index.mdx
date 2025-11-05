@@ -42,7 +42,7 @@ Brain-Computer Interfaces face unique challenges: noisy neural signals, inherent
     icon="zap"
     href="/core-concepts/probabilistic-ai"
   >
-    RxLDA and RxGMM models with 10-20ms inference latency using RxInfer.jl reactive message passing
+    Bayesian LDA and Bayesian GMM models with 10-20ms inference latency using RxInfer.jl reactive message passing
   </Card>
   <Card
     title="Training & Calibration"
@@ -73,18 +73,18 @@ NimbusSDK.jl currently provides two production-ready Bayesian models:
 
 <CardGroup cols={2}>
   <Card
-    title="RxLDA"
+    title="Bayesian LDA (RxLDA)"
     icon="brain"
     href="/models/rxlda"
   >
-    **Linear Discriminant Analysis** with shared covariance. Fast (10-15ms), efficient, ideal for well-separated classes like motor imagery.
+    **Bayesian Linear Discriminant Analysis** with shared covariance. Fast (10-15ms), efficient, ideal for well-separated classes like motor imagery. API name: `RxLDAModel`.
   </Card>
   <Card
-    title="RxGMM"
+    title="Bayesian GMM (RxGMM)"
     icon="brain"
     href="/models/rxgmm"
   >
-    **Gaussian Mixture Model** with class-specific covariances. More flexible (15-25ms), better for overlapping distributions like P300.
+    **Bayesian Gaussian Mixture Model** with class-specific covariances. More flexible (15-25ms), better for overlapping distributions like P300. API name: `RxGMMModel`.
   </Card>
 </CardGroup>
 

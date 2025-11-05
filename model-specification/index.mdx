@@ -6,15 +6,18 @@ icon: "box"
 
 # Probabilistic Model Specification
 
-NimbusSDK provides **pre-built probabilistic models** (RxLDA and RxGMM) powered by [RxInfer.jl](https://github.com/ReactiveBayes/RxInfer.jl), a reactive message passing framework for efficient Bayesian inference.
+NimbusSDK provides **pre-built probabilistic models** (Bayesian LDA and Bayesian GMM) powered by [RxInfer.jl](https://github.com/ReactiveBayes/RxInfer.jl), a reactive message passing framework for efficient Bayesian inference.
 
 <Note>
-**Current Status**: NimbusSDK provides **ready-to-use models** (RxLDA, RxGMM) rather than a custom model specification language. This page documents the conceptual foundations and future directions.
+**Current Status**: NimbusSDK provides **ready-to-use models** (Bayesian LDA / RxLDA and Bayesian GMM / RxGMM) rather than a custom model specification language. This page documents the conceptual foundations and future directions.
 </Note>
 
 ## Available Models
 
-### RxLDA (Reactive Linear Discriminant Analysis)
+### Bayesian LDA (RxLDA)
+
+**API Name**: `RxLDAModel`  
+**Mathematical Model**: Pooled Gaussian Classifier (PGC)
 
 A probabilistic classifier using Bayesian LDA with reactive message passing:
 
@@ -29,12 +32,15 @@ trained_model = train_model(RxLDAModel, training_data; iterations=50)
 ```
 
 **Characteristics:**
-- **Shared covariance** across all classes (Gaussian assumption)
+- **Shared covariance** across all classes (Pooled Gaussian Classifier)
 - **Fast inference**: 10-20ms per trial
 - **Best for**: Well-separated classes (motor imagery, P300)
 - **Mathematical model**: $ p(x|c) = \mathcal{N}(x | \mu_c, \Sigma) $
 
-### RxGMM (Reactive Gaussian Mixture Model)
+### Bayesian GMM (RxGMM)
+
+**API Name**: `RxGMMModel`  
+**Mathematical Model**: Heteroscedastic Gaussian Classifier (HGC)
 
 A more flexible classifier with class-specific covariances:
 
@@ -49,14 +55,14 @@ trained_model = train_model(RxGMMModel, training_data; iterations=50)
 ```
 
 **Characteristics:**
-- **Class-specific covariances** (more flexible)
+- **Class-specific covariances** (Heteroscedastic Gaussian Classifier)
 - **Moderate inference**: 15-25ms per trial
 - **Best for**: Overlapping classes, complex distributions
 - **Mathematical model**: $ p(x|c) = \mathcal{N}(x | \mu_c, \Sigma_c) $
 
 ## Model Architecture
 
-Both RxLDA and RxGMM are built on factor graphs with reactive message passing:
+Both Bayesian LDA and Bayesian GMM are built on factor graphs with reactive message passing:
 
 ```
         Prior               Likelihood            Posterior

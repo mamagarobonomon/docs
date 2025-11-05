@@ -1,20 +1,23 @@
 ---
-title: "RxGMM Model"
-description: "Gaussian Mixture Model with class-specific covariances using RxInfer.jl"
+title: "Bayesian GMM (RxGMM)"
+description: "Bayesian Gaussian Mixture Model with class-specific covariances using RxInfer.jl"
 icon: "brain"
 ---
 
-# RxGMM - Bayesian Gaussian Mixture Model
+# Bayesian GMM (RxGMM) - Bayesian Gaussian Mixture Model
 
-RxGMM (Reactive Gaussian Mixture Model) is a Bayesian classification model with **class-specific covariance matrices**, making it more flexible than RxLDA for modeling complex class distributions. Implemented using RxInfer.jl's reactive message passing.
+**API Name**: `RxGMMModel`  
+**Mathematical Model**: Heteroscedastic Gaussian Classifier (HGC)
+
+Bayesian GMM (also known as RxGMM in the codebase) is a Bayesian classification model with **class-specific covariance matrices**, making it more flexible than Bayesian LDA for modeling complex class distributions. Implemented using RxInfer.jl's reactive message passing.
 
 <Note>
-**RxGMM is currently implemented** in NimbusSDK.jl and ready for production BCI applications.
+**Bayesian GMM (RxGMM) is currently implemented** in NimbusSDK.jl and ready for production BCI applications. GMM is widely recognized in machine learning, and "Bayesian" signals our uncertainty quantification and posterior probability outputs.
 </Note>
 
 ## Overview
 
-RxGMM extends beyond traditional Gaussian classifiers by allowing each class to have its own covariance structure:
+Bayesian GMM extends beyond traditional Gaussian classifiers by allowing each class to have its own covariance structure:
 
 - ✅ **Class-specific covariances** (unlike RxLDA's shared covariance)
 - ✅ **More flexible modeling** of heterogeneous distributions
@@ -23,26 +26,26 @@ RxGMM extends beyond traditional Gaussian classifiers by allowing each class to 
 - ✅ **Training and calibration** support
 - ✅ **Batch and streaming** inference modes
 
-### When to Use RxGMM
+### When to Use Bayesian GMM
 
-**RxGMM is ideal for:**
+**Bayesian GMM is ideal for:**
 - Complex, overlapping class distributions
 - Classes with significantly different variances
 - P300 detection (target/non-target with different spreads)
-- When RxLDA accuracy is unsatisfactory
+- When Bayesian LDA accuracy is unsatisfactory
 - When you need maximum flexibility
 
-**Use [RxLDA](/models/rxlda) instead if:**
+**Use [Bayesian LDA](/models/rxlda) instead if:**
 - Classes are well-separated and have similar spreads
-- Speed is critical (RxLDA is faster)
-- Training data is limited (RxLDA needs less data)
-- Memory is constrained (RxLDA uses less memory)
+- Speed is critical (Bayesian LDA is faster)
+- Training data is limited (Bayesian LDA needs less data)
+- Memory is constrained (Bayesian LDA uses less memory)
 
 ## Model Architecture
 
-### Mathematical Foundation
+### Mathematical Foundation (Heteroscedastic Gaussian Classifier)
 
-RxGMM models class-conditional distributions with **class-specific precision matrices**:
+Bayesian GMM implements a Heteroscedastic Gaussian Classifier (HGC), which models class-conditional distributions with **class-specific precision matrices**:
 
 ```
 p(x | y=k) = N(μ_k, W_k^-1)
@@ -53,7 +56,7 @@ Where:
 - `W_k` = **class-specific** precision matrix (different for each class)
 - Allows different covariance structures per class
 
-**Key Difference from RxLDA**: Each class can have its own covariance structure, making the model more flexible but also more parameter-heavy.
+**Key Difference from Bayesian LDA**: Each class can have its own covariance structure, making the model more flexible but also more parameter-heavy.
 
 ### Model Structure
 
@@ -213,12 +216,12 @@ println("Final: pred=$(final_result.prediction), conf=$(round(final_result.confi
 - **For calibration**: 10-20 trials per class
 
 <Warning>
-**RxGMM requires at least 2 observations per class** to estimate class-specific statistics. Training will fail if any class has fewer than 2 observations.
+**Bayesian GMM requires at least 2 observations per class** to estimate class-specific statistics. Training will fail if any class has fewer than 2 observations.
 </Warning>
 
 ### Feature Requirements
 
-RxGMM expects **preprocessed features**, not raw EEG:
+Bayesian GMM expects **preprocessed features**, not raw EEG:
 
 ✅ **Required preprocessing:**
 - Bandpass filtering (paradigm-specific)
@@ -247,14 +250,14 @@ Slightly slower than RxLDA due to class-specific covariances.
 
 ### Classification Accuracy
 
-| Paradigm | Classes | Typical Accuracy | When to Use RxGMM |
+| Paradigm | Classes | Typical Accuracy | When to Use Bayesian GMM |
 |----------|---------|------------------|-------------------|
 | P300 | 2 (Target/Non-target) | 85-95% | Target/non-target have different variances |
-| Motor Imagery | 2-4 | 70-85% | When RxLDA accuracy insufficient |
+| Motor Imagery | 2-4 | 70-85% | When Bayesian LDA accuracy insufficient |
 | SSVEP | 2-6 | 85-98% | Complex frequency responses |
 
 <Note>
-RxGMM typically provides 2-5% higher accuracy than RxLDA when class covariances differ significantly, at the cost of ~5-10ms additional latency.
+Bayesian GMM typically provides 2-5% higher accuracy than Bayesian LDA when class covariances differ significantly, at the cost of ~5-10ms additional latency.
 </Note>
 
 ## Model Inspection
@@ -312,11 +315,12 @@ end
 ❌ **Higher Memory**: Stores n_classes precision matrices  
 ❌ **More Complex**: Longer training time  
 
-## Comparison: RxGMM vs RxLDA
+## Comparison: Bayesian GMM vs Bayesian LDA
 
-| Aspect | RxGMM | RxLDA |
+| Aspect | Bayesian GMM (RxGMM) | Bayesian LDA (RxLDA) |
 |--------|-------|-------|
 | **Precision Matrix** | Class-specific | Shared (one for all) |
+| **Mathematical Model** | Heteroscedastic Gaussian Classifier (HGC) | Pooled Gaussian Classifier (PGC) |
 | **Training Speed** | Slower | Faster |
 | **Inference Speed** | 15-25ms | 10-15ms |
 | **Flexibility** | High | Moderate |
@@ -329,10 +333,10 @@ end
 
 ```
 Is speed critical (&lt;15ms)?
-├─ Yes → Use RxLDA
+├─ Yes → Use Bayesian LDA
 └─ No → Do classes have similar spreads?
-    ├─ Yes → Use RxLDA (faster, same accuracy)
-    └─ No → Use RxGMM (more accurate)
+    ├─ Yes → Use Bayesian LDA (faster, same accuracy)
+    └─ No → Use Bayesian GMM (more accurate)
 ```
 
 ## Practical Examples
@@ -340,7 +344,7 @@ Is speed critical (&lt;15ms)?
 ### P300 Detection
 
 ```julia
-# RxGMM is ideal for P300 where target/non-target have different variances
+# Bayesian GMM is ideal for P300 where target/non-target have different variances
 
 # Train on P300 data
 p300_data = BCIData(erp_features, p300_metadata, labels)  # 1=target, 2=non-target
@@ -360,22 +364,22 @@ println("Sensitivity: $(round(sensitivity * 100, digits=1))%")
 println("Specificity: $(round(specificity * 100, digits=1))%")
 ```
 
-### When RxLDA Fails
+### When Bayesian LDA Fails
 
 ```julia
-# Try RxLDA first
+# Try Bayesian LDA first
 rxlda_model = train_model(RxLDAModel, train_data)
 rxlda_results = predict_batch(rxlda_model, test_data)
 rxlda_acc = sum(rxlda_results.predictions .== test_labels) / length(test_labels)
 
-# If accuracy insufficient, try RxGMM
+# If accuracy insufficient, try Bayesian GMM
 if rxlda_acc < 0.75
-    println("RxLDA accuracy low ($(round(rxlda_acc*100, digits=1))%), trying RxGMM...")
+    println("Bayesian LDA accuracy low ($(round(rxlda_acc*100, digits=1))%), trying Bayesian GMM...")
     rxgmm_model = train_model(RxGMMModel, train_data)
     rxgmm_results = predict_batch(rxgmm_model, test_data)
     rxgmm_acc = sum(rxgmm_results.predictions .== test_labels) / length(test_labels)
     
-    println("RxGMM accuracy: $(round(rxgmm_acc*100, digits=1))%")
+    println("Bayesian GMM accuracy: $(round(rxgmm_acc*100, digits=1))%")
     println("Improvement: +$(round((rxgmm_acc-rxlda_acc)*100, digits=1))%")
 end
 ```
@@ -383,7 +387,7 @@ end
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="RxLDA Model" icon="brain" href="/models/rxlda">
+  <Card title="Bayesian LDA (RxLDA)" icon="brain" href="/models/rxlda">
     Faster model with shared covariance
   </Card>
   <Card title="Training Guide" icon="graduation-cap" href="/examples/advanced-applications">
@@ -406,6 +410,7 @@ end
 **Theory:**
 - McLachlan, G. J., & Peel, D. (2000). "Finite Mixture Models"
 - Bishop, C. M. (2006). "Pattern Recognition and Machine Learning" (Chapter 9)
+- Heteroscedastic Gaussian Classifier (HGC) with class-specific covariances
 
 **BCI Applications:**
 - Farwell, L. A., & Donchin, E. (1988). "Talking off the top of your head"

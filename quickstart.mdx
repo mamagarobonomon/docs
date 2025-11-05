@@ -218,17 +218,23 @@ end
 
 NimbusSDK includes two Bayesian inference models:
 
-### RxLDA (Linear Discriminant Analysis)
+### Bayesian LDA (RxLDA)
+**API Name**: `RxLDAModel`  
+**Mathematical Model**: Pooled Gaussian Classifier (PGC)
+
 - **Shared covariance** across classes
 - Fast inference and training
 - Best for well-separated classes
 - Typical training time: 10-30 seconds (50 iterations, 100 trials)
 
-### RxGMM (Gaussian Mixture Model)
+### Bayesian GMM (RxGMM)
+**API Name**: `RxGMMModel`  
+**Mathematical Model**: Heteroscedastic Gaussian Classifier (HGC)
+
 - **Class-specific covariances**
 - More flexible, handles overlapping distributions
 - Better for complex class structures
-- Slightly slower than RxLDA
+- Slightly slower than Bayesian LDA
 
 <Note>
 Both models use **RxInfer.jl** for efficient variational Bayesian inference with reactive message passing.
@@ -242,11 +248,11 @@ Now that you have NimbusSDK running, explore these advanced features:
   <Card title="Julia SDK Reference" icon="code" href="/api-reference/julia-sdk">
     Complete SDK documentation with all functions and types
   </Card>
-  <Card title="RxLDA Model" icon="brain" href="/models/rxlda">
-    Learn about the RxLDA model in detail
+  <Card title="Bayesian LDA (RxLDA)" icon="brain" href="/models/rxlda">
+    Learn about the Bayesian LDA model in detail
   </Card>
-  <Card title="RxGMM Model" icon="brain" href="/models/rxgmm">
-    Learn about the RxGMM model in detail
+  <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
+    Learn about the Bayesian GMM model in detail
   </Card>
   <Card title="Preprocessing Guide" icon="cog" href="/inference-configuration/preprocessing-requirements">
     Critical guide on preparing your EEG data

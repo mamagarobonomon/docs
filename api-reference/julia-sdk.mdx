@@ -6,7 +6,7 @@ icon: "code"
 
 # NimbusSDK.jl - Julia SDK Reference
 
-The NimbusSDK.jl Julia package provides production-ready Bayesian inference for Brain-Computer Interface (BCI) applications. Built on **RxInfer.jl**, it offers two models (RxLDA and RxGMM) with batch and streaming inference capabilities.
+The NimbusSDK.jl Julia package provides production-ready Bayesian inference for Brain-Computer Interface (BCI) applications. Built on **RxInfer.jl**, it offers two models (Bayesian LDA and Bayesian GMM) with batch and streaming inference capabilities.
 
 ## Installation
 
@@ -105,6 +105,10 @@ NimbusSDK provides two Bayesian inference models:
 
 ### RxLDAModel
 
+**Primary Name**: Bayesian LDA (Bayesian Linear Discriminant Analysis)  
+**API Name**: `RxLDAModel`  
+**Mathematical Model**: Pooled Gaussian Classifier (PGC)
+
 Linear Discriminant Analysis with shared precision matrix. Fast inference with good performance for well-separated classes.
 
 **Fields:**
@@ -114,6 +118,10 @@ Linear Discriminant Analysis with shared precision matrix. Fast inference with g
 - `metadata::ModelMetadata` - Model metadata
 
 ### RxGMMModel
+
+**Primary Name**: Bayesian GMM (Bayesian Gaussian Mixture Model)  
+**API Name**: `RxGMMModel`  
+**Mathematical Model**: Heteroscedastic Gaussian Classifier (HGC)
 
 Gaussian Mixture Model with class-specific covariance matrices. More flexible, handles overlapping distributions.
 
@@ -725,11 +733,11 @@ Returns validation status and any error messages.
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="RxLDA Model" icon="brain" href="/models/rxlda">
-    Detailed documentation for RxLDA
+  <Card title="Bayesian LDA (RxLDA)" icon="brain" href="/models/rxlda">
+    Detailed documentation for Bayesian LDA
   </Card>
-  <Card title="RxGMM Model" icon="brain" href="/models/rxgmm">
-    Detailed documentation for RxGMM
+  <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
+    Detailed documentation for Bayesian GMM
   </Card>
   <Card title="Preprocessing Guide" icon="cog" href="/inference-configuration/preprocessing-requirements">
     How to prepare your EEG data

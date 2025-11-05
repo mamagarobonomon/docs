@@ -108,7 +108,7 @@ Benefits:
 - Medium Dynamics (100ms): Motor planning  
 - Fast Dynamics (10ms): Neural oscillations
 
-RxLDA and RxGMM handle temporal structure through proper feature aggregation and trial-level inference.
+Bayesian LDA (RxLDA) and Bayesian GMM (RxGMM) handle temporal structure through proper feature aggregation and trial-level inference.
 
 ### Multi-modal Integration
 
@@ -170,11 +170,11 @@ BCI signals can have extreme values. RxInfer handles this robustly:
 - **Adaptive precision**: Use appropriate numerical types
 - **Regularization**: Prevent degenerate solutions
 
-## RxLDA and RxGMM Models
+## Bayesian LDA and Bayesian GMM Models
 
 ### Model Structure
 
-Both RxLDA and RxGMM use factor graph representations:
+Both Bayesian LDA (RxLDA) and Bayesian GMM (RxGMM) use factor graph representations:
 
 **RxLDA**: Linear Discriminant Analysis
 - Gaussian observations with shared precision matrix

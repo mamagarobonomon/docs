@@ -1,20 +1,23 @@
 ---
-title: "RxLDA Model"
-description: "Linear Discriminant Analysis with Bayesian inference using RxInfer.jl"
+title: "Bayesian LDA (RxLDA)"
+description: "Bayesian Linear Discriminant Analysis with uncertainty quantification using RxInfer.jl"
 icon: "brain"
 ---
 
-# RxLDA - Bayesian Linear Discriminant Analysis
+# Bayesian LDA (RxLDA) - Bayesian Linear Discriminant Analysis
 
-RxLDA (Reactive Linear Discriminant Analysis) is a Bayesian classification model implemented using RxInfer.jl's reactive message passing framework. It uses a **shared precision matrix** across all classes, making it fast and efficient for BCI classification.
+**API Name**: `RxLDAModel`  
+**Mathematical Model**: Pooled Gaussian Classifier (PGC)
+
+Bayesian LDA (also known as RxLDA in the codebase) is a Bayesian classification model with uncertainty quantification, implemented using RxInfer.jl's reactive message passing framework. It uses a **shared precision matrix** across all classes, making it fast and efficient for BCI classification.
 
 <Note>
-**RxLDA is currently implemented** in NimbusSDK.jl and ready for use in production BCI applications.
+**Bayesian LDA (RxLDA) is currently implemented** in NimbusSDK.jl and ready for use in production BCI applications. LDA is widely recognized in the BCI community, and "Bayesian" signals our uncertainty quantification capabilities.
 </Note>
 
 ## Overview
 
-RxLDA extends traditional Linear Discriminant Analysis with full Bayesian inference, providing:
+Bayesian LDA extends traditional Linear Discriminant Analysis with full Bayesian inference, providing:
 
 - ✅ **Posterior probability distributions** (not just point estimates)
 - ✅ **Uncertainty quantification** for each prediction
@@ -23,25 +26,25 @@ RxLDA extends traditional Linear Discriminant Analysis with full Bayesian infere
 - ✅ **Training and calibration** support
 - ✅ **Batch and streaming** inference modes
 
-### When to Use RxLDA
+### When to Use Bayesian LDA
 
-**RxLDA is ideal for:**
+**Bayesian LDA is ideal for:**
 - Motor Imagery classification (2-4 classes)
 - Well-separated class distributions
 - Fast inference requirements (&lt;20ms)
 - Interpretable results for medical applications
 - When classes have similar covariance structures
 
-**Consider [RxGMM](/models/rxgmm) instead if:**
+**Consider [Bayesian GMM](/models/rxgmm) instead if:**
 - Classes have significantly different covariance structures
 - Complex, overlapping distributions
 - Need more flexibility in modeling per-class variances
 
 ## Model Architecture
 
-### Mathematical Foundation
+### Mathematical Foundation (Pooled Gaussian Classifier)
 
-RxLDA models class-conditional distributions with a shared precision matrix:
+Bayesian LDA implements a Pooled Gaussian Classifier (PGC), which models class-conditional distributions with a shared precision matrix:
 
 ```
 p(x | y=k) = N(μ_k, W^-1)
@@ -67,7 +70,7 @@ end
 
 ### RxInfer Implementation
 
-The model uses RxInfer.jl for variational Bayesian inference:
+The Bayesian LDA model uses RxInfer.jl for variational Bayesian inference:
 
 **Learning Phase:**
 ```julia
@@ -245,12 +248,12 @@ println("Final: pred=$(final_result.prediction), conf=$(round(final_result.confi
 - **For calibration**: 10-20 trials per class sufficient
 
 <Warning>
-**RxLDA requires at least 2 observations** to estimate class statistics and shared precision matrix. Single-trial training will raise an error.
+**Bayesian LDA requires at least 2 observations** to estimate class statistics and shared precision matrix. Single-trial training will raise an error.
 </Warning>
 
 ### Feature Requirements
 
-RxLDA expects **preprocessed features**, not raw EEG:
+Bayesian LDA expects **preprocessed features**, not raw EEG:
 
 ✅ **Required preprocessing:**
 - Bandpass filtering (8-30 Hz for motor imagery)
@@ -345,11 +348,12 @@ end
 ❌ **Gaussian Assumption**: Assumes normal class distributions  
 ❌ **Not Ideal for Overlapping Classes**: Use RxGMM for complex distributions  
 
-## Comparison: RxLDA vs RxGMM
+## Comparison: Bayesian LDA vs Bayesian GMM
 
-| Aspect | RxLDA | RxGMM |
+| Aspect | Bayesian LDA (RxLDA) | Bayesian GMM (RxGMM) |
 |--------|-------|-------|
 | **Precision Matrix** | Shared across all classes | Class-specific |
+| **Mathematical Model** | Pooled Gaussian Classifier (PGC) | Heteroscedastic Gaussian Classifier (HGC) |
 | **Training Speed** | Faster | Slower |
 | **Inference Speed** | Faster (~10-15ms) | Slightly slower (~15-20ms) |
 | **Flexibility** | Less flexible | More flexible |
@@ -357,13 +361,13 @@ end
 | **Memory** | Lower | Higher |
 | **Parameters** | Fewer (n_classes means + 1 precision) | More (n_classes means + precisions) |
 
-**Rule of thumb**: Start with RxLDA. Switch to RxGMM if accuracy is unsatisfactory.
+**Rule of thumb**: Start with Bayesian LDA. Switch to Bayesian GMM if accuracy is unsatisfactory.
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="RxGMM Model" icon="brain" href="/models/rxgmm">
-    More flexible Gaussian Mixture Model
+  <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
+    More flexible Gaussian Mixture Model with class-specific covariances
   </Card>
   <Card title="Training Tutorial" icon="graduation-cap" href="/examples/advanced-applications">
     Complete training walkthrough
@@ -385,6 +389,7 @@ end
 **Theory:**
 - Fisher, R. A. (1936). "The use of multiple measurements in taxonomic problems"
 - Bishop, C. M. (2006). "Pattern Recognition and Machine Learning" (Chapter 4)
+- Pooled Gaussian Classifier (PGC) with shared covariance structure
 
 **BCI Applications:**
 - Blankertz et al. (2008). "Optimizing spatial filters for robust EEG single-trial analysis"
