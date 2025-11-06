@@ -62,6 +62,18 @@ cross_subject_model = train_model(
     description = "Motor imagery trained on 5 subjects"
 )
 
+# Optional: Fine-tune hyperparameters for multi-subject data (v0.2.0+)
+# cross_subject_model = train_model(
+#     RxLDAModel,
+#     train_data;
+#     iterations = 75,
+#     showprogress = true,
+#     name = "cross_subject_5subj_tuned",
+#     description = "Motor imagery trained on 5 subjects with tuned hyperparameters",
+#     dof_offset = 2,                 # Standard regularization
+#     mean_prior_precision = 0.02     # Slightly stronger prior for multi-subject data
+# )
+
 save_model(cross_subject_model, "cross_subject_model.jld2")
 ```
 

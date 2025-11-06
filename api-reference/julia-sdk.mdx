@@ -175,7 +175,11 @@ train_model(
     iterations::Int = 50,
     showprogress::Bool = false,
     name::String = "untitled_model",
-    description::String = ""
+    description::String = "",
+    dof_offset::Int = 2,
+    mean_prior_precision::Float64 = 0.01,
+    predictive_mean_prior::Float64 = 1e6,
+    predictive_dof_offset::Int = 2
 ) -> Model
 ```
 
@@ -187,8 +191,25 @@ train_model(
 - `name::String` - Model name (default: "untitled_model")
 - `description::String` - Model description (default: "")
 
+**Hyperparameters (v0.2.0+):**
+- `dof_offset::Int` - Degrees of freedom offset for Wishart priors (default: 2, range: [1, 5])
+  - Lower values (1) = less regularization, more data-driven
+  - Higher values (3-5) = more regularization, more conservative
+- `mean_prior_precision::Float64` - Prior precision for class means (default: 0.01, range: [0.001, 0.1])
+  - Lower values = weaker prior, trusts data more
+  - Higher values = stronger prior, more regularization
+- `predictive_mean_prior::Float64` - Mean prior strength during inference (default: 1e6, range: [1e4, 1e8])
+  - Very high values indicate strong trust in learned parameters
+- `predictive_dof_offset::Int` - DOF offset for inference (default: 2, range: [1, 5])
+  - Should typically match `dof_offset` for consistency
+
+<Note>
+**New in v0.2.0**: Hyperparameter configuration allows fine-tuning model behavior for your specific dataset. All hyperparameters are optional with sensible defaults.
+</Note>
+
 **Example:**
 ```julia
+# Train with default hyperparameters
 model = train_model(
     RxLDAModel,
     train_data;
@@ -196,6 +217,20 @@ model = train_model(
     showprogress = true,
     name = "my_motor_imagery_model",
     description = "4-class motor imagery with CSP"
+)
+
+# Train with custom hyperparameters (v0.2.0+)
+model = train_model(
+    RxLDAModel,
+    train_data;
+    iterations = 50,
+    showprogress = true,
+    name = "my_tuned_model",
+    description = "4-class MI with tuned hyperparameters",
+    dof_offset = 3,                    # More regularization for noisy data
+    mean_prior_precision = 0.05,       # Stronger prior
+    predictive_mean_prior = 1e6,
+    predictive_dof_offset = 3
 )
 ```
 
@@ -216,10 +251,16 @@ calibrate_model(
 - `calib_data::BCIData` - Calibration data with labels
 - `iterations::Int` - Number of calibration iterations (default: 20)
 
+<Note>
+**Hyperparameters preserved (v0.2.0+)**: `calibrate_model()` automatically uses the same hyperparameters (`dof_offset`, `mean_prior_precision`, etc.) as the base model. You cannot override them during calibration.
+</Note>
+
 **Example:**
 ```julia
 base_model = load_model(RxLDAModel, "motor_imagery_baseline_v1")
 personalized_model = calibrate_model(base_model, calib_data; iterations=20)
+
+# The personalized model inherits all hyperparameters from base_model
 ```
 
 ## Data Structures

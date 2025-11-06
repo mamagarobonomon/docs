@@ -159,6 +159,18 @@ model = train_model(
     description = "4-class motor imagery with CSP"
 )
 
+# Optional: Tune hyperparameters for optimal performance (v0.2.0+)
+# model = train_model(
+#     RxLDAModel,
+#     train_data;
+#     iterations = 50,
+#     showprogress = true,
+#     name = "my_tuned_model",
+#     description = "4-class MI with tuned hyperparameters",
+#     dof_offset = 2,                    # Regularization strength (default: 2)
+#     mean_prior_precision = 0.01        # Prior strength (default: 0.01)
+# )
+
 # Save the trained model
 save_model(model, "my_custom_model.jld2")
 
@@ -166,6 +178,10 @@ save_model(model, "my_custom_model.jld2")
 test_data = BCIData(test_features, metadata)
 results = predict_batch(model, test_data)
 ```
+
+<Tip>
+**New in v0.2.0**: You can now fine-tune model hyperparameters (`dof_offset`, `mean_prior_precision`) to optimize performance for your specific dataset. See the [model documentation](/models/rxlda#hyperparameter-tuning-v020) for detailed tuning guidance.
+</Tip>
 
 ## Step 5: Streaming Inference
 

@@ -129,6 +129,20 @@ model = train_model(
     description = "4-class motor imagery with CSP"
 )
 
+# Or train with custom hyperparameters (v0.2.0+)
+# model = train_model(
+#     RxLDAModel,
+#     train_data;
+#     iterations = 50,
+#     showprogress = true,
+#     name = "my_motor_imagery_tuned",
+#     description = "4-class MI with tuned hyperparameters",
+#     dof_offset = 2,
+#     mean_prior_precision = 0.01,
+#     predictive_mean_prior = 1e6,
+#     predictive_dof_offset = 2
+# )
+
 println("\n✓ Model trained successfully")
 println("  Model name: $(model.metadata.name)")
 
@@ -224,6 +238,159 @@ acc_personalized = sum(test_results_personalized.predictions .== test_labels) / 
 println("  Baseline accuracy: $(round(acc_baseline * 100, digits=1))%")
 println("  Personalized accuracy: $(round(acc_personalized * 100, digits=1))%")
 println("  Improvement: +$(round((acc_personalized - acc_baseline) * 100, digits=1))%")
+```
+
+## Hyperparameter Tuning (v0.2.0+)
+
+Example of tuning model hyperparameters for optimal performance.
+
+```julia
+using NimbusSDK
+using Statistics
+
+println("="^60)
+println("Hyperparameter Tuning for Different Scenarios")
+println("="^60)
+
+# Prepare data
+train_data = BCIData(train_features, metadata, train_labels)
+
+# Scenario 1: High SNR / Clean Data / Many Trials
+println("\n1. High SNR Configuration (clean data, many trials)")
+model_high_snr = train_model(
+    RxLDAModel,
+    train_data;
+    iterations = 50,
+    name = "high_snr_model",
+    dof_offset = 1,                    # Less regularization
+    mean_prior_precision = 0.001,      # Weaker prior, trust data
+    predictive_mean_prior = 1e6,
+    predictive_dof_offset = 1,
+    showprogress = false
+)
+
+results_high_snr = predict_batch(model_high_snr, test_data)
+acc_high_snr = sum(results_high_snr.predictions .== test_labels) / length(test_labels)
+println("  Accuracy: $(round(acc_high_snr * 100, digits=1))%")
+println("  Best for: SNR > 5 dB, 100+ trials/class, clean data")
+
+# Scenario 2: Low SNR / Noisy Data / Few Trials
+println("\n2. Low SNR Configuration (noisy data, few trials)")
+model_low_snr = train_model(
+    RxLDAModel,
+    train_data;
+    iterations = 50,
+    name = "low_snr_model",
+    dof_offset = 3,                    # More regularization
+    mean_prior_precision = 0.05,       # Stronger prior
+    predictive_mean_prior = 1e6,
+    predictive_dof_offset = 3,
+    showprogress = false
+)
+
+results_low_snr = predict_batch(model_low_snr, test_data)
+acc_low_snr = sum(results_low_snr.predictions .== test_labels) / length(test_labels)
+println("  Accuracy: $(round(acc_low_snr * 100, digits=1))%")
+println("  Best for: SNR < 2 dB, 40-80 trials/class, noisy data")
+
+# Scenario 3: Balanced / Default (recommended starting point)
+println("\n3. Balanced Configuration (default, most scenarios)")
+model_balanced = train_model(
+    RxLDAModel,
+    train_data;
+    iterations = 50,
+    name = "balanced_model",
+    dof_offset = 2,                    # Balanced (default)
+    mean_prior_precision = 0.01,       # Balanced (default)
+    predictive_mean_prior = 1e6,
+    predictive_dof_offset = 2,
+    showprogress = false
+)
+
+results_balanced = predict_batch(model_balanced, test_data)
+acc_balanced = sum(results_balanced.predictions .== test_labels) / length(test_labels)
+println("  Accuracy: $(round(acc_balanced * 100, digits=1))%")
+println("  Best for: SNR 2-5 dB, 80-150 trials/class, standard conditions")
+
+# Scenario 4: Grid Search for Optimal Hyperparameters
+println("\n4. Grid Search for Optimal Hyperparameters")
+println("  Searching over dof_offset and mean_prior_precision...")
+
+# Split data for validation
+n_total = length(train_labels)
+n_train = Int(floor(0.8 * n_total))
+train_idx = 1:n_train
+val_idx = (n_train+1):n_total
+
+train_subset = BCIData(
+    train_features[:, :, train_idx],
+    metadata,
+    train_labels[train_idx]
+)
+
+val_subset = BCIData(
+    train_features[:, :, val_idx],
+    metadata,
+    train_labels[val_idx]
+)
+
+# Define search grid
+dof_values = [1, 2, 3, 4]
+prior_values = [0.001, 0.01, 0.05]
+
+best_accuracy = 0.0
+best_params = nothing
+
+for dof in dof_values
+    for prior in prior_values
+        # Train
+        model = train_model(
+            RxLDAModel,
+            train_subset;
+            iterations = 50,
+            dof_offset = dof,
+            mean_prior_precision = prior,
+            predictive_dof_offset = dof,
+            showprogress = false
+        )
+        
+        # Validate
+        results = predict_batch(model, val_subset)
+        accuracy = sum(results.predictions .== val_subset.labels) / length(val_subset.labels)
+        
+        println("    dof=$dof, prior=$prior: $(round(accuracy*100, digits=1))%")
+        
+        if accuracy > best_accuracy
+            best_accuracy = accuracy
+            best_params = (dof=dof, prior=prior)
+        end
+    end
+end
+
+println("\n  Best hyperparameters found:")
+println("    dof_offset: $(best_params.dof)")
+println("    mean_prior_precision: $(best_params.prior)")
+println("    Validation accuracy: $(round(best_accuracy*100, digits=1))%")
+
+# Retrain on full dataset with best hyperparameters
+println("\n5. Retraining with best hyperparameters on full dataset...")
+final_model = train_model(
+    RxLDAModel,
+    train_data;
+    iterations = 50,
+    name = "optimized_model",
+    dof_offset = best_params.dof,
+    mean_prior_precision = best_params.prior,
+    predictive_dof_offset = best_params.dof,
+    showprogress = true
+)
+
+# Test optimized model
+final_results = predict_batch(final_model, test_data)
+final_accuracy = sum(final_results.predictions .== test_labels) / length(test_labels)
+
+println("\n✓ Final optimized model test accuracy: $(round(final_accuracy*100, digits=1))%")
+println("="^60)
 ```
 
 ## Streaming Inference

@@ -57,6 +57,37 @@ Where:
 
 **Key Assumption**: All classes share the same covariance structure, which makes training and inference faster.
 
+### Hyperparameters (v0.2.0+)
+
+Bayesian LDA supports configurable hyperparameters for optimal performance tuning:
+
+**Available Hyperparameters:**
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `dof_offset` | Int | 2 | [1, 5] | Degrees of freedom offset for Wishart prior |
+| `mean_prior_precision` | Float64 | 0.01 | [0.001, 0.1] | Prior precision for class means |
+| `predictive_mean_prior` | Float64 | 1e6 | [1e4, 1e8] | Mean prior strength during inference |
+| `predictive_dof_offset` | Int | 2 | [1, 5] | DOF offset for inference (should match `dof_offset`) |
+
+**Parameter Effects:**
+
+- **dof_offset**: Controls regularization strength
+  - Lower values (1) → More data-driven, less regularization
+  - Higher values (3-5) → More regularization, more conservative
+  
+- **mean_prior_precision**: Controls prior strength on class means
+  - Lower values (0.001) → Weaker prior, trusts data more
+  - Higher values (0.05-0.1) → Stronger prior, more regularization
+
+- **predictive_mean_prior**: Very high values (1e6) indicate strong trust in learned parameters during inference
+
+- **predictive_dof_offset**: Should typically match `dof_offset` for consistency
+
+<Note>
+**New in v0.2.0**: Hyperparameter configuration allows you to optimize model behavior for your specific dataset characteristics (SNR, trial count, data quality).
+</Note>
+
 ### Model Structure
 
 ```julia
@@ -65,6 +96,10 @@ struct RxLDAModel <: BCIModel
     precisions::Vector{Matrix{Float64}}       # Precision matrices (all equal to W)
     global_precision::Matrix{Float64}         # Shared precision W
     metadata::ModelMetadata                   # Model info
+    dof_offset::Int                          # Degrees of freedom offset
+    mean_prior_precision::Float64            # Mean prior precision
+    predictive_mean_prior::Float64           # Predictive mean prior
+    predictive_dof_offset::Int               # Predictive DOF offset
 end
 ```
 
@@ -144,7 +179,7 @@ train_data = BCIData(
     train_labels  # Required for training!
 )
 
-# Train RxLDA model
+# Train RxLDA model with default hyperparameters
 model = train_model(
     RxLDAModel,
     train_data;
@@ -152,6 +187,20 @@ model = train_model(
     showprogress = true,    # Show progress bar
     name = "my_motor_imagery",
     description = "4-class MI classifier with CSP"
+)
+
+# Or train with custom hyperparameters (v0.2.0+)
+model = train_model(
+    RxLDAModel,
+    train_data;
+    iterations = 50,
+    showprogress = true,
+    name = "my_motor_imagery_tuned",
+    description = "4-class MI with tuned hyperparameters",
+    dof_offset = 2,                    # DOF offset (default: 2)
+    mean_prior_precision = 0.01,       # Prior precision (default: 0.01)
+    predictive_mean_prior = 1e6,       # Inference prior (default: 1e6)
+    predictive_dof_offset = 2          # Inference DOF (default: 2)
 )
 
 # Save for later use
@@ -165,6 +214,10 @@ save_model(model, "my_model.jld2")
 - `showprogress`: Display progress bar during training
 - `name`: Model identifier
 - `description`: Model description for documentation
+- `dof_offset`: Degrees of freedom offset (default: 2, range: [1, 5]) - **v0.2.0+**
+- `mean_prior_precision`: Prior precision for means (default: 0.01, range: [0.001, 0.1]) - **v0.2.0+**
+- `predictive_mean_prior`: Inference prior strength (default: 1e6, range: [1e4, 1e8]) - **v0.2.0+**
+- `predictive_dof_offset`: Inference DOF offset (default: 2, range: [1, 5]) - **v0.2.0+**
 
 ### 3. Subject-Specific Calibration
 
@@ -195,6 +248,7 @@ save_model(personalized_model, "subject_001_calibrated.jld2")
 - Faster: 20 iterations vs 50-100
 - Better generalization: Uses pre-trained model as prior
 - Typical accuracy improvement: 5-15% over generic model
+- **Hyperparameters preserved**: `calibrate_model()` automatically uses the same hyperparameters as the base model (v0.2.0+)
 
 ### 4. Batch Inference
 
@@ -238,6 +292,165 @@ end
 final_result = finalize_trial(session; method=:weighted_vote)
 println("Final: pred=$(final_result.prediction), conf=$(round(final_result.confidence, digits=3))")
 ```
+
+## Hyperparameter Tuning (v0.2.0+)
+
+Fine-tune Bayesian LDA for optimal performance on your specific dataset.
+
+### When to Tune Hyperparameters
+
+Consider tuning when:
+- Default performance is unsatisfactory
+- You have specific data characteristics (very noisy or very clean)
+- You have limited or extensive training data
+- You want to optimize for your specific paradigm
+
+### Tuning Strategies
+
+#### For High SNR / Clean Data / Many Trials
+
+Use lower regularization to let the data drive the model:
+
+```julia
+model = train_model(
+    RxLDAModel,
+    train_data;
+    iterations = 50,
+    dof_offset = 1,                    # Less regularization
+    mean_prior_precision = 0.001,      # Weaker prior, trust data more
+    predictive_mean_prior = 1e6,       # Standard inference prior
+    predictive_dof_offset = 1          # Match dof_offset
+)
+```
+
+**Use when:**
+- SNR > 5 dB
+- 100+ trials per class
+- Clean, artifact-free data
+- Well-controlled experimental conditions
+
+#### For Low SNR / Noisy Data / Few Trials
+
+Use higher regularization for stability:
+
+```julia
+model = train_model(
+    RxLDAModel,
+    train_data;
+    iterations = 50,
+    dof_offset = 3,                    # More regularization
+    mean_prior_precision = 0.05,       # Stronger prior
+    predictive_mean_prior = 1e6,       # Standard inference prior
+    predictive_dof_offset = 3          # Match dof_offset
+)
+```
+
+**Use when:**
+- SNR < 2 dB
+- 40-80 trials per class
+- Noisy data or limited artifact removal
+- Challenging recording conditions
+
+#### Balanced / Default Settings
+
+The defaults work well for most scenarios:
+
+```julia
+model = train_model(
+    RxLDAModel,
+    train_data;
+    iterations = 50,
+    dof_offset = 2,                    # Balanced (default)
+    mean_prior_precision = 0.01,       # Balanced (default)
+    predictive_mean_prior = 1e6,       # Standard (default)
+    predictive_dof_offset = 2          # Balanced (default)
+)
+```
+
+**Use when:**
+- Moderate SNR (2-5 dB)
+- 80-150 trials per class
+- Standard BCI recording conditions
+- Starting point for experimentation
+
+### Hyperparameter Search Example
+
+Systematically search for optimal hyperparameters:
+
+```julia
+using NimbusSDK
+
+# Define search grid
+dof_values = [1, 2, 3, 4]
+prior_values = [0.001, 0.01, 0.05, 0.1]
+
+# Split data into train/validation
+train_data, val_data = split_data(all_data, ratio=0.8)
+
+best_accuracy = 0.0
+best_params = nothing
+
+println("Searching hyperparameters...")
+for dof in dof_values
+    for prior in prior_values
+        # Train model with these hyperparameters
+        model = train_model(
+            RxLDAModel,
+            train_data;
+            iterations = 50,
+            dof_offset = dof,
+            mean_prior_precision = prior,
+            predictive_dof_offset = dof,
+            showprogress = false
+        )
+        
+        # Validate
+        results = predict_batch(model, val_data)
+        accuracy = sum(results.predictions .== val_data.labels) / length(val_data.labels)
+        
+        println("  dof=$dof, prior=$prior: $(round(accuracy*100, digits=1))%")
+        
+        # Track best
+        if accuracy > best_accuracy
+            best_accuracy = accuracy
+            best_params = (dof=dof, prior=prior)
+        end
+    end
+end
+
+println("\nBest hyperparameters:")
+println("  dof_offset: $(best_params.dof)")
+println("  mean_prior_precision: $(best_params.prior)")
+println("  Validation accuracy: $(round(best_accuracy*100, digits=1))%")
+
+# Retrain on all data with best hyperparameters
+final_model = train_model(
+    RxLDAModel,
+    all_data;
+    iterations = 50,
+    dof_offset = best_params.dof,
+    mean_prior_precision = best_params.prior,
+    predictive_dof_offset = best_params.dof
+)
+```
+
+### Quick Tuning Guidelines
+
+| Scenario | `dof_offset` | `mean_prior_precision` | Notes |
+|----------|--------------|------------------------|-------|
+| **Excellent data quality** | 1 | 0.001 | Minimal regularization |
+| **Good data quality** | 2 (default) | 0.01 (default) | Balanced approach |
+| **Moderate data quality** | 2-3 | 0.01-0.03 | Slight regularization |
+| **Poor data quality** | 3-4 | 0.05-0.1 | Strong regularization |
+| **Very limited trials** | 4 | 0.1 | Maximum regularization |
+
+<Tip>
+**Pro Tip**: Start with defaults (`dof_offset=2`, `mean_prior_precision=0.01`) and only tune if performance is unsatisfactory. The defaults are optimized for typical BCI scenarios.
+</Tip>
+
+<Note>
+**Important**: Always set `predictive_dof_offset` to match `dof_offset` for consistency between training and inference phases.
+</Note>
 
 ## Training Requirements
 
