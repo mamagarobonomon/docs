@@ -68,7 +68,7 @@ Bayesian LDA supports configurable hyperparameters for optimal performance tunin
 | `dof_offset` | Int | 2 | [1, 5] | Degrees of freedom offset for Wishart prior |
 | `mean_prior_precision` | Float64 | 0.01 | [0.001, 0.1] | Prior precision for class means |
 | `predictive_mean_prior` | Float64 | 1e6 | [1e4, 1e8] | Mean prior strength during inference |
-| `predictive_dof_offset` | Int | 2 | [1, 5] | DOF offset for inference (should match `dof_offset`) |
+| `predictive_dof_offset` | Int | 2 | [1, 5] | DOF offset for inference (must equal `dof_offset`) |
 
 **Parameter Effects:**
 
@@ -82,7 +82,7 @@ Bayesian LDA supports configurable hyperparameters for optimal performance tunin
 
 - **predictive_mean_prior**: Very high values (1e6) indicate strong trust in learned parameters during inference
 
-- **predictive_dof_offset**: Should typically match `dof_offset` for consistency
+- **predictive_dof_offset**: Must match `dof_offset` (enforced by validation)
 
 <Note>
 **New in v0.2.0**: Hyperparameter configuration allows you to optimize model behavior for your specific dataset characteristics (SNR, trial count, data quality).
@@ -109,34 +109,44 @@ The Bayesian LDA model uses RxInfer.jl for variational Bayesian inference:
 
 **Learning Phase:**
 ```julia
-@model function RxLDA_learning_model(y, labels, n_features, n_classes)
+@model function RxLDA_learning_model(y, labels, n_features, n_classes, dof_offset, mean_prior_precision)
     # Prior on shared precision
-    dof = n_features + 5
+    dof = n_features + dof_offset
     W ~ Wishart(dof, I)
     
     # Priors on class means
     for k in 1:n_classes
-        m[k] ~ MvNormal(0, 10*I)
+        m[k] ~ MvNormal(mean=zeros(n_features), precision=mean_prior_precision * I)
     end
     
-    # Likelihood
+    # Likelihood with known labels
     for i in eachindex(y)
         k = labels[i]
-        y[i] ~ MvNormal(m[k], inv(W))
+        y[i] ~ MvNormal(mean=m[k], precision=W)
     end
 end
 ```
 
-**Prediction Phase:**
+**Prediction Phase (Per-Class Likelihood):**
+
+To avoid mixture collapse with single observations, inference computes per-class likelihoods independently:
+
 ```julia
-@model function RxLDA_predictive(y, means, precisions)
-    # Class assignment
-    z ~ Categorical(uniform_priors)
+@model function RxLDA_predictive_single_class(y, class_mean, class_precision, predictive_mean_prior, predictive_dof_offset)
+    n_features = length(class_mean)
     
-    # Mixture model
-    y ~ NormalMixture(means, precisions, z)
+    # Prior for this specific class
+    m ~ MvNormalMeanPrecision(class_mean, predictive_mean_prior * I)
+    w ~ Wishart(n_features + predictive_dof_offset, class_precision)
+    
+    # Observations (no mixture variable)
+    for i in eachindex(y)
+        y[i] ~ MvNormal(mean=m, precision=w)
+    end
 end
 ```
+
+For each class k, compute p(y | μ_k, W) independently, then combine using Bayes' rule with softmax normalization.
 
 ## Usage
 
@@ -217,7 +227,7 @@ save_model(model, "my_model.jld2")
 - `dof_offset`: Degrees of freedom offset (default: 2, range: [1, 5]) - **v0.2.0+**
 - `mean_prior_precision`: Prior precision for means (default: 0.01, range: [0.001, 0.1]) - **v0.2.0+**
 - `predictive_mean_prior`: Inference prior strength (default: 1e6, range: [1e4, 1e8]) - **v0.2.0+**
-- `predictive_dof_offset`: Inference DOF offset (default: 2, range: [1, 5]) - **v0.2.0+**
+- `predictive_dof_offset`: Inference DOF offset (default: 2, range: [1, 5], **must equal `dof_offset`**) - **v0.2.0+**
 
 ### 3. Subject-Specific Calibration
 
@@ -248,7 +258,11 @@ save_model(personalized_model, "subject_001_calibrated.jld2")
 - Faster: 20 iterations vs 50-100
 - Better generalization: Uses pre-trained model as prior
 - Typical accuracy improvement: 5-15% over generic model
-- **Hyperparameters preserved**: `calibrate_model()` automatically uses the same hyperparameters as the base model (v0.2.0+)
+- **Hyperparameters automatically preserved**: `calibrate_model()` inherits all hyperparameters from the base model (`dof_offset`, `mean_prior_precision`, `predictive_mean_prior`, `predictive_dof_offset`) ensuring consistency (v0.2.0+)
+
+<Note>
+**Important**: You don't need to specify hyperparameters when calibrating - they are automatically inherited from the base model. This ensures the calibrated model uses the same regularization strategy that worked well during initial training.
+</Note>
 
 ### 4. Batch Inference
 
@@ -448,9 +462,9 @@ final_model = train_model(
 **Pro Tip**: Start with defaults (`dof_offset=2`, `mean_prior_precision=0.01`) and only tune if performance is unsatisfactory. The defaults are optimized for typical BCI scenarios.
 </Tip>
 
-<Note>
-**Important**: Always set `predictive_dof_offset` to match `dof_offset` for consistency between training and inference phases.
-</Note>
+<Warning>
+**Required**: You must set `predictive_dof_offset` to match `dof_offset`. The SDK enforces this constraint and will raise an `ArgumentError` if they differ. This ensures consistency between training and inference phases.
+</Warning>
 
 ## Training Requirements
 
@@ -461,7 +475,9 @@ final_model = train_model(
 - **For calibration**: 10-20 trials per class sufficient
 
 <Warning>
-**Bayesian LDA requires at least 2 observations** to estimate class statistics and shared precision matrix. Single-trial training will raise an error.
+**Bayesian LDA requires at least 2 trials** to estimate class statistics and shared precision matrix. Single-trial training is not statistically valid for LDA and will raise an `ArgumentError`.
+
+Your training data must have shape `(n_features, n_samples, n_trials)` where `n_trials >= 2`.
 </Warning>
 
 ### Feature Requirements
@@ -473,6 +489,7 @@ Bayesian LDA expects **preprocessed features**, not raw EEG:
 - Artifact removal (ICA recommended)
 - Spatial filtering (CSP for motor imagery)
 - Feature extraction (log-variance for CSP features)
+- **Temporal aggregation** (handled automatically during training/inference)
 
 ❌ **NOT accepted:**
 - Raw EEG channels
@@ -480,6 +497,19 @@ Bayesian LDA expects **preprocessed features**, not raw EEG:
 - Non-extracted features
 
 See [Preprocessing Requirements](/inference-configuration/preprocessing-requirements) for details.
+
+### Temporal Aggregation
+
+<Warning>
+**Critical Preprocessing Step**: Before training, the SDK automatically aggregates the temporal dimension of each trial into a single feature vector. This prevents treating temporally correlated samples as independent observations, which would violate the i.i.d. assumption of the model.
+</Warning>
+
+The aggregation method depends on your feature type and paradigm:
+- **CSP features**: Log-variance aggregation (default for motor imagery)
+- **Power spectral features**: Mean or median aggregation
+- **Other features**: Configurable via `BCIMetadata.temporal_aggregation`
+
+This aggregation happens automatically during `train_model()` and `predict_batch()` calls.
 
 ## Performance Characteristics
 
