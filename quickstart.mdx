@@ -232,7 +232,7 @@ end
 
 ## Available Models
 
-NimbusSDK includes two Bayesian inference models:
+NimbusSDK includes three Bayesian inference models:
 
 ### Bayesian LDA (RxLDA)
 **API Name**: `RxLDAModel`  
@@ -252,8 +252,17 @@ NimbusSDK includes two Bayesian inference models:
 - Better for complex class structures
 - Slightly slower than Bayesian LDA
 
+### RxPolya
+**API Name**: `RxPolyaModel`  
+**Mathematical Model**: Bayesian Multinomial Probit Regression
+
+- **Continuous transition mapping** to latent space
+- Most flexible for complex multinomial tasks
+- Works in (K-1) dimensional space
+- Ideal for advanced BCI applications
+
 <Note>
-Both models use **RxInfer.jl** for efficient variational Bayesian inference with reactive message passing.
+All models use **RxInfer.jl** for efficient variational Bayesian inference with reactive message passing.
 </Note>
 
 ## Next Steps
@@ -269,6 +278,9 @@ Now that you have NimbusSDK running, explore these advanced features:
   </Card>
   <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
     Learn about the Bayesian GMM model in detail
+  </Card>
+  <Card title="RxPolya" icon="brain" href="/models/rxpolya">
+    Learn about the Bayesian Multinomial Probit Regression model
   </Card>
   <Card title="Preprocessing Guide" icon="cog" href="/inference-configuration/preprocessing-requirements">
     Critical guide on preparing your EEG data

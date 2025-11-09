@@ -70,7 +70,8 @@
         "group": "BCI Models",
         "pages": [
           "models/rxlda",
-          "models/rxgmm"
+          "models/rxgmm",
+          "models/rxpolya"
         ]
       },
       {

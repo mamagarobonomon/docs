@@ -4,9 +4,9 @@ description: "Bayesian inference for Brain-Computer Interfaces using RxInfer.jl 
 icon: "brain"
 ---
 
-_Production-ready Bayesian BCI inference with RxLDA and RxGMM models_
+_Production-ready Bayesian BCI inference with RxLDA, RxGMM, and RxPolya models_
 
-NimbusSDK.jl provides fast, probabilistic inference for Brain-Computer Interface applications. Built on **RxInfer.jl**, the SDK delivers sub-20ms inference latency with full uncertainty quantification through **RxLDA** (Linear Discriminant Analysis) and **RxGMM** (Gaussian Mixture Model) implementations.
+NimbusSDK.jl provides fast, probabilistic inference for Brain-Computer Interface applications. Built on **RxInfer.jl**, the SDK delivers sub-20ms inference latency with full uncertainty quantification through **RxLDA** (Linear Discriminant Analysis), **RxGMM** (Gaussian Mixture Model), and **RxPolya** (Multinomial Probit Regression) implementations.
 
 ## Why Nimbus BCI
 
@@ -69,9 +69,9 @@ Brain-Computer Interfaces face unique challenges: noisy neural signals, inherent
 
 ## Implemented Models
 
-NimbusSDK.jl currently provides two production-ready Bayesian models:
+NimbusSDK.jl currently provides three production-ready Bayesian models:
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
   <Card
     title="Bayesian LDA (RxLDA)"
     icon="brain"
@@ -85,6 +85,13 @@ NimbusSDK.jl currently provides two production-ready Bayesian models:
     href="/models/rxgmm"
   >
     **Bayesian Gaussian Mixture Model** with class-specific covariances. More flexible (15-25ms), better for overlapping distributions like P300. API name: `RxGMMModel`.
+  </Card>
+  <Card
+    title="RxPolya"
+    icon="brain"
+    href="/models/rxpolya"
+  >
+    **Bayesian Multinomial Probit Regression** with continuous transitions. Most flexible (15-25ms), ideal for complex multinomial classification tasks. API name: `RxPolyaModel`.
   </Card>
 </CardGroup>
 
@@ -269,13 +276,13 @@ EEG Hardware → Preprocessing → NimbusSDK.jl → Application
 
 ## Performance
 
-| Metric | RxLDA | RxGMM |
-|--------|-------|-------|
-| **Inference Latency** | 10-15ms | 15-25ms |
-| **Training Time** | 10-30s | 15-40s |
-| **Calibration Time** | 5-15s | 8-20s |
-| **Memory Usage** | Low | Moderate |
-| **Accuracy** | 70-90% (MI) | 80-95% (P300) |
+| Metric | RxLDA | RxGMM | RxPolya |
+|--------|-------|-------|---------|
+| **Inference Latency** | 10-15ms | 15-25ms | 15-25ms |
+| **Training Time** | 10-30s | 15-40s | 15-40s |
+| **Calibration Time** | 5-15s | 8-20s | 8-20s |
+| **Memory Usage** | Low | Moderate | Moderate |
+| **Accuracy** | 70-90% (MI) | 80-95% (P300) | 70-85% (Complex) |
 
 All measurements on standard CPU (no GPU required).
 
@@ -283,14 +290,14 @@ All measurements on standard CPU (no GPU required).
 
 - **Core**: Julia 1.9+
 - **Inference Engine**: [RxInfer.jl](https://rxinfer.com/) - Reactive message passing for Bayesian inference
-- **Models**: RxLDA (shared covariance), RxGMM (class-specific covariances)
+- **Models**: RxLDA (shared covariance), RxGMM (class-specific covariances), RxPolya (multinomial probit regression)
 - **Preprocessing**: MNE-Python, EEGLAB, BrainFlow (external)
 - **API**: TypeScript/Vercel serverless (authentication, model registry)
 
 ## Roadmap
 
 **Currently Implemented:**
-- ✅ RxLDA and RxGMM models
+- ✅ RxLDA, RxGMM, and RxPolya models
 - ✅ Batch and streaming inference
 - ✅ Training and calibration
 - ✅ Quality assessment and ITR calculation

@@ -6,7 +6,7 @@ icon: "code"
 
 # NimbusSDK.jl - Julia SDK Reference
 
-The NimbusSDK.jl Julia package provides production-ready Bayesian inference for Brain-Computer Interface (BCI) applications. Built on **RxInfer.jl**, it offers two models (Bayesian LDA and Bayesian GMM) with batch and streaming inference capabilities.
+The NimbusSDK.jl Julia package provides production-ready Bayesian inference for Brain-Computer Interface (BCI) applications. Built on **RxInfer.jl**, it offers three models (Bayesian LDA, Bayesian GMM, and RxPolya) with batch and streaming inference capabilities.
 
 ## Installation
 
@@ -101,7 +101,7 @@ check_installation() -> Bool
 
 ## Models
 
-NimbusSDK provides two Bayesian inference models:
+NimbusSDK provides three Bayesian inference models:
 
 ### RxLDAModel
 
@@ -130,6 +130,21 @@ Gaussian Mixture Model with class-specific covariance matrices. More flexible, h
 - `precisions::Vector` - Vector of precision matrices or Wishart distributions
 - `metadata::ModelMetadata` - Model metadata
 
+### RxPolyaModel
+
+**Primary Name**: RxPolya (Bayesian Multinomial Probit Regression)  
+**API Name**: `RxPolyaModel`  
+**Mathematical Model**: Bayesian Multinomial Probit Regression
+
+Bayesian multinomial probit regression with continuous transitions. Most flexible for complex multinomial classification tasks.
+
+**Fields:**
+- `B_posterior` - Learned regression coefficients posterior
+- `W_posterior` - Learned precision matrix posterior
+- `metadata::ModelMetadata` - Model metadata
+- `N::Int` - Number of trials per observation
+- Hyperparameters: `ξβ`, `Wβ`, `W_df`, `W_scale`
+
 ### load_model()
 
 Load a pre-trained or custom model.
@@ -140,7 +155,7 @@ load_model(ModelType, filepath::String) -> Model
 ```
 
 **Parameters:**
-- `ModelType` - `RxLDAModel` or `RxGMMModel`
+- `ModelType` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
 - `model_name::String` - Model identifier or filepath
 
 **Example:**
@@ -161,7 +176,7 @@ save_model(model, filepath::String)
 ```
 
 **Parameters:**
-- `model` - `RxLDAModel` or `RxGMMModel`
+- `model` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
 - `filepath::String` - File path to save model (typically `.jld2` format)
 
 ### train_model()
@@ -184,7 +199,7 @@ train_model(
 ```
 
 **Parameters:**
-- `ModelType` - `RxLDAModel` or `RxGMMModel`
+- `ModelType` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
 - `train_data::BCIData` - Labeled training data (must include labels!)
 - `iterations::Int` - Number of inference iterations (default: 50)
 - `showprogress::Bool` - Show training progress (default: false)
@@ -330,7 +345,7 @@ predict_batch(
 ```
 
 **Parameters:**
-- `model` - `RxLDAModel` or `RxGMMModel`
+- `model` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
 - `data::BCIData` - Data to predict (labels optional)
 - `iterations::Int` - Number of inference iterations (default: 10)
 
@@ -779,6 +794,9 @@ Returns validation status and any error messages.
   </Card>
   <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
     Detailed documentation for Bayesian GMM
+  </Card>
+  <Card title="RxPolya" icon="brain" href="/models/rxpolya">
+    Detailed documentation for RxPolya
   </Card>
   <Card title="Preprocessing Guide" icon="cog" href="/inference-configuration/preprocessing-requirements">
     How to prepare your EEG data
