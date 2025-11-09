@@ -275,7 +275,7 @@ personalized = calibrate_model(baseline, calib_data)
 
 ### Current: Gaussian Assumptions
 
-RxLDA and RxGMM assume Gaussian feature distributions:
+Bayesian LDA (RxLDA) and Bayesian GMM (RxGMM) assume Gaussian feature distributions:
 
 $$
 p(x|c) = \mathcal{N}(x | \mu_c, \Sigma_c)
@@ -378,7 +378,7 @@ If you need features not in NimbusSDK:
 
 <CardGroup cols={2}>
   <Card title="Current Models" icon="brain" href="/model-specification/index">
-    Learn about RxLDA and RxGMM
+    Learn about Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian MPR (RxPolya)
   </Card>
   <Card title="Working Examples" icon="code" href="/examples/code-samples">
     See current SDK in action
@@ -394,5 +394,5 @@ If you need features not in NimbusSDK:
 ---
 
 <Note>
-**Philosophy**: NimbusSDK prioritizes **proven, production-ready techniques** (RxLDA, RxGMM) over experimental methods. Advanced features will be added incrementally as they mature and demonstrate clear benefits for real-world BCI applications.
+**Philosophy**: NimbusSDK prioritizes **proven, production-ready techniques** (Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), Bayesian MPR (RxPolya)) over experimental methods. Advanced features will be added incrementally as they mature and demonstrate clear benefits for real-world BCI applications.
 </Note>
