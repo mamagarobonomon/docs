@@ -135,6 +135,7 @@ bci_data = BCIData(features, metadata, labels)
 
 # Authenticate and run inference
 NimbusSDK.install_core("your-api-key")
+# Choose model type based on your needs: RxLDAModel, RxGMMModel, or RxPolyaModel
 model = load_model(RxLDAModel, "motor_imagery_4class_v1")
 results = predict_batch(model, bci_data)
 
