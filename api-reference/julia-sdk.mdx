@@ -6,7 +6,7 @@ icon: "code"
 
 # NimbusSDK.jl - Julia SDK Reference
 
-The NimbusSDK.jl Julia package provides production-ready Bayesian inference for Brain-Computer Interface (BCI) applications. Built on **RxInfer.jl**, it offers three models (Bayesian LDA, Bayesian GMM, and RxPolya) with batch and streaming inference capabilities.
+The NimbusSDK.jl Julia package provides production-ready Bayesian inference for Brain-Computer Interface (BCI) applications. Built on **RxInfer.jl**, it offers three models (Bayesian LDA, Bayesian GMM, and Bayesian MPR) with batch and streaming inference capabilities.
 
 ## Installation
 
@@ -132,7 +132,7 @@ Gaussian Mixture Model with class-specific covariance matrices. More flexible, h
 
 ### RxPolyaModel
 
-**Primary Name**: RxPolya (Bayesian Multinomial Probit Regression)  
+**Primary Name**: Bayesian MPR (Bayesian Multinomial Probit Regression)  
 **API Name**: `RxPolyaModel`  
 **Mathematical Model**: Bayesian Multinomial Probit Regression
 
@@ -795,8 +795,8 @@ Returns validation status and any error messages.
   <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
     Detailed documentation for Bayesian GMM
   </Card>
-  <Card title="RxPolya" icon="brain" href="/models/rxpolya">
-    Detailed documentation for RxPolya
+  <Card title="Bayesian MPR (RxPolya)" icon="brain" href="/models/rxpolya">
+    Detailed documentation for Bayesian MPR
   </Card>
   <Card title="Preprocessing Guide" icon="cog" href="/inference-configuration/preprocessing-requirements">
     How to prepare your EEG data

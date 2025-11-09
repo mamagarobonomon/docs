@@ -1,23 +1,24 @@
 ---
-title: "RxPolya"
+title: "Bayesian MPR (RxPolya)"
 description: "Bayesian Multinomial Probit Regression with uncertainty quantification using RxInfer.jl"
 icon: "brain"
 ---
 
-# RxPolya - Bayesian Multinomial Probit Regression
+# Bayesian MPR (RxPolya)
 
+**Primary Name**: Bayesian MPR (Bayesian Multinomial Probit Regression)  
 **API Name**: `RxPolyaModel`  
 **Mathematical Model**: Bayesian Multinomial Probit Regression
 
-RxPolya is a Bayesian multinomial classification model with uncertainty quantification, implemented using RxInfer.jl's reactive message passing framework. It uses **continuous transitions** to map features to a (K-1)-dimensional latent space and **MultinomialPolya likelihood** for probabilistic classification, making it ideal for complex multinomial tasks.
+Bayesian MPR is a Bayesian multinomial classification model with uncertainty quantification, implemented using RxInfer.jl's reactive message passing framework. It uses **continuous transitions** to map features to a (K-1)-dimensional latent space and **MultinomialPolya likelihood** for probabilistic classification, making it ideal for complex multinomial tasks.
 
 <Note>
-**RxPolya is currently implemented** in NimbusSDK.jl and ready for use in production BCI applications. This model provides full Bayesian uncertainty quantification over multinomial distributions, offering advanced capabilities beyond traditional Gaussian classifiers.
+**Bayesian MPR is currently implemented** in NimbusSDK.jl (API name: `RxPolyaModel`) and ready for use in production BCI applications. This model provides full Bayesian uncertainty quantification over multinomial distributions, offering advanced capabilities beyond traditional Gaussian classifiers.
 </Note>
 
 ## Overview
 
-RxPolya implements Bayesian Multinomial Probit Regression, providing a powerful alternative to traditional Gaussian classifiers:
+Bayesian MPR implements Bayesian Multinomial Probit Regression, providing a powerful alternative to traditional Gaussian classifiers:
 
 - ✅ **Full Bayesian inference** with posterior probability distributions
 - ✅ **Uncertainty quantification** for each prediction
@@ -28,9 +29,9 @@ RxPolya implements Bayesian Multinomial Probit Regression, providing a powerful 
 - ✅ **Training and calibration** support
 - ✅ **Batch and streaming** inference modes
 
-### When to Use RxPolya
+### When to Use Bayesian MPR
 
-**RxPolya is ideal for:**
+**Bayesian MPR is ideal for:**
 - Complex multinomial classification tasks
 - When you need full posterior uncertainty over multinomial distributions
 - Advanced BCI applications requiring flexible classification
@@ -40,14 +41,14 @@ RxPolya implements Bayesian Multinomial Probit Regression, providing a powerful 
 **Consider [Bayesian LDA](/models/rxlda) or [Bayesian GMM](/models/rxgmm) instead if:**
 - You need faster inference (RxLDA/RxGMM are 5-10ms faster)
 - Classes are well-separated with Gaussian distributions
-- Interpretability of class centers is important (RxPolya is discriminative)
+- Interpretability of class centers is important (Bayesian MPR is discriminative)
 - You want Mahalanobis distance-based outlier detection
 
 ## Model Architecture
 
 ### Mathematical Foundation (Bayesian Multinomial Probit Regression)
 
-RxPolya implements Bayesian Multinomial Probit Regression using continuous transitions and MultinomialPolya likelihood:
+Bayesian MPR implements Bayesian Multinomial Probit Regression using continuous transitions and MultinomialPolya likelihood:
 
 **Generative Model:**
 
@@ -69,7 +70,7 @@ Where:
 
 ### Hyperparameters
 
-RxPolya supports configurable hyperparameters for optimal performance tuning:
+Bayesian MPR supports configurable hyperparameters for optimal performance tuning:
 
 **Available Hyperparameters:**
 
@@ -320,7 +321,7 @@ println("Final: pred=$(final_result.prediction), conf=$(round(final_result.confi
 
 ## Hyperparameter Tuning
 
-Fine-tune RxPolya for optimal performance on your specific dataset.
+Fine-tune Bayesian MPR for optimal performance on your specific dataset.
 
 ### When to Tune Hyperparameters
 
@@ -486,7 +487,7 @@ final_model = train_model(
 
 ### Feature Requirements
 
-RxPolya expects **preprocessed features**, not raw EEG:
+Bayesian MPR expects **preprocessed features**, not raw EEG:
 
 ✅ **Required preprocessing:**
 - Bandpass filtering (8-30 Hz for motor imagery)
@@ -523,7 +524,7 @@ Slightly slower than RxLDA/RxGMM due to continuous transition complexity.
 | SSVEP | 2-6 | 85-98% | Advanced applications |
 
 <Note>
-RxPolya typically provides comparable or slightly better accuracy than RxLDA/RxGMM for complex distributions, at the cost of ~5-10ms additional latency.
+Bayesian MPR typically provides comparable or slightly better accuracy than RxLDA/RxGMM for complex distributions, at the cost of ~5-10ms additional latency.
 </Note>
 
 ## Model Inspection
@@ -591,9 +592,9 @@ end
 ❌ **Requires Multiple Trials**: Cannot train on single trial (minimum 2 observations)  
 ❌ **Less Interpretable**: Harder to interpret than generative models with explicit means
 
-## Comparison: RxPolya vs RxLDA vs RxGMM
+## Comparison: Bayesian MPR vs RxLDA vs RxGMM
 
-| Aspect | RxPolya | RxLDA | RxGMM |
+| Aspect | Bayesian MPR | RxLDA | RxGMM |
 |--------|---------|-------|-------|
 | **Mathematical Model** | Bayesian Multinomial Probit Regression | Pooled Gaussian Classifier (PGC) | Heteroscedastic Gaussian Classifier (HGC) |
 | **Representation** | (K-1) dimensional latent space | K class means with shared precision | K class means with class-specific precisions |
@@ -616,7 +617,7 @@ Do you need Mahalanobis-based outlier detection?
     └─ No → Do classes have different covariances?
         ├─ Yes → Use RxGMM
         └─ No → Are distributions complex/non-Gaussian?
-            ├─ Yes → Use RxPolya
+            ├─ Yes → Use Bayesian MPR
             └─ No → Use RxLDA (simplest)
 ```
 
@@ -625,7 +626,7 @@ Do you need Mahalanobis-based outlier detection?
 ### Motor Imagery Classification
 
 ```julia
-# RxPolya for complex motor imagery with overlapping classes
+# Bayesian MPR for complex motor imagery with overlapping classes
 
 # Train on motor imagery data
 mi_data = BCIData(csp_features, mi_metadata, labels)  # 4-class MI
@@ -645,7 +646,7 @@ end
 ### P300 Detection
 
 ```julia
-# RxPolya for P300 target/non-target classification
+# Bayesian MPR for P300 target/non-target classification
 
 # Train on P300 data
 p300_data = BCIData(erp_features, p300_metadata, labels)  # 1=target, 2=non-target
@@ -668,7 +669,7 @@ println("Specificity: $(round(specificity * 100, digits=1))%")
 ### Comparing with RxLDA/RxGMM
 
 ```julia
-# Compare RxPolya with other models
+# Compare Bayesian MPR with other models
 
 # Train all three models
 rxlda_model = train_model(RxLDAModel, train_data)
@@ -679,7 +680,7 @@ rxpolya_model = train_model(RxPolyaModel, train_data)
 models = [
     ("RxLDA", rxlda_model),
     ("RxGMM", rxgmm_model),
-    ("RxPolya", rxpolya_model)
+    ("Bayesian MPR", rxpolya_model)
 ]
 
 for (name, model) in models
