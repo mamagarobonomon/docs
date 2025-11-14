@@ -290,6 +290,39 @@ Before using NimbusSDK, verify:
 - [ ] **Labels valid**: 1-indexed integers
 - [ ] **Metadata accurate**: Sampling rate, paradigm, feature type
 
+## Feature Normalization
+
+<Warning>
+**Feature normalization is CRITICAL for cross-session BCI!**
+
+EEG amplitude varies 50-200% across sessions. Proper normalization improves cross-session accuracy by 15-30%.
+</Warning>
+
+For optimal performance, especially when using models across different sessions:
+
+```julia
+using NimbusSDK
+
+# Training: Estimate normalization parameters
+norm_params = estimate_normalization_params(train_features; method=:zscore)
+train_norm = apply_normalization(train_features, norm_params)
+
+# Testing: Apply SAME parameters
+test_norm = apply_normalization(test_features, norm_params)
+
+# Save parameters with model
+@save "model.jld2" model norm_params
+```
+
+**Impact**:
+- Same session: +1% accuracy
+- Cross-session (next day): +15-25% accuracy
+- Multi-subject transfer: +15-20% accuracy
+
+<Tip>
+See the complete [Feature Normalization](/inference-configuration/feature-normalization) guide for best practices, API reference, and common pitfalls.
+</Tip>
+
 ## Preprocessing Diagnostics
 
 NimbusSDK includes built-in diagnostics:

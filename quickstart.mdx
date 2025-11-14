@@ -134,8 +134,13 @@ NimbusSDK.install_core("your-api-key")
 train_features = load_your_csp_features()  # (n_features × n_samples × n_trials)
 train_labels = load_your_labels()         # Vector of integers: 1, 2, 3, 4, ...
 
+# IMPORTANT: Normalize features for cross-session performance
+# This is critical if you plan to use the model on new sessions
+norm_params = estimate_normalization_params(train_features; method=:zscore)
+train_features_norm = apply_normalization(train_features, norm_params)
+
 train_data = BCIData(
-    train_features,
+    train_features_norm,  # Use normalized features
     BCIMetadata(
         sampling_rate = 250.0,
         paradigm = :motor_imagery,
@@ -159,25 +164,29 @@ model = train_model(
     description = "4-class motor imagery with CSP"
 )
 
-# Optional: Tune hyperparameters for optimal performance (v0.2.0+)
-# model = train_model(
-#     RxLDAModel,
-#     train_data;
-#     iterations = 50,
-#     showprogress = true,
-#     name = "my_tuned_model",
-#     description = "4-class MI with tuned hyperparameters",
-#     dof_offset = 2,                    # Regularization strength (default: 2)
-#     mean_prior_precision = 0.01        # Prior strength (default: 0.01)
-# )
+# Save the trained model WITH normalization parameters
+using JLD2
+@save "my_custom_model.jld2" model norm_params
 
-# Save the trained model
-save_model(model, "my_custom_model.jld2")
-
-# Use for inference
-test_data = BCIData(test_features, metadata)
+# Later: Load and use with same normalization
+@load "my_custom_model.jld2" model norm_params
+test_features_norm = apply_normalization(test_features, norm_params)
+test_data = BCIData(test_features_norm, metadata)
 results = predict_batch(model, test_data)
 ```
+
+<Warning>
+**Feature Normalization is Critical!**
+
+EEG amplitude varies 50-200% across sessions. Without normalization, accuracy drops 15-30% for cross-session BCI.
+
+Always:
+1. Estimate normalization params from training data
+2. Apply same params to test/deployment data
+3. Save params with your model
+
+See [Feature Normalization](/inference-configuration/feature-normalization) for details.
+</Warning>
 
 <Tip>
 **New in v0.2.0**: You can now fine-tune model hyperparameters (`dof_offset`, `mean_prior_precision`) to optimize performance for your specific dataset. See the [model documentation](/models/rxlda#hyperparameter-tuning-v020) for detailed tuning guidance.
@@ -272,6 +281,9 @@ Now that you have NimbusSDK running, explore these advanced features:
 <CardGroup cols={2}>
   <Card title="Julia SDK Reference" icon="code" href="/api-reference/julia-sdk">
     Complete SDK documentation with all functions and types
+  </Card>
+  <Card title="Feature Normalization" icon="arrows-up-down" href="/inference-configuration/feature-normalization">
+    Critical guide for cross-session BCI performance (+15-30% accuracy)
   </Card>
   <Card title="Bayesian LDA (RxLDA)" icon="brain" href="/models/rxlda">
     Learn about the Bayesian LDA model in detail

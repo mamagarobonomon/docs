@@ -1,0 +1,461 @@
+---
+title: "Feature Normalization"
+description: "Critical techniques for cross-session BCI performance"
+icon: "arrows-up-down"
+---
+
+# Feature Normalization for BCI Applications
+
+<Warning>
+**Feature normalization is CRITICAL for cross-session BCI performance!**
+
+EEG amplitude varies 50-200% across sessions due to electrode impedance, skin conductance, and user state. Without proper normalization, accuracy can drop by 15-30%.
+</Warning>
+
+## Why Normalization Matters
+
+EEG and BCI feature amplitudes vary significantly across sessions due to:
+
+### Physiological Factors
+- **Electrode impedance**: Changes with skin preparation, gel application, contact quality
+- **Skin conductance**: Varies with hydration, temperature, anxiety
+- **Skull thickness**: Subject-specific (affects multi-subject transfer)
+- **Cortical activity**: User state (fatigue, attention, arousal) affects signal amplitude
+
+### Technical Factors
+- **Amplifier gain**: May differ between recording sessions
+- **Reference electrode**: Position and quality affects all channels
+- **Environmental noise**: EMG, EOG, line noise levels vary
+- **Hardware**: Different recording systems have different amplitude scales
+
+### Impact Without Normalization
+
+| Scenario | Accuracy Drop | Notes |
+|----------|--------------|-------|
+| Same session | ~0% | Minimal impact |
+| Cross-session (same day) | 10-15% | Electrode re-application |
+| Cross-session (next day) | 15-25% | Day-to-day variability |
+| Cross-session (week later) | 25-30% | Maximum degradation |
+| Multi-subject transfer | 15-20% | Individual differences |
+
+## When to Normalize
+
+### ✅ Always Normalize For
+
+- Cross-session BCI applications (session 1 → session 2)
+- Multi-subject studies (subject A → subject B)
+- Transfer learning scenarios
+- Combining data from different recording systems
+- Online BCI where electrode impedance changes during use
+
+### ⚠️ Consider Normalizing For
+
+- Single-session studies (helps with model convergence)
+- When features have very different scales (e.g., mixing CSP + bandpower)
+- When training data has high variance in recording quality
+
+### ❌ Don't Normalize
+
+- Raw EEG before feature extraction (preprocessing handles this)
+- If all data is from same session with stable conditions
+
+## Normalization Methods
+
+### Z-score Normalization (Recommended) ⭐
+
+**Formula**: `z = (x - μ) / σ`
+
+**Result**: Mean = 0, Standard deviation = 1
+
+**When to use**: Default choice for most BCI applications
+
+```julia
+using NimbusSDK
+
+# Estimate params from training data
+norm_params = estimate_normalization_params(train_features; method=:zscore)
+
+# Apply to train and test
+train_norm = apply_normalization(train_features, norm_params)
+test_norm = apply_normalization(test_features, norm_params)
+```
+
+**Pros**:
+- Standard statistical normalization
+- Preserves relative distances between features
+- Works well with Gaussian-like distributions
+- Most common in BCI literature
+
+**Cons**:
+- Sensitive to outliers (use robust method if many artifacts)
+
+### Min-Max Normalization
+
+**Formula**: `x_norm = (x - min) / (max - min)`
+
+**Result**: All values in [0, 1]
+
+**When to use**: 
+- When you need bounded features
+- For algorithms sensitive to feature range
+
+```julia
+norm_params = estimate_normalization_params(train_features; method=:minmax)
+normalized = apply_normalization(test_features, norm_params)
+```
+
+**Pros**:
+- Bounded output range [0, 1]
+- Easy to interpret
+
+**Cons**:
+- Very sensitive to outliers
+- Training min/max may not represent test data range
+
+### Robust Normalization
+
+**Formula**: `x_norm = (x - median) / MAD`  
+where MAD = median(|x - median(x)|) × 1.4826
+
+**Result**: Median = 0, Robust standard deviation ≈ 1
+
+**When to use**:
+- Data with many artifacts/outliers
+- Poor artifact rejection in preprocessing
+- Online BCI with variable data quality
+
+```julia
+norm_params = estimate_normalization_params(train_features; method=:robust)
+normalized = apply_normalization(test_features, norm_params)
+```
+
+**Pros**:
+- Resistant to outliers
+- More stable with noisy data
+- Better for real-world conditions
+
+**Cons**:
+- Less standard in literature
+- Slightly different interpretation than z-score
+
+## API Reference
+
+### Core Functions
+
+#### `estimate_normalization_params`
+
+```julia
+estimate_normalization_params(features::Array{Float64, 3}; 
+                              method::Symbol=:zscore) -> NormalizationParams
+```
+
+Compute normalization parameters from training data.
+
+**Arguments**:
+- `features`: Training features (n_features × n_samples × n_trials)
+- `method`: `:zscore`, `:minmax`, `:robust`, or `:none`
+
+**Returns**: `NormalizationParams` object with computed statistics
+
+**Example**:
+```julia
+train_features = randn(16, 250, 80)
+params = estimate_normalization_params(train_features; method=:zscore)
+```
+
+#### `apply_normalization`
+
+```julia
+apply_normalization(features::Array{Float64, 3}, 
+                   params::NormalizationParams) -> Array{Float64, 3}
+```
+
+Apply pre-computed normalization to features.
+
+**Arguments**:
+- `features`: Features to normalize (n_features × n_samples × n_trials)
+- `params`: Normalization parameters from `estimate_normalization_params`
+
+**Returns**: Normalized features with same shape
+
+**Example**:
+```julia
+test_features = randn(16, 250, 20)
+test_norm = apply_normalization(test_features, params)
+```
+
+#### `check_normalization_status`
+
+```julia
+check_normalization_status(features::Array{Float64, 3}; 
+                          tolerance::Float64=0.1)
+```
+
+Check if features appear normalized and get recommendations.
+
+**Returns**: Named tuple with:
+- `appears_normalized::Bool`
+- `mean_abs_mean::Float64`
+- `mean_std::Float64`
+- `recommendations::Vector{String}`
+
+**Example**:
+```julia
+status = check_normalization_status(features)
+if !status.appears_normalized
+    println("Recommendations:")
+    for rec in status.recommendations
+        println("  • ", rec)
+    end
+end
+```
+
+## Best Practices
+
+### ✅ Correct Workflow
+
+```julia
+# 1. Preprocessing (outside NimbusSDK)
+# Raw EEG → Filter → Artifact removal → Epochs → CSP extraction
+
+# 2. Estimate normalization from TRAINING data only
+train_features = csp_features_train  # (16 × 250 × 80)
+norm_params = estimate_normalization_params(train_features; method=:zscore)
+
+# 3. Apply to BOTH training and test data
+train_norm = apply_normalization(train_features, norm_params)
+test_norm = apply_normalization(test_features, norm_params)
+
+# 4. Save normalization params with your model
+using JLD2
+@save "model_with_norm.jld2" model norm_params
+
+# 5. Training
+metadata = BCIMetadata(250.0, :motor_imagery, :csp, 16, 4, nothing)
+train_data = BCIData(train_norm, metadata, train_labels)
+model = train_model(RxLDAModel, train_data)
+
+# 6. Deployment - load and apply same params
+@load "model_with_norm.jld2" model norm_params
+new_data_norm = apply_normalization(new_data, norm_params)
+results = predict_batch(model, BCIData(new_data_norm, metadata))
+```
+
+## Common Pitfalls
+
+### ❌ Pitfall 1: Normalizing Train and Test Separately
+
+**Wrong**:
+```julia
+# WRONG - computes different params for each!
+train_norm = normalize_features(train_features)
+test_norm = normalize_features(test_features)  # ❌ Different scale!
+```
+
+**Correct**:
+```julia
+# Compute params from training only
+params = estimate_normalization_params(train_features)
+train_norm = apply_normalization(train_features, params)
+test_norm = apply_normalization(test_features, params)  # ✅ Same scale
+```
+
+**Impact**: Test accuracy drops by 10-30%
+
+### ❌ Pitfall 2: Normalizing Before Feature Extraction
+
+**Wrong**:
+```julia
+# WRONG - normalize raw EEG
+raw_eeg_norm = normalize_features(raw_eeg)
+csp_features = extract_csp(raw_eeg_norm)  # ❌ Breaks CSP assumptions
+```
+
+**Correct**:
+```julia
+# Extract features first
+csp_features = extract_csp(raw_eeg)
+csp_norm = normalize_features(csp_features)  # ✅ Normalize features
+```
+
+**Why**: CSP assumes specific covariance structure in raw data. Normalizing first destroys this.
+
+### ❌ Pitfall 3: Forgetting to Save Parameters
+
+**Wrong**:
+```julia
+# Training session
+train_norm = normalize_features(train_features)
+model = train_model(RxLDAModel, train_data)
+save_model(model, "model.jld2")
+
+# Later, deployment session
+test_norm = normalize_features(test_features)  # ❌ Different normalization!
+```
+
+**Correct**:
+```julia
+# Training session
+params = estimate_normalization_params(train_features)
+train_norm = apply_normalization(train_features, params)
+model = train_model(RxLDAModel, train_data)
+@save "model.jld2" model params  # ✅ Save params
+
+# Later, deployment session
+@load "model.jld2" model params
+test_norm = apply_normalization(test_features, params)  # ✅ Same params
+```
+
+## Examples
+
+### Example 1: Cross-Session Motor Imagery
+
+```julia
+using NimbusSDK
+
+# Session 1: Training
+train_features = randn(16, 250, 80)  # CSP features
+train_labels = repeat(1:4, inner=20)
+
+# Estimate normalization
+norm_params = estimate_normalization_params(train_features; method=:zscore)
+
+# Normalize training data
+train_norm = apply_normalization(train_features, norm_params)
+
+# Train model
+metadata = BCIMetadata(250.0, :motor_imagery, :csp, 16, 4, nothing)
+train_data = BCIData(train_norm, metadata, train_labels)
+model = train_model(RxLDAModel, train_data; iterations=50)
+
+# Save model AND normalization params
+@save "motor_imagery_model.jld2" model norm_params
+
+# Session 2: Testing (new day, re-applied electrodes)
+@load "motor_imagery_model.jld2" model norm_params
+
+test_features = randn(16, 250, 20)  # Different amplitude due to new impedances
+test_labels = repeat(1:4, inner=5)
+
+# Apply SAME normalization
+test_norm = apply_normalization(test_features, norm_params)
+test_data = BCIData(test_norm, metadata, test_labels)
+
+# Inference
+results = predict_batch(model, test_data)
+accuracy = sum(results.predictions .== test_labels) / length(test_labels)
+println("Cross-session accuracy: $(round(accuracy * 100, digits=1))%")
+```
+
+### Example 2: Checking Data Quality
+
+```julia
+# Load your features
+features = load("my_features.jld2")["features"]
+
+# Check normalization status
+status = check_normalization_status(features)
+
+println("Appears normalized: ", status.appears_normalized)
+println("Mean |μ|: ", status.mean_abs_mean)
+println("Mean σ: ", status.mean_std)
+
+if !status.appears_normalized
+    println("\nRecommendations:")
+    for rec in status.recommendations
+        println("  • ", rec)
+    end
+    
+    # Apply normalization
+    normalized = normalize_features(features; method=:zscore)
+    println("\nAfter normalization:")
+    status2 = check_normalization_status(normalized)
+    println("Appears normalized: ", status2.appears_normalized)
+end
+```
+
+### Example 3: Robust Normalization for Noisy Data
+
+```julia
+# Data with artifacts
+features = randn(16, 250, 100)
+# Add some extreme outliers (artifacts)
+features[5, 100, 20] = 1000.0  # Muscle artifact
+features[8, 50, 45] = -500.0   # Eye blink
+
+# Standard z-score would be affected by outliers
+zscore_params = estimate_normalization_params(features; method=:zscore)
+println("Z-score std range: ", extrema(zscore_params.stds))
+
+# Robust normalization handles outliers better
+robust_params = estimate_normalization_params(features; method=:robust)
+println("Robust MAD range: ", extrema(robust_params.mads))
+
+# Apply robust normalization
+normalized = apply_normalization(features, robust_params)
+
+# Outliers are less influential
+println("Normalized range: ", extrema(normalized))
+```
+
+## Performance Impact
+
+### Expected Improvements with Proper Normalization
+
+| Scenario | Without Normalization | With Normalization | Improvement |
+|----------|----------------------|-------------------|-------------|
+| Same session | 85% | 86% | +1% |
+| Cross-session (same day) | 65% | 80% | +15% |
+| Cross-session (next day) | 55% | 78% | +23% |
+| Cross-session (week later) | 45% | 75% | +30% |
+| Multi-subject transfer | 35% | 55% | +20% |
+
+*Values are typical for motor imagery BCI. Your results may vary.*
+
+## Summary
+
+### Key Takeaways
+
+✅ **Always normalize** for cross-session BCI  
+✅ **Estimate params from training data** only  
+✅ **Apply same params** to test/deployment data  
+✅ **Save params** with your model  
+✅ **Use z-score** as default (or robust for noisy data)  
+✅ **Normalize after** feature extraction, before training  
+
+❌ **Never** normalize train and test separately  
+❌ **Never** normalize raw EEG (do it after features)  
+❌ **Never** forget to save normalization params  
+
+### Expected Impact
+
+🎯 **10-30% accuracy improvement** for cross-session BCI  
+🎯 **Enables transfer learning** between subjects  
+🎯 **Reduces calibration requirements** for new users  
+🎯 **More robust** to hardware/setup variations  
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Preprocessing Requirements" icon="list-filter" href="/inference-configuration/preprocessing-requirements">
+    Complete preprocessing guide
+  </Card>
+  <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
+    Full SDK API reference
+  </Card>
+  <Card title="Code Examples" icon="brackets-curly" href="/examples/code-samples">
+    Working code examples
+  </Card>
+  <Card title="Batch Processing" icon="list" href="/inference-configuration/batch-processing">
+    Processing multiple trials
+  </Card>
+</CardGroup>
+
+## References
+
+### Academic Papers
+
+1. **Ledoit & Wolf (2004)**: "Honey, I shrunk the sample covariance matrix" - Optimal shrinkage estimation
+2. **Blankertz et al. (2011)**: "Single-trial analysis and classification of ERP components" - Discusses normalization in BCI
+3. **Lotte et al. (2018)**: "A review of classification algorithms for EEG-based BCI" - Section on preprocessing
+

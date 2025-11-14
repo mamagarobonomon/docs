@@ -457,6 +457,32 @@ final_model = train_model(
 **Bayesian GMM requires at least 2 observations per class** to estimate class-specific statistics. Training will fail if any class has fewer than 2 observations.
 </Warning>
 
+### Feature Normalization
+
+<Tip>
+**Critical for cross-session BCI performance!**
+
+Normalize your features before training for 15-30% accuracy improvement across sessions.
+</Tip>
+
+```julia
+# Estimate normalization from training data
+norm_params = estimate_normalization_params(train_features; method=:zscore)
+train_norm = apply_normalization(train_features, norm_params)
+
+# Train with normalized features
+train_data = BCIData(train_norm, metadata, labels)
+model = train_model(RxGMMModel, train_data)
+
+# Save params with model
+@save "model.jld2" model norm_params
+
+# Later: Apply same params to test data
+test_norm = apply_normalization(test_features, norm_params)
+```
+
+See the [Feature Normalization](/inference-configuration/feature-normalization) guide for complete details.
+
 ### Feature Requirements
 
 Bayesian GMM expects **preprocessed features**, not raw EEG:

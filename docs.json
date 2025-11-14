@@ -63,6 +63,7 @@
           "inference-configuration/batch-processing",
           "inference-configuration/streaming-inference",
           "inference-configuration/preprocessing-requirements",
+          "inference-configuration/feature-normalization",
           "inference-configuration/error-handling"
         ]
       },

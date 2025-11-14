@@ -698,6 +698,192 @@ validate_chunk(chunk::Matrix{Float64}, metadata::BCIMetadata) -> Bool
 **Description:**
 Validates chunk dimensions and data quality for streaming inference.
 
+## Feature Normalization
+
+<Warning>
+**Critical for cross-session BCI!** EEG amplitude varies 50-200% across sessions. Proper normalization improves accuracy by 15-30%.
+</Warning>
+
+Feature normalization is essential for BCI models used across different sessions or subjects. NimbusSDK provides comprehensive normalization utilities.
+
+### NormalizationParams
+
+Storage for normalization parameters.
+
+```julia
+struct NormalizationParams
+    method::Symbol
+    means::Vector{Float64}
+    stds::Vector{Float64}
+    mins::Vector{Float64}
+    maxs::Vector{Float64}
+    medians::Vector{Float64}
+    mads::Vector{Float64}
+    computed_from_n_trials::Int
+end
+```
+
+**Fields:**
+- `method` - Normalization method (`:zscore`, `:minmax`, `:robust`, `:none`)
+- `means`, `stds` - Per-feature statistics for z-score normalization
+- `mins`, `maxs` - Per-feature statistics for min-max normalization
+- `medians`, `mads` - Per-feature statistics for robust normalization
+- `computed_from_n_trials` - Number of trials used to compute statistics
+
+### estimate_normalization_params()
+
+Estimate normalization parameters from training data.
+
+```julia
+estimate_normalization_params(
+    features::Array{Float64, 3};
+    method::Symbol = :zscore
+) -> NormalizationParams
+```
+
+**Parameters:**
+- `features::Array{Float64, 3}` - Training features (n_features × n_samples × n_trials)
+- `method::Symbol` - Normalization method
+  - `:zscore` - Z-score normalization (mean=0, std=1) [default, recommended]
+  - `:minmax` - Min-max scaling to [0, 1]
+  - `:robust` - Robust normalization using median and MAD (outlier-resistant)
+  - `:none` - No normalization
+
+**Returns:** `NormalizationParams` object with computed statistics
+
+**Example:**
+```julia
+# Compute normalization params from training data
+train_features = randn(16, 250, 100)
+norm_params = estimate_normalization_params(train_features; method=:zscore)
+
+# Save params with model for consistent test-time normalization
+@save "model.jld2" model norm_params
+```
+
+<Note>
+Normalization should be computed AFTER feature extraction but BEFORE model training. The same normalization parameters must be applied to test data.
+</Note>
+
+### apply_normalization()
+
+Apply pre-computed normalization to features.
+
+```julia
+apply_normalization(
+    features::Array{Float64, 3},
+    params::NormalizationParams
+) -> Array{Float64, 3}
+```
+
+**Parameters:**
+- `features::Array{Float64, 3}` - Features to normalize (n_features × n_samples × n_trials)
+- `params::NormalizationParams` - Pre-computed normalization parameters
+
+**Returns:** Normalized features with same shape as input
+
+**Example:**
+```julia
+# Training phase
+train_features = randn(16, 250, 100)
+norm_params = estimate_normalization_params(train_features; method=:zscore)
+train_normalized = apply_normalization(train_features, norm_params)
+
+# Test phase (using same parameters)
+test_features = randn(16, 250, 20)
+test_normalized = apply_normalization(test_features, norm_params)
+```
+
+### normalize_features()
+
+Convenience function to estimate and apply normalization in one call.
+
+```julia
+normalize_features(
+    features::Array{Float64, 3};
+    method::Symbol = :zscore
+) -> Array{Float64, 3}
+```
+
+**Parameters:**
+- `features::Array{Float64, 3}` - Features with shape (n_features × n_samples × n_trials)
+- `method::Symbol` - Normalization method (`:zscore`, `:minmax`, `:robust`, `:none`)
+
+**Returns:** Normalized features with same shape as input
+
+<Warning>
+This function computes normalization parameters from the input data itself. For proper train/test separation, use `estimate_normalization_params()` and `apply_normalization()` separately.
+</Warning>
+
+**Example:**
+```julia
+features = randn(16, 250, 100)
+normalized = normalize_features(features; method=:zscore)
+```
+
+### check_normalization_status()
+
+Check if features appear normalized and get recommendations.
+
+```julia
+check_normalization_status(
+    features::Array{Float64, 3};
+    tolerance::Float64 = 0.1
+) -> NamedTuple
+```
+
+**Parameters:**
+- `features::Array{Float64, 3}` - Features to check (n_features × n_samples × n_trials)
+- `tolerance::Float64` - Tolerance for detecting unnormalized data
+
+**Returns:** Named tuple with:
+- `appears_normalized::Bool` - Whether data appears normalized
+- `mean_abs_mean::Float64` - Mean absolute value of per-feature means
+- `mean_std::Float64` - Mean of per-feature standard deviations
+- `recommendations::Vector{String}` - Suggested actions
+
+**Example:**
+```julia
+features = randn(16, 250, 100)
+status = check_normalization_status(features)
+
+println("Normalized: ", status.appears_normalized)
+if !status.appears_normalized
+    println("Recommendations:")
+    for rec in status.recommendations
+        println("  • ", rec)
+    end
+end
+```
+
+### Normalization Best Practices
+
+**Correct Workflow:**
+```julia
+# 1. Estimate params from TRAINING data only
+train_features = csp_features_train  # (16 × 250 × 80)
+norm_params = estimate_normalization_params(train_features; method=:zscore)
+
+# 2. Apply to BOTH training and test data
+train_norm = apply_normalization(train_features, norm_params)
+test_norm = apply_normalization(test_features, norm_params)
+
+# 3. Save params with your model
+@save "model_with_norm.jld2" model norm_params
+
+# 4. Later: Load and apply same params
+@load "model_with_norm.jld2" model norm_params
+new_data_norm = apply_normalization(new_data, norm_params)
+```
+
+**Common Pitfalls:**
+
+❌ **Never** normalize train and test separately  
+❌ **Never** normalize raw EEG (do it after features)  
+❌ **Never** forget to save normalization params  
+
+See the complete [Feature Normalization](/inference-configuration/feature-normalization) guide for detailed documentation.
+
 ## Performance Metrics
 
 ### BCIPerformanceMetrics

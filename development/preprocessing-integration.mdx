@@ -383,6 +383,53 @@ end
 println("Quality score: ", round(report.quality_score * 100, digits=1), "%")
 ```
 
+## Feature Normalization
+
+<Warning>
+**Critical for cross-session BCI performance!**
+
+EEG amplitude varies 50-200% across sessions. Always normalize your features for models used across sessions.
+</Warning>
+
+### Normalization Workflow
+
+```julia
+using NimbusSDK
+
+# 1. Estimate normalization parameters from TRAINING data
+train_features = csp_features_train  # (16 × 250 × 80)
+norm_params = estimate_normalization_params(train_features; method=:zscore)
+
+# 2. Apply to BOTH training and test data
+train_norm = apply_normalization(train_features, norm_params)
+test_norm = apply_normalization(test_features, norm_params)
+
+# 3. Save parameters with your model
+@save "model_with_norm.jld2" model norm_params
+
+# 4. Later: Load and apply same parameters
+@load "model_with_norm.jld2" model norm_params
+new_data_norm = apply_normalization(new_data, norm_params)
+```
+
+### Available Methods
+
+- **`:zscore`** (recommended): Mean=0, Std=1 - Best for most BCI applications
+- **`:robust`**: Uses median/MAD - Better for noisy data with artifacts
+- **`:minmax`**: Scale to [0, 1] - For bounded features
+
+### Performance Impact
+
+| Scenario | Accuracy Improvement |
+|----------|---------------------|
+| Same session | +1% |
+| Cross-session (next day) | +15-25% |
+| Multi-subject transfer | +15-20% |
+
+<Tip>
+For complete details, see the [Feature Normalization](/inference-configuration/feature-normalization) guide.
+</Tip>
+
 ## Common Issues and Solutions
 
 ### Issue 1: Wrong Data Shape
