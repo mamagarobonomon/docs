@@ -58,18 +58,16 @@ Where:
 
 **Key Difference from Bayesian LDA**: Each class can have its own covariance structure, making the model more flexible but also more parameter-heavy.
 
-### Hyperparameters (v0.2.0+)
+### Hyperparameters
 
 Bayesian GMM supports configurable hyperparameters for optimal performance tuning:
 
-**Available Hyperparameters:**
+**Available Hyperparameters (training):**
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `dof_offset` | Int | 2 | [1, 5] | Degrees of freedom offset for Wishart priors |
 | `mean_prior_precision` | Float64 | 0.01 | [0.001, 0.1] | Prior precision for class means |
-| `predictive_mean_prior` | Float64 | 1e6 | [1e4, 1e8] | Mean prior strength during inference |
-| `predictive_dof_offset` | Int | 2 | [1, 5] | DOF offset for inference (should match `dof_offset`) |
 
 **Parameter Effects:**
 
@@ -81,25 +79,16 @@ Bayesian GMM supports configurable hyperparameters for optimal performance tunin
   - Lower values (0.001) → Weaker prior, trusts data more
   - Higher values (0.05-0.1) → Stronger prior, more regularization
 
-- **predictive_mean_prior**: Very high values (1e6) indicate strong trust in learned parameters during inference
-
-- **predictive_dof_offset**: Should typically match `dof_offset` for consistency
-
-<Note>
-**New in v0.2.0**: Hyperparameter configuration allows you to optimize model behavior for your specific dataset characteristics (SNR, trial count, data quality).
-</Note>
-
 ### Model Structure
 
 ```julia
 struct RxGMMModel <: BCIModel
-    means::Vector{Vector{Float64}}       # Class means [μ₁, μ₂, ..., μₖ]
-    precisions::Vector                   # Class-specific precisions [W₁, W₂, ..., Wₖ]
-    metadata::ModelMetadata              # Model info
-    dof_offset::Int                      # Degrees of freedom offset
-    mean_prior_precision::Float64        # Mean prior precision
-    predictive_mean_prior::Float64       # Predictive mean prior
-    predictive_dof_offset::Int           # Predictive DOF offset
+    mean_posteriors::Vector        # MvNormal posteriors for class means
+    precision_posteriors::Vector   # Wishart posteriors for class precisions
+    priors::Vector{Float64}        # Empirical class priors
+    metadata::ModelMetadata        # Model info
+    dof_offset::Int                # Degrees of freedom offset (training)
+    mean_prior_precision::Float64  # Mean prior precision (training)
 end
 ```
 
@@ -186,9 +175,7 @@ model = train_model(
     name = "my_p300_gmm_tuned",
     description = "P300 classifier with tuned hyperparameters",
     dof_offset = 2,                    # DOF offset (default: 2)
-    mean_prior_precision = 0.01,       # Prior precision (default: 0.01)
-    predictive_mean_prior = 1e6,       # Inference prior (default: 1e6)
-    predictive_dof_offset = 2          # Inference DOF (default: 2)
+    mean_prior_precision = 0.01        # Prior precision (default: 0.01)
 )
 
 # Save for later use
@@ -201,10 +188,8 @@ save_model(model, "my_p300_gmm.jld2")
 - `showprogress`: Display progress bar during training
 - `name`: Model identifier
 - `description`: Model description
-- `dof_offset`: Degrees of freedom offset (default: 2, range: [1, 5]) - **v0.2.0+**
-- `mean_prior_precision`: Prior precision for means (default: 0.01, range: [0.001, 0.1]) - **v0.2.0+**
-- `predictive_mean_prior`: Inference prior strength (default: 1e6, range: [1e4, 1e8]) - **v0.2.0+**
-- `predictive_dof_offset`: Inference DOF offset (default: 2, range: [1, 5]) - **v0.2.0+**
+- `dof_offset`: Degrees of freedom offset (default: 2, range: [1, 5])
+- `mean_prior_precision`: Prior precision for means (default: 0.01, range: [0.001, 0.1])
 
 ### 3. Subject-Specific Calibration
 
@@ -291,9 +276,7 @@ model = train_model(
     train_data;
     iterations = 50,
     dof_offset = 1,                    # Less regularization
-    mean_prior_precision = 0.001,      # Weaker prior, trust data more
-    predictive_mean_prior = 1e6,       # Standard inference prior
-    predictive_dof_offset = 1          # Match dof_offset
+    mean_prior_precision = 0.001       # Weaker prior, trust data more
 )
 ```
 
@@ -313,9 +296,7 @@ model = train_model(
     train_data;
     iterations = 50,
     dof_offset = 3,                    # More regularization
-    mean_prior_precision = 0.05,       # Stronger prior
-    predictive_mean_prior = 1e6,       # Standard inference prior
-    predictive_dof_offset = 3          # Match dof_offset
+    mean_prior_precision = 0.05        # Stronger prior
 )
 ```
 
@@ -336,9 +317,7 @@ model = train_model(
     train_data;
     iterations = 50,
     dof_offset = 2,                    # Balanced (default)
-    mean_prior_precision = 0.01,       # Balanced (default)
-    predictive_mean_prior = 1e6,       # Standard (default)
-    predictive_dof_offset = 2          # Balanced (default)
+    mean_prior_precision = 0.01        # Balanced (default)
 )
 ```
 
@@ -360,9 +339,7 @@ model = train_model(
     p300_train_data;
     iterations = 50,
     dof_offset = 2,                    # Standard regularization
-    mean_prior_precision = 0.02,       # Slightly stronger than default
-    predictive_mean_prior = 1e6,
-    predictive_dof_offset = 2
+    mean_prior_precision = 0.02        # Slightly stronger than default
 )
 ```
 

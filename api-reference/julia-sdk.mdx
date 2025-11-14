@@ -184,45 +184,36 @@ save_model(model, filepath::String)
 Train a new model on labeled data.
 
 ```julia
-train_model(
-    ModelType,
-    train_data::BCIData;
-    iterations::Int = 50,
-    showprogress::Bool = false,
-    name::String = "untitled_model",
-    description::String = "",
-    dof_offset::Int = 2,
-    mean_prior_precision::Float64 = 0.01,
-    predictive_mean_prior::Float64 = 1e6,
-    predictive_dof_offset::Int = 2
-) -> Model
+train_model(ModelType, train_data::BCIData; kwargs...) -> Model
 ```
 
-**Parameters:**
+**Parameters (common to all models):**
 - `ModelType` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
 - `train_data::BCIData` - Labeled training data (must include labels!)
 - `iterations::Int` - Number of inference iterations (default: 50)
 - `showprogress::Bool` - Show training progress (default: false)
-- `name::String` - Model name (default: "untitled_model")
-- `description::String` - Model description (default: "")
+- `name::String` - Model name (default: `"untitled_model"`)
+- `description::String` - Model description (default: `""`)
 
-**Hyperparameters (v0.2.0+):**
-- `dof_offset::Int` - Degrees of freedom offset for Wishart priors (default: 2, range: [1, 5])
-  - Lower values (1) = less regularization, more data-driven
-  - Higher values (3-5) = more regularization, more conservative
-- `mean_prior_precision::Float64` - Prior precision for class means (default: 0.01, range: [0.001, 0.1])
-  - Lower values = weaker prior, trusts data more
-  - Higher values = stronger prior, more regularization
-- `predictive_mean_prior::Float64` - Mean prior strength during inference (default: 1e6, range: [1e4, 1e8])
-  - Very high values indicate strong trust in learned parameters
-- `predictive_dof_offset::Int` - DOF offset for inference (default: 2, range: [1, 5])
-  - Should typically match `dof_offset` for consistency
+**Model-specific hyperparameters:**
+- **RxLDAModel / RxGMMModel**
+  - `dof_offset::Int` – Degrees of freedom offset for Wishart priors during training  
+    - Default: `2`, range: \([1, 5]\)
+  - `mean_prior_precision::Float64` – Prior precision for class means  
+    - Default: `0.01`, range: \([0.001, 0.1]\)
+- **RxPolyaModel**
+  - `N::Int` – Trials per observation (default: `1`)
+  - `ξβ::Union{Nothing, Vector{Float64}}` – Prior mean for regression coefficients (`nothing` → auto)
+  - `Wβ::Union{Nothing, Matrix{Float64}}` – Prior precision for regression coefficients (`nothing` → auto)
+  - `W_df::Union{Nothing, Float64}` – Wishart degrees of freedom (`nothing` → auto)
+  - `W_scale::Union{Nothing, Matrix{Float64}}` – Wishart scale matrix (`nothing` → auto)
 
 <Note>
-**New in v0.2.0**: Hyperparameter configuration allows fine-tuning model behavior for your specific dataset. All hyperparameters are optional with sensible defaults.
+Hyperparameters for each model type are documented in more detail on the corresponding model pages:
+`/models/rxlda`, `/models/rxgmm`, and `/models/rxpolya`.
 </Note>
 
-**Example:**
+**Example (RxLDA):**
 ```julia
 # Train with default hyperparameters
 model = train_model(
@@ -234,7 +225,7 @@ model = train_model(
     description = "4-class motor imagery with CSP"
 )
 
-# Train with custom hyperparameters (v0.2.0+)
+# Train with custom hyperparameters
 model = train_model(
     RxLDAModel,
     train_data;
@@ -242,10 +233,8 @@ model = train_model(
     showprogress = true,
     name = "my_tuned_model",
     description = "4-class MI with tuned hyperparameters",
-    dof_offset = 3,                    # More regularization for noisy data
-    mean_prior_precision = 0.05,       # Stronger prior
-    predictive_mean_prior = 1e6,
-    predictive_dof_offset = 3
+    dof_offset = 3,              # More regularization for noisy data
+    mean_prior_precision = 0.05  # Stronger prior
 )
 ```
 
@@ -352,10 +341,18 @@ predict_batch(
 **Returns:**
 ```julia
 struct BatchResult
-    predictions::Vector{Int}       # Predicted class for each trial
-    confidences::Vector{Float64}  # Confidence (max posterior) for each trial
-    posteriors::Matrix{Float64}   # Full posterior distributions (n_trials × n_classes)
-    free_energy::Union{Float64, Nothing}  # RxInfer free energy if available
+    predictions::Vector{Int}              # Predicted class for each trial
+    confidences::Vector{Float64}          # Confidence (max posterior) for each trial
+    posteriors::Matrix{Float64}           # Full posterior distributions (n_trials × n_classes)
+    free_energy::Union{Float64, Nothing}  # Mean RxInfer free energy if available
+    entropy::Vector{Float64}              # Shannon entropy per trial (bits)
+    mean_entropy::Float64                 # Average entropy across trials
+    mahalanobis_distances::Matrix{Float64}  # Distances to each class center (n_trials × n_classes)
+    outlier_scores::Vector{Float64}       # Minimum distance to any class (per trial)
+    latency_ms::Int                       # Total batch latency in milliseconds
+    per_trial_latency_ms::Vector{Float64} # Latency per trial in milliseconds
+    balance::Float64                      # Class distribution balance (0–1)
+    confidence_calibration::Union{CalibrationMetrics, Nothing}  # Calibration metrics if labels available
 end
 ```
 
@@ -404,16 +401,23 @@ session = init_streaming(model, metadata)
 Process a single chunk of data during streaming.
 
 ```julia
-process_chunk(session, chunk::Array{Float64, 2}) -> StreamingResult
+process_chunk(session::StreamingSession, chunk::Array{Float64, 2}; iterations::Int = 10) -> ChunkResult
 ```
 
 **Parameters:**
 - `session::StreamingSession` - Active streaming session
 - `chunk::Array{Float64, 2}` - Chunk data (n_features × chunk_size)
+- `iterations::Int` - Number of inference iterations for this chunk (default: 10)
 
-**Returns:** Named tuple `(prediction, confidence, posterior)`
+**Returns:** `ChunkResult`
+
 ```julia
-(prediction=1, confidence=0.85, posterior=[0.1, 0.85, 0.05])  # Example
+struct ChunkResult
+  prediction::Int              # Predicted class for this chunk
+  confidence::Float64          # Confidence for this chunk
+  posterior::Vector{Float64}   # Posterior distribution for this chunk
+  latency_ms::Float64          # Processing time for this chunk (ms)
+end
 ```
 
 **Example:**
@@ -441,7 +445,22 @@ finalize_trial(
 - `method::Symbol` - Aggregation method (`:weighted_vote`, `:max_confidence`, `:unanimous`)
 - `temporal_weighting::Bool` - Apply paradigm-specific temporal weights (default: true)
 
-**Returns:** `StreamingResult` with final prediction and confidence
+**Returns:** `StreamingResult` with final prediction and diagnostics
+
+```julia
+struct StreamingResult
+  prediction::Int                      # Aggregated prediction
+  confidence::Float64                  # Aggregated confidence
+  posterior::Vector{Float64}           # Aggregated posterior
+  entropy::Float64                     # Entropy of final posterior (bits)
+  aggregation_method::Symbol           # Aggregation method used
+  n_chunks::Int                        # Number of chunks in trial
+  latency_ms::Float64                  # Total latency (ms)
+  chunk_latencies_ms::Vector{Float64}  # Latency per chunk
+  balance::Float64                     # Class distribution balance across chunks
+  confidence_calibration::Union{CalibrationMetrics, Nothing}  # Calibration metrics if label provided
+end
+```
 
 **Example:**
 ```julia
@@ -464,13 +483,19 @@ println("Aggregation method: $(final_result.aggregation_method)")
 Calculate Information Transfer Rate (ITR) in bits/minute.
 
 ```julia
-calculate_ITR(accuracy::Float64, n_classes::Int, trial_duration::Float64) -> Float64
+calculate_ITR(
+  accuracy::Float64,
+  n_classes::Int,
+  trial_duration::Float64;
+  clip_negative::Bool = false
+) -> Float64
 ```
 
 **Parameters:**
 - `accuracy::Float64` - Classification accuracy (0.0 to 1.0)
 - `n_classes::Int` - Number of classes
 - `trial_duration::Float64` - Trial duration in seconds
+- `clip_negative::Bool` - If true, negative ITR values (below chance) are clipped to 0.0
 
 **Example:**
 ```julia
@@ -892,10 +917,13 @@ Container for BCI performance metrics.
 
 ```julia
 struct BCIPerformanceMetrics
-    accuracy::Float64
-    information_transfer_rate::Float64  # bits/minute
-    mean_confidence::Float64
-    mean_latency_ms::Float64
+    accuracy::Float64                 # Classification accuracy (0–1)
+    information_transfer_rate::Float64  # ITR in bits/minute
+    false_positive_rate::Float64      # Average FPR across classes
+    false_negative_rate::Float64      # Average FNR across classes
+    mean_confidence::Float64          # Average confidence across trials
+    mean_trial_duration::Float64      # Trial duration in seconds
+    selection_rate::Float64           # Successful selections per minute
 end
 ```
 
@@ -905,11 +933,14 @@ Track performance metrics in real-time.
 
 ```julia
 struct OnlinePerformanceTracker
+    predictions::Vector{Int}
+    true_labels::Vector{Int}
+    confidences::Vector{Float64}
+    timestamps::Vector{DateTime}
     window_size::Int
-    # ... internal state
 end
 
-OnlinePerformanceTracker(; window_size::Int = 50) -> tracker
+OnlinePerformanceTracker(window_size::Int = 100) -> tracker
 
 update_and_report!(tracker, prediction, true_label, confidence) -> metrics
 get_metrics(tracker, n_classes, trial_duration) -> BCIPerformanceMetrics

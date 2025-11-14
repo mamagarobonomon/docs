@@ -57,18 +57,16 @@ Where:
 
 **Key Assumption**: All classes share the same covariance structure, which makes training and inference faster.
 
-### Hyperparameters (v0.2.0+)
+### Hyperparameters
 
 Bayesian LDA supports configurable hyperparameters for optimal performance tuning:
 
-**Available Hyperparameters:**
+**Available Hyperparameters (training):**
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `dof_offset` | Int | 2 | [1, 5] | Degrees of freedom offset for Wishart prior |
 | `mean_prior_precision` | Float64 | 0.01 | [0.001, 0.1] | Prior precision for class means |
-| `predictive_mean_prior` | Float64 | 1e6 | [1e4, 1e8] | Mean prior strength during inference |
-| `predictive_dof_offset` | Int | 2 | [1, 5] | DOF offset for inference (must equal `dof_offset`) |
 
 **Parameter Effects:**
 
@@ -80,26 +78,16 @@ Bayesian LDA supports configurable hyperparameters for optimal performance tunin
   - Lower values (0.001) → Weaker prior, trusts data more
   - Higher values (0.05-0.1) → Stronger prior, more regularization
 
-- **predictive_mean_prior**: Very high values (1e6) indicate strong trust in learned parameters during inference
-
-- **predictive_dof_offset**: Must match `dof_offset` (enforced by validation)
-
-<Note>
-**New in v0.2.0**: Hyperparameter configuration allows you to optimize model behavior for your specific dataset characteristics (SNR, trial count, data quality).
-</Note>
-
 ### Model Structure
 
 ```julia
 struct RxLDAModel <: BCIModel
-    means::Vector{Vector{Float64}}            # Class means [μ₁, μ₂, ..., μₖ]
-    precisions::Vector{Matrix{Float64}}       # Precision matrices (all equal to W)
-    global_precision::Matrix{Float64}         # Shared precision W
-    metadata::ModelMetadata                   # Model info
-    dof_offset::Int                          # Degrees of freedom offset
-    mean_prior_precision::Float64            # Mean prior precision
-    predictive_mean_prior::Float64           # Predictive mean prior
-    predictive_dof_offset::Int               # Predictive DOF offset
+    mean_posteriors::Vector          # MvNormal posteriors for class means
+    precision_posterior::Any         # Wishart posterior for shared precision
+    priors::Vector{Float64}          # Empirical class priors
+    metadata::ModelMetadata          # Model info
+    dof_offset::Int                  # Degrees of freedom offset (training)
+    mean_prior_precision::Float64    # Mean prior precision (training)
 end
 ```
 
@@ -132,12 +120,12 @@ end
 To avoid mixture collapse with single observations, inference computes per-class likelihoods independently:
 
 ```julia
-@model function RxLDA_predictive_single_class(y, class_mean, class_precision, predictive_mean_prior, predictive_dof_offset)
+@model function RxLDA_predictive_single_class(y, class_mean, class_precision)
     n_features = length(class_mean)
     
-    # Prior for this specific class
-    m ~ MvNormalMeanPrecision(class_mean, predictive_mean_prior * I)
-    w ~ Wishart(n_features + predictive_dof_offset, class_precision)
+    # Prior for this specific class (illustrative; actual implementation uses full posteriors)
+    m ~ MvNormalMeanPrecision(class_mean, 1e6 * I)
+    w ~ Wishart(n_features + 2, class_precision)
     
     # Observations (no mixture variable)
     for i in eachindex(y)
@@ -208,9 +196,7 @@ model = train_model(
     name = "my_motor_imagery_tuned",
     description = "4-class MI with tuned hyperparameters",
     dof_offset = 2,                    # DOF offset (default: 2)
-    mean_prior_precision = 0.01,       # Prior precision (default: 0.01)
-    predictive_mean_prior = 1e6,       # Inference prior (default: 1e6)
-    predictive_dof_offset = 2          # Inference DOF (default: 2)
+    mean_prior_precision = 0.01        # Prior precision (default: 0.01)
 )
 
 # Save for later use
@@ -224,10 +210,8 @@ save_model(model, "my_model.jld2")
 - `showprogress`: Display progress bar during training
 - `name`: Model identifier
 - `description`: Model description for documentation
-- `dof_offset`: Degrees of freedom offset (default: 2, range: [1, 5]) - **v0.2.0+**
-- `mean_prior_precision`: Prior precision for means (default: 0.01, range: [0.001, 0.1]) - **v0.2.0+**
-- `predictive_mean_prior`: Inference prior strength (default: 1e6, range: [1e4, 1e8]) - **v0.2.0+**
-- `predictive_dof_offset`: Inference DOF offset (default: 2, range: [1, 5], **must equal `dof_offset`**) - **v0.2.0+**
+- `dof_offset`: Degrees of freedom offset (default: 2, range: [1, 5])  
+- `mean_prior_precision`: Prior precision for means (default: 0.01, range: [0.001, 0.1])
 
 ### 3. Subject-Specific Calibration
 
@@ -258,7 +242,7 @@ save_model(personalized_model, "subject_001_calibrated.jld2")
 - Faster: 20 iterations vs 50-100
 - Better generalization: Uses pre-trained model as prior
 - Typical accuracy improvement: 5-15% over generic model
-- **Hyperparameters automatically preserved**: `calibrate_model()` inherits all hyperparameters from the base model (`dof_offset`, `mean_prior_precision`, `predictive_mean_prior`, `predictive_dof_offset`) ensuring consistency (v0.2.0+)
+- **Hyperparameters automatically preserved**: `calibrate_model()` inherits training hyperparameters from the base model (`dof_offset`, `mean_prior_precision`) ensuring consistency
 
 <Note>
 **Important**: You don't need to specify hyperparameters when calibrating - they are automatically inherited from the base model. This ensures the calibrated model uses the same regularization strategy that worked well during initial training.
@@ -330,10 +314,8 @@ model = train_model(
     RxLDAModel,
     train_data;
     iterations = 50,
-    dof_offset = 1,                    # Less regularization
-    mean_prior_precision = 0.001,      # Weaker prior, trust data more
-    predictive_mean_prior = 1e6,       # Standard inference prior
-    predictive_dof_offset = 1          # Match dof_offset
+    dof_offset = 1,               # Less regularization
+    mean_prior_precision = 0.001  # Weaker prior, trust data more
 )
 ```
 
@@ -352,10 +334,8 @@ model = train_model(
     RxLDAModel,
     train_data;
     iterations = 50,
-    dof_offset = 3,                    # More regularization
-    mean_prior_precision = 0.05,       # Stronger prior
-    predictive_mean_prior = 1e6,       # Standard inference prior
-    predictive_dof_offset = 3          # Match dof_offset
+    dof_offset = 3,               # More regularization
+    mean_prior_precision = 0.05   # Stronger prior
 )
 ```
 
@@ -374,10 +354,8 @@ model = train_model(
     RxLDAModel,
     train_data;
     iterations = 50,
-    dof_offset = 2,                    # Balanced (default)
-    mean_prior_precision = 0.01,       # Balanced (default)
-    predictive_mean_prior = 1e6,       # Standard (default)
-    predictive_dof_offset = 2          # Balanced (default)
+    dof_offset = 2,               # Balanced (default)
+    mean_prior_precision = 0.01   # Balanced (default)
 )
 ```
 
@@ -414,7 +392,6 @@ for dof in dof_values
             iterations = 50,
             dof_offset = dof,
             mean_prior_precision = prior,
-            predictive_dof_offset = dof,
             showprogress = false
         )
         
@@ -443,8 +420,7 @@ final_model = train_model(
     all_data;
     iterations = 50,
     dof_offset = best_params.dof,
-    mean_prior_precision = best_params.prior,
-    predictive_dof_offset = best_params.dof
+    mean_prior_precision = best_params.prior
 )
 ```
 
@@ -461,10 +437,6 @@ final_model = train_model(
 <Tip>
 **Pro Tip**: Start with defaults (`dof_offset=2`, `mean_prior_precision=0.01`) and only tune if performance is unsatisfactory. The defaults are optimized for typical BCI scenarios.
 </Tip>
-
-<Warning>
-**Required**: You must set `predictive_dof_offset` to match `dof_offset`. The SDK enforces this constraint and will raise an `ArgumentError` if they differ. This ensures consistency between training and inference phases.
-</Warning>
 
 ## Training Requirements
 
