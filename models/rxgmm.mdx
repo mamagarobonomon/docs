@@ -159,6 +159,31 @@ end
 
 ### 1. Load Pre-trained Model
 
+<Note>
+**Python SDK**: The Python SDK (`nimbus-bci`) trains models locally. See [Python SDK Quickstart](/python-sdk/quickstart) for training examples.
+</Note>
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusGMM
+import pickle
+
+# Python SDK: Train locally, no model zoo
+clf = NimbusGMM(mu_scale=3.0)
+clf.fit(X_train, y_train)
+
+# Save and load
+with open("my_p300_gmm.pkl", "wb") as f:
+    pickle.dump(clf, f)
+
+with open("my_p300_gmm.pkl", "rb") as f:
+    clf = pickle.load(f)
+
+print(f"Model info: {clf.classes_} classes, {clf.n_features_in_} features")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -173,9 +198,49 @@ println("  Features: $(get_n_features(model))")
 println("  Classes: $(get_n_classes(model))")
 println("  Paradigm: $(get_paradigm(model))")
 ```
+  </Tab>
+</Tabs>
 
 ### 2. Train Custom Model
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusGMM
+from nimbus_pysdk.compat import from_mne_epochs
+import mne
+import pickle
+
+# Load P300 data
+raw = mne.io.read_raw_fif("p300_oddball.fif", preload=True)
+raw.filter(0.5, 10)
+
+events = mne.find_events(raw)
+event_id = {'target': 1, 'non-target': 2}
+epochs = mne.Epochs(raw, events, event_id, tmin=-0.2, tmax=0.8, preload=True)
+
+# Extract features
+X, y = from_mne_epochs(epochs)
+
+# Train NimbusGMM with default hyperparameters
+clf = NimbusGMM()
+clf.fit(X, y)
+
+# Or train with custom hyperparameters
+clf_tuned = NimbusGMM(
+    mu_scale=3.0,        # Prior strength
+    sigma_scale=1.0      # Covariance regularization
+)
+clf_tuned.fit(X, y)
+
+# Save
+with open("my_p300_gmm.pkl", "wb") as f:
+    pickle.dump(clf_tuned, f)
+
+print(f"Training accuracy: {clf_tuned.score(X, y):.1%}")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -221,6 +286,8 @@ model = train_model(
 # Save for later use
 save_model(model, "my_p300_gmm.jld2")
 ```
+  </Tab>
+</Tabs>
 
 **Training Parameters:**
 - `iterations`: Number of variational inference iterations (default: 50)
