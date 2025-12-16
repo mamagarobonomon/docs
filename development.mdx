@@ -442,6 +442,90 @@ end
 
 #### Training Workflow
 
+<Tabs>
+  <Tab title="Python">
+```python
+# src/training.py
+from nimbus_pysdk import NimbusLDA
+import numpy as np
+import pickle
+from datetime import date
+from sklearn.model_selection import train_test_split
+
+def train_motor_imagery_model(data_file: str):
+    """
+    Complete training workflow for motor imagery BCI.
+    
+    Args:
+        data_file: Path to preprocessed feature file
+    
+    Returns:
+        trained_model: Trained NimbusLDA classifier
+    """
+    print("="*60)
+    print("Motor Imagery Model Training")
+    print("="*60)
+    
+    # 1. Load and preprocess data
+    print("\n1. Loading data...")
+    features, labels = load_features(data_file)
+    # features: (n_trials, n_features)
+    # labels: (n_trials,)
+    
+    # 2. Validate data
+    print("2. Validating data...")
+    check_data_quality(features, labels)
+    
+    # 3. Split into train/test
+    print("3. Splitting train/test...")
+    X_train, X_test, y_train, y_test = train_test_split(
+        features, labels, test_size=0.2, random_state=42, stratify=labels
+    )
+    
+    # 4. Train model
+    print("4. Training NimbusLDA model...")
+    clf = NimbusLDA(mu_scale=3.0)
+    clf.fit(X_train, y_train)
+    
+    # 5. Evaluate
+    print("\n5. Evaluating on test set...")
+    predictions = clf.predict(X_test)
+    probabilities = clf.predict_proba(X_test)
+    
+    accuracy = np.mean(predictions == y_test)
+    mean_conf = np.mean(np.max(probabilities, axis=1))
+    
+    print("\n" + "="*60)
+    print("Training Results")
+    print("="*60)
+    print(f"Test Accuracy: {accuracy * 100:.1f}%")
+    print(f"Mean Confidence: {mean_conf:.3f}")
+    
+    # 6. Save model
+    save_path = f"data/models/motor_imagery_{date.today()}.pkl"
+    with open(save_path, 'wb') as f:
+        pickle.dump(clf, f)
+    print(f"\n✓ Model saved to: {save_path}")
+    
+    return clf
+
+def check_data_quality(features: np.ndarray, labels: np.ndarray):
+    """Validate training data quality"""
+    # Check for NaN/Inf
+    if np.any(np.isnan(features)) or np.any(np.isinf(features)):
+        raise ValueError("Features contain NaN or Inf values")
+    
+    # Check shapes
+    n_trials, n_features = features.shape
+    assert len(labels) == n_trials, "Labels must match number of trials"
+    
+    # Check label distribution
+    n_classes = len(np.unique(labels))
+    print(f"   {n_trials} trials, {n_features} features, {n_classes} classes")
+    print(f"   Feature range: [{features.min():.3f}, {features.max():.3f}]")
+```
+  </Tab>
+  <Tab title="Julia SDK">
 ```julia
 # src/training.jl
 using NimbusSDK
@@ -552,11 +636,114 @@ function split_data(data::BCIData, test_ratio::Float64=0.2)
     return train_data, test_data
 end
 ```
+  </Tab>
+</Tabs>
 
 ### 3. Real-Time Inference
 
 #### Streaming Application
 
+<Tabs>
+  <Tab title="Python">
+```python
+# src/inference.py
+from nimbus_pysdk import NimbusLDA, StreamingSession
+from nimbus_pysdk.data import BCIMetadata
+import numpy as np
+import pickle
+import time
+
+def run_realtime_bci(model_path: str, duration_seconds: int = 60):
+    """
+    Run real-time BCI application.
+    
+    Args:
+        model_path: Path to trained model file (.pkl)
+        duration_seconds: Duration to run in seconds
+    """
+    print("="*60)
+    print("Real-Time BCI Application")
+    print("="*60)
+    
+    # 1. Load model
+    print("\nLoading model...")
+    with open(model_path, 'rb') as f:
+        clf = pickle.load(f)
+    print(f"✓ Model loaded: {model_path}")
+    
+    # 2. Configure streaming
+    metadata = BCIMetadata(
+        sampling_rate=250.0,
+        paradigm="motor_imagery",
+        feature_type="csp",
+        n_features=16,
+        n_classes=4,
+        chunk_size=250  # 1-second chunks
+    )
+    
+    # 3. Initialize streaming session
+    print("Initializing streaming session...")
+    session = StreamingSession(clf.model_, metadata)
+    print("✓ Session initialized")
+    
+    # 4. Real-time loop
+    print("\n" + "="*60)
+    print(f"Starting real-time processing ({duration_seconds}s)")
+    print("="*60)
+    
+    chunk_count = 0
+    start_time = time.time()
+    latencies = []
+    confidences = []
+    
+    while (time.time() - start_time) < duration_seconds:
+        # Acquire EEG chunk (replace with your hardware interface)
+        raw_chunk = acquire_eeg_chunk()  # Your hardware interface
+        
+        # Extract features
+        feature_chunk = extract_csp_features(raw_chunk)  # (16, 250)
+        
+        # Time inference
+        t_start = time.perf_counter()
+        result = session.process_chunk(feature_chunk)
+        latency_ms = (time.perf_counter() - t_start) * 1000
+        
+        chunk_count += 1
+        latencies.append(latency_ms)
+        confidences.append(result.confidence)
+        
+        # Execute BCI command
+        if result.confidence > 0.75:
+            execute_bci_command(result.prediction)
+        
+        # Report every 10 chunks
+        if chunk_count % 10 == 0:
+            recent_lat = latencies[-10:]
+            recent_conf = confidences[-10:]
+            print(f"\nChunk {chunk_count}:")
+            print(f"  Mean latency: {np.mean(recent_lat):.1f} ms")
+            print(f"  Mean confidence: {np.mean(recent_conf):.3f}")
+        
+        session.reset()
+    
+    # 5. Summary
+    print("\n" + "="*60)
+    print("Session Complete")
+    print("="*60)
+    print(f"Total chunks: {chunk_count}")
+    print(f"Mean latency: {np.mean(latencies):.1f} ms")
+    print(f"Mean confidence: {np.mean(confidences):.3f}")
+
+def execute_bci_command(prediction: int):
+    """Execute BCI command based on prediction"""
+    commands = ["Left", "Right", "Forward", "Stop"]
+    print(f"→ Command: {commands[prediction]}")
+    
+    # Your application logic here
+    # e.g., control wheelchair, game, cursor, etc.
+```
+  </Tab>
+  <Tab title="Julia SDK">
 ```julia
 # src/inference.jl
 using NimbusSDK
@@ -664,11 +851,101 @@ function execute_bci_command(prediction::Int)
     # e.g., control wheelchair, game, cursor, etc.
 end
 ```
+  </Tab>
+</Tabs>
 
 ### 4. Testing
 
 #### Test Suite
 
+<Tabs>
+  <Tab title="Python">
+```python
+# tests/test_training.py
+import pytest
+import numpy as np
+from nimbus_pysdk import NimbusLDA, NimbusGMM
+from nimbus_pysdk.data import BCIData, BCIMetadata
+
+def test_model_training():
+    """Test basic model training"""
+    # Create synthetic data
+    X_train = np.random.randn(50, 8)
+    y_train = np.random.randint(0, 2, 50)
+    
+    # Train model
+    clf = NimbusLDA()
+    clf.fit(X_train, y_train)
+    
+    # Verify model properties
+    assert clf.n_features_in_ == 8
+    assert len(clf.classes_) == 2
+
+def test_batch_inference():
+    """Test batch prediction"""
+    # Train model
+    clf = NimbusLDA()
+    X_train = np.random.randn(30, 8)
+    y_train = np.random.randint(0, 2, 30)
+    clf.fit(X_train, y_train)
+    
+    # Test prediction
+    X_test = np.random.randn(20, 8)
+    predictions = clf.predict(X_test)
+    probabilities = clf.predict_proba(X_test)
+    
+    assert len(predictions) == 20
+    assert probabilities.shape == (20, 2)
+    assert np.all((probabilities >= 0) & (probabilities <= 1))
+    assert np.allclose(probabilities.sum(axis=1), 1.0)
+
+def test_streaming_inference():
+    """Test streaming inference"""
+    # Train model
+    clf = NimbusLDA()
+    X_train = np.random.randn(30, 8)
+    y_train = np.random.randint(0, 2, 30)
+    clf.fit(X_train, y_train)
+    
+    # Create streaming session
+    from nimbus_pysdk import StreamingSession
+    from nimbus_pysdk.data import BCIMetadata
+    
+    metadata = BCIMetadata(
+        sampling_rate=250.0,
+        n_features=8,
+        n_classes=2,
+        chunk_size=100
+    )
+    
+    session = StreamingSession(clf.model_, metadata)
+    
+    # Process chunk
+    chunk = np.random.randn(8, 100)
+    result = session.process_chunk(chunk)
+    
+    assert result.prediction in [0, 1]
+    assert 0 <= result.confidence <= 1
+
+def test_cross_validation():
+    """Test cross-validation compatibility"""
+    from sklearn.model_selection import cross_val_score
+    
+    clf = NimbusLDA()
+    X = np.random.randn(100, 8)
+    y = np.random.randint(0, 2, 100)
+    
+    # Run cross-validation
+    scores = cross_val_score(clf, X, y, cv=5)
+    
+    assert len(scores) == 5
+    assert all(0 <= score <= 1 for score in scores)
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
+```
+  </Tab>
+  <Tab title="Julia SDK">
 ```julia
 # test/runtests.jl
 using Test
@@ -751,6 +1028,8 @@ end
 
 println("\n✓ All tests passed!")
 ```
+  </Tab>
+</Tabs>
 
 ## Best Practices
 
