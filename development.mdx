@@ -10,7 +10,7 @@ This guide covers the development workflow for building BCI applications with **
 
 <Note>
 **Choose Your SDK:**
-- **Python SDK** (`nimbus-pysdk`): Ideal for sklearn integration, MNE-Python workflows, and rapid prototyping
+- **Python SDK** (`nimbus-bci`): Ideal for sklearn integration, MNE-Python workflows, and rapid prototyping
 - **Julia SDK** (`NimbusSDK.jl`): Optimal for research applications requiring RxInfer.jl and custom Bayesian models
 
 Both SDKs provide the same core Bayesian classifiers with language-specific ergonomics.
@@ -90,7 +90,7 @@ source venv/bin/activate
 
 </Step>
 
-<Step title="Install nimbus-pysdk">
+<Step title="Install nimbus-bci">
 
 Install from PyPI:
 
@@ -102,7 +102,7 @@ pip install nimbus-bci
 pip install "nimbus-bci[mne]"
 
 # Verify installation
-python -c "import nimbus_pysdk; print('✓ nimbus-pysdk installed')"
+python -c "import nimbus_pysdk; print('✓ nimbus-bci installed')"
 ```
 
 </Step>

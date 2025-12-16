@@ -48,7 +48,7 @@ events = mne.find_events(raw)
 event_id = {'Left': 1, 'Right': 2, 'Feet': 3, 'Tongue': 4}
 epochs = mne.Epochs(raw, events, event_id, tmin=0, tmax=4.0, baseline=None, preload=True)
 
-# 3. Extract CSP features using nimbus-pysdk
+# 3. Extract CSP features using nimbus-bci
 X_csp, y = extract_csp_features(epochs, n_components=6)
 
 # 4. Train directly (no data export needed!)
