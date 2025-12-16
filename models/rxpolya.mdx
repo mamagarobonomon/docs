@@ -354,6 +354,32 @@ save_model(model, "my_model.jld2")
 
 Fine-tune a pre-trained model with subject-specific data (much faster than training from scratch):
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusSoftmax
+import pickle
+
+# Load baseline model
+with open("motor_imagery_softmax_baseline.pkl", "rb") as f:
+    base_clf = pickle.load(f)
+
+# Collect 10-20 calibration trials from new subject
+X_calib, y_calib = collect_calibration_trials()
+
+# Personalize using online learning
+personalized_clf = NimbusSoftmax()
+personalized_clf.fit(X_baseline, y_baseline)
+
+for _ in range(10):
+    personalized_clf.partial_fit(X_calib, y_calib)
+
+# Save
+with open("subject_001_calibrated.pkl", "wb") as f:
+    pickle.dump(personalized_clf, f)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Load base model
 base_model = load_model(RxPolyaModel, "motor_imagery_polya_baseline_v1")
@@ -373,6 +399,8 @@ personalized_model = calibrate_model(
 
 save_model(personalized_model, "subject_001_calibrated.jld2")
 ```
+  </Tab>
+</Tabs>
 
 **Calibration Benefits:**
 - Requires only 10-20 trials per class (vs 50-100 for training from scratch)
@@ -385,6 +413,31 @@ save_model(personalized_model, "subject_001_calibrated.jld2")
 
 Process multiple trials efficiently:
 
+<Tabs>
+  <Tab title="Python">
+```python
+import numpy as np
+
+# Run batch inference
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)
+confidences = np.max(probabilities, axis=1)
+
+# Analyze results
+print(f"Predictions: {predictions}")
+print(f"Mean confidence: {np.mean(confidences):.3f}")
+
+# Calculate accuracy
+accuracy = np.mean(predictions == y_test)
+print(f"Accuracy: {accuracy * 100:.1f}%")
+
+# Calculate ITR
+from nimbus_pysdk.metrics import calculate_itr
+itr = calculate_itr(accuracy, n_classes=4, trial_time=4.0)
+print(f"ITR: {itr:.1f} bits/minute")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Prepare test data
 test_data = BCIData(test_features, metadata, test_labels)
@@ -404,11 +457,38 @@ println("Accuracy: $(round(accuracy * 100, digits=1))%")
 itr = calculate_ITR(accuracy, 4, 4.0)  # 4 classes, 4-second trials
 println("ITR: $(round(itr, digits=1)) bits/minute")
 ```
+  </Tab>
+</Tabs>
 
 ### 5. Streaming Inference
 
 Real-time chunk-by-chunk processing:
 
+<Note>
+For detailed Python streaming examples, see [Python SDK Streaming Inference](/python-sdk/streaming-inference).
+</Note>
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import StreamingSession
+
+# Initialize streaming session
+session = StreamingSession(clf.model_, metadata_with_chunk_size)
+
+# Process chunks as they arrive
+for chunk in eeg_feature_stream:
+    result = session.process_chunk(chunk)
+    print(f"Chunk: pred={result.prediction}, conf={result.confidence:.3f}")
+
+# Finalize trial with aggregation
+final_result = session.finalize_trial()
+print(f"Final: pred={final_result.prediction}, conf={final_result.confidence:.3f}")
+
+session.reset()
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Initialize streaming session
 session = init_streaming(model, metadata_with_chunk_size)
@@ -423,6 +503,8 @@ end
 final_result = finalize_trial(session; method=:weighted_vote)
 println("Final: pred=$(final_result.prediction), conf=$(round(final_result.confidence, digits=3))")
 ```
+  </Tab>
+</Tabs>
 
 ## Hyperparameter Tuning
 
@@ -442,6 +524,17 @@ Consider tuning when:
 
 Use weaker priors to let the data drive the model:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusSoftmax
+
+# Weaker regularization for clean data
+clf = NimbusSoftmax(reg_strength=0.1)  # Lower regularization
+clf.fit(X_train, y_train)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 model = train_model(
     RxPolyaModel,
@@ -452,6 +545,8 @@ model = train_model(
     W_df = Float64(n_classes + 2)                       # Less regularization
 )
 ```
+  </Tab>
+</Tabs>
 
 **Use when:**
 - SNR > 5 dB
@@ -463,6 +558,17 @@ model = train_model(
 
 Use stronger priors for stability:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusSoftmax
+
+# Stronger regularization for noisy data
+clf = NimbusSoftmax(reg_strength=10.0)  # Higher regularization
+clf.fit(X_train, y_train)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 model = train_model(
     RxPolyaModel,
@@ -473,6 +579,8 @@ model = train_model(
     W_df = Float64(n_classes + 10)                      # More regularization
 )
 ```
+  </Tab>
+</Tabs>
 
 **Use when:**
 - SNR < 2 dB
