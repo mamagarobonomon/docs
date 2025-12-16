@@ -333,6 +333,36 @@ save_model(model, "my_model.jld2")
 
 Fine-tune a pre-trained model with subject-specific data (much faster than training from scratch):
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+import numpy as np
+import pickle
+
+# Load baseline model (trained on multiple subjects)
+with open("motor_imagery_baseline.pkl", "rb") as f:
+    base_clf = pickle.load(f)
+
+# Collect 10-20 calibration trials from new subject
+X_calib, y_calib = collect_calibration_trials()  # Your function
+
+# Personalize using online learning (partial_fit)
+personalized_clf = NimbusLDA()
+personalized_clf.fit(X_baseline, y_baseline)  # Start with baseline
+
+# Fine-tune on calibration data
+for _ in range(10):  # Multiple passes for adaptation
+    personalized_clf.partial_fit(X_calib, y_calib)
+
+# Save personalized model
+with open("subject_001_calibrated.pkl", "wb") as f:
+    pickle.dump(personalized_clf, f)
+
+print("Model personalized successfully!")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Load base model
 base_model = load_model(RxLDAModel, "motor_imagery_baseline_v1")
@@ -352,6 +382,8 @@ personalized_model = calibrate_model(
 
 save_model(personalized_model, "subject_001_calibrated.jld2")
 ```
+  </Tab>
+</Tabs>
 
 **Calibration Benefits:**
 - Requires only 10-20 trials per class (vs 50-100 for training from scratch)
@@ -368,6 +400,27 @@ save_model(personalized_model, "subject_001_calibrated.jld2")
 
 Process multiple trials efficiently:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+import numpy as np
+
+# Run batch inference
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)
+confidences = np.max(probabilities, axis=1)
+
+# Analyze results
+print(f"Predictions: {predictions}")
+print(f"Mean confidence: {np.mean(confidences):.3f}")
+
+# Calculate accuracy
+accuracy = np.mean(predictions == y_test)
+print(f"Accuracy: {accuracy * 100:.1f}%")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Prepare test data
 test_data = BCIData(test_features, metadata, test_labels)
@@ -387,6 +440,8 @@ println("Accuracy: $(round(accuracy * 100, digits=1))%")
 itr = calculate_ITR(accuracy, 4, 4.0)  # 4 classes, 4-second trials
 println("ITR: $(round(itr, digits=1)) bits/minute")
 ```
+  </Tab>
+</Tabs>
 
 ### 5. Streaming Inference
 
