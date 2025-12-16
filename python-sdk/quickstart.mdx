@@ -8,6 +8,12 @@ icon: "rocket"
 
 Get started with nimbus-bci and build your first Bayesian BCI classifier in just a few minutes.
 
+<Info>
+**Time to complete:** ~10 minutes
+
+This guide walks you through installation, basic usage, sklearn integration, and real-time streaming inference.
+</Info>
+
 ## Prerequisites
 
 Before you begin:
@@ -20,9 +26,11 @@ Before you begin:
 nimbus-bci expects **preprocessed features**, not raw EEG data. Use MNE-Python or similar tools for preprocessing.
 </Tip>
 
-## Step 1: Install
+---
 
-Install nimbus-bci from PyPI:
+<Steps>
+  <Step title="Install nimbus-bci">
+Install from PyPI:
 
 ```bash
 pip install nimbus-bci
@@ -34,8 +42,15 @@ For MNE-Python integration:
 pip install nimbus-bci[mne]
 ```
 
-## Step 2: Basic Classification
+Verify installation:
 
+```python
+import nimbus_pysdk
+print(f"nimbus-bci version: {nimbus_pysdk.__version__}")
+```
+  </Step>
+
+  <Step title="Basic Classification">
 Create your first Bayesian classifier:
 
 ```python
@@ -61,8 +76,12 @@ print(f"Predictions: {predictions}")
 print(f"Probabilities shape: {probabilities.shape}")  # (20, 4)
 ```
 
-## Step 3: sklearn Pipeline Integration
+<Info>
+**Key concepts:** `NimbusLDA()` creates a Bayesian LDA classifier, `fit()` trains the model on labeled data, `predict()` returns class predictions, and `predict_proba()` returns full posterior distributions.
+</Info>
+  </Step>
 
+  <Step title="sklearn Pipeline Integration">
 Use nimbus-bci with sklearn pipelines:
 
 ```python
@@ -88,8 +107,12 @@ scores = cross_val_score(pipe, X_train, y_train, cv=5)
 print(f"CV Accuracy: {scores.mean():.2%} (+/- {scores.std():.2%})")
 ```
 
-## Step 4: Hyperparameter Tuning
+<Tip>
+nimbus-bci classifiers are fully sklearn-compatible. Use them with `Pipeline`, `GridSearchCV`, `cross_val_score`, and all sklearn tools.
+</Tip>
+  </Step>
 
+  <Step title="Hyperparameter Tuning">
 Optimize classifier parameters with GridSearchCV:
 
 ```python
@@ -119,8 +142,12 @@ print(f"Best CV score: {grid.best_score_:.2%}")
 best_clf = grid.best_estimator_
 ```
 
-## Step 5: Online Learning
+<Info>
+**Common hyperparameters:** `mu_scale` controls prior precision on class means (higher = more regularization), and `class_prior_alpha` sets the Dirichlet prior on class probabilities.
+</Info>
+  </Step>
 
+  <Step title="Online Learning">
 Update models incrementally with new data:
 
 ```python
@@ -138,8 +165,12 @@ clf.partial_fit(X_new, y_new)
 print("Model updated with new data")
 ```
 
-## Step 6: Batch Inference with Diagnostics
+<Info>
+`partial_fit()` enables **adaptive BCI** systems that learn from user feedback during operation.
+</Info>
+  </Step>
 
+  <Step title="Batch Inference with Diagnostics">
 Use batch inference for comprehensive diagnostics:
 
 ```python
@@ -173,8 +204,12 @@ print(f"Balance: {result.balance:.2%}")
 print(f"Latency: {result.latency_ms:.1f}ms")
 ```
 
-## Step 7: Streaming Inference
+<Info>
+**Diagnostics available:** `entropy` (prediction uncertainty), `balance` (class distribution balance), and `latency_ms` (inference time per trial).
+</Info>
+  </Step>
 
+  <Step title="Streaming Inference">
 Process data in real-time chunks:
 
 ```python
@@ -212,6 +247,14 @@ print(f"\nFinal prediction: class {final.prediction}")
 print(f"Entropy: {final.entropy:.2f} bits")
 ```
 
+<Tip>
+**Streaming inference** enables real-time BCI applications with sub-20ms latency per chunk.
+</Tip>
+  </Step>
+</Steps>
+
+---
+
 ## Available Classifiers
 
 Try different Bayesian models:
@@ -236,6 +279,12 @@ for name, clf in [("LDA", clf_lda), ("GMM", clf_gmm), ("Softmax", clf_softmax)]:
     score = clf.score(X_test, y_test)
     print(f"{name}: {score:.2%}")
 ```
+
+| Model | Best For | Speed | Flexibility |
+|-------|----------|-------|-------------|
+| **NimbusLDA** | Motor imagery, well-separated classes | Fastest (10-15ms) | Lower |
+| **NimbusGMM** | P300, overlapping distributions | Fast (15-25ms) | Higher |
+| **NimbusSoftmax** | Complex multinomial tasks | Fast (15-25ms) | Highest |
 
 ## MNE-Python Integration
 
@@ -266,6 +315,8 @@ from sklearn.model_selection import cross_val_score
 scores = cross_val_score(clf, csp_features, epochs.events[:, 2], cv=5)
 print(f"Accuracy: {scores.mean():.2%} (+/- {scores.std():.2%})")
 ```
+
+See [MNE Integration](/python-sdk/mne-integration) for more details.
 
 ## Metrics and Diagnostics
 
@@ -460,4 +511,3 @@ Need help?
 ---
 
 Congratulations! You've learned the basics of nimbus-bci. Explore the [API Reference](/python-sdk/api-reference) for more advanced features.
-

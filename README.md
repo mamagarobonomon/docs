@@ -1,44 +1,63 @@
-# Mintlify Starter Kit
+# Nimbus Docs
 
-Use the starter kit to get your docs deployed and ready to customize.
+This repo contains the documentation site for **Nimbus** (MDX pages + Mintlify configuration).
 
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+## Local development
 
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
+### Prerequisites
 
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
+- Node.js (LTS recommended)
 
-## Development
+### Install
 
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview your documentation changes locally. To install, use the following command:
-
-```
-npm i -g mint
+```bash
+npm ci
 ```
 
-Run the following command at the root of your documentation, where your `docs.json` is located:
+### Run the docs site
 
+```bash
+npm run dev
 ```
-mint dev
+
+Then open `http://localhost:3000`.
+
+## Project structure
+
+- **Site config**: `docs.json` (navigation, theme, links, etc.)
+- **Pages**: `*.mdx` (e.g. `index.mdx`, `python-sdk/*`, `core-concepts/*`)
+- **API spec**: `api-reference/openapi.json`
+- **Static assets**: `images/`, `logo/`, `favicon.svg`
+
+## Common maintenance commands
+
+### Check internal links
+
+```bash
+npx --yes mintlify broken-links
 ```
 
-View your local preview at `http://localhost:3000`.
+### Validate the OpenAPI spec
 
-## Publishing changes
+```bash
+npx --yes mintlify openapi-check api-reference/openapi.json
+```
 
-Install our GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) to propagate changes from your repo to your deployment. Changes are deployed to production automatically after pushing to the default branch.
+### Accessibility check (optional)
 
-## Need help?
+```bash
+npx --yes mintlify a11y
+```
 
-### Troubleshooting
+## Editing navigation
 
-- If your dev environment isn't running: Run `mint update` to ensure you have the most recent version of the CLI.
-- If a page loads as a 404: Make sure you are running in a folder with a valid `docs.json`.
+Navigation and grouping are defined in `docs.json` under `navigation.groups`. Page entries are **routes**, which usually map to:
 
-### Resources
-- [Mintlify documentation](https://mintlify.com/docs)
-- [Mintlify community](https://mintlify.com/community)
+- `some/path` → `some/path.mdx`
+- `some/path` → `some/path/index.mdx`
+
+## Contributing
+
+- Keep pages in **MDX** and prefer internal links like `/python-sdk/quickstart`.
+- After editing `<Tabs>/<Tab>` blocks, run the broken-links check (it also catches MDX parse errors).
+
