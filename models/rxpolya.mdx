@@ -706,6 +706,30 @@ final_model = train_model(
 Normalize your features before training for 15-30% accuracy improvement across sessions.
 </Tip>
 
+<Tabs>
+  <Tab title="Python">
+```python
+from sklearn.preprocessing import StandardScaler
+import pickle
+
+# Estimate normalization from training data
+scaler = StandardScaler()
+X_train_norm = scaler.fit_transform(X_train)
+
+# Train with normalized features
+clf = NimbusSoftmax()
+clf.fit(X_train_norm, y_train)
+
+# Save model and scaler together
+with open("model_with_scaler.pkl", "wb") as f:
+    pickle.dump({'model': clf, 'scaler': scaler}, f)
+
+# Later: Apply same normalization to test data
+X_test_norm = scaler.transform(X_test)
+predictions = clf.predict(X_test_norm)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Estimate normalization from training data
 norm_params = estimate_normalization_params(train_features; method=:zscore)
@@ -721,6 +745,8 @@ model = train_model(RxPolyaModel, train_data)
 # Later: Apply same params to test data
 test_norm = apply_normalization(test_features, norm_params)
 ```
+  </Tab>
+</Tabs>
 
 See the [Feature Normalization](/inference-configuration/feature-normalization) guide for complete details.
 
@@ -770,6 +796,33 @@ Bayesian MPR typically provides comparable or slightly better accuracy than RxLD
 
 ### View Model Parameters
 
+<Tabs>
+  <Tab title="Python">
+```python
+import numpy as np
+
+# Model coefficients
+print("Regression coefficients (weights):")
+print(f"  Shape: {clf.model_['coef'].shape}")
+print(f"  Coefficients:\n{clf.model_['coef']}")
+
+print("\nIntercepts:")
+print(f"  Intercepts: {clf.model_['intercept']}")
+
+# Model info
+print("\nModel info:")
+print(f"  Features: {clf.n_features_in_}")
+print(f"  Classes: {clf.classes_}")
+print(f"  Regularization: {clf.reg_strength}")
+
+# Class probabilities (from training)
+print("\nClass priors (estimated from training):")
+for k, class_label in enumerate(clf.classes_):
+    prior = np.sum(y_train == class_label) / len(y_train)
+    print(f"  Class {class_label}: {prior:.3f}")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Learned posteriors
 println("B posterior (regression coefficients):")
@@ -795,9 +848,29 @@ println("  Paradigm: ", model.metadata.paradigm)
 println("  Features: ", model.metadata.n_features)
 println("  Classes: ", model.metadata.n_classes)
 ```
+  </Tab>
+</Tabs>
 
 ### Compare Models
 
+<Tabs>
+  <Tab title="Python">
+```python
+from sklearn.model_selection import cross_val_score
+from nimbus_pysdk import NimbusSoftmax
+
+# Compare different regularization strengths
+results = []
+for reg in [0.1, 1.0, 10.0]:
+    clf = NimbusSoftmax(reg_strength=reg)
+    scores = cross_val_score(clf, X_train, y_train, cv=5)
+    accuracy = np.mean(scores)
+    
+    print(f"Regularization: {reg} → Accuracy: {accuracy * 100:.1f}%")
+    results.append((reg, clf, accuracy))
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Train multiple models and compare
 models = []
@@ -810,6 +883,8 @@ for n_iter in [20, 50, 100]
     push!(models, (n_iter, model, accuracy))
 end
 ```
+  </Tab>
+</Tabs>
 
 ## Advantages & Limitations
 
@@ -864,6 +939,30 @@ Do you need Mahalanobis-based outlier detection?
 
 ### Motor Imagery Classification
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusSoftmax
+from sklearn.metrics import classification_report
+
+# Train on motor imagery data (4-class MI)
+clf = NimbusSoftmax(reg_strength=1.0)
+clf.fit(X_train, y_train)  # CSP features, 4 classes
+
+# Test
+predictions = clf.predict(X_test)
+
+# Calculate per-class accuracy
+print(classification_report(y_test, predictions))
+
+# Per-class breakdown
+for class_id in clf.classes_:
+    class_mask = y_test == class_id
+    class_acc = np.mean(predictions[class_mask] == class_id)
+    print(f"Class {class_id} accuracy: {class_acc * 100:.1f}%")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Bayesian MPR for complex motor imagery with overlapping classes
 
@@ -881,9 +980,36 @@ for class_id in 1:4
     println("Class $class_id accuracy: $(round(class_accuracy * 100, digits=1))%")
 end
 ```
+  </Tab>
+</Tabs>
 
 ### P300 Detection
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusSoftmax
+from sklearn.metrics import confusion_matrix
+
+# Train on P300 data (binary: 0=non-target, 1=target)
+clf = NimbusSoftmax(reg_strength=1.0)
+clf.fit(X_train, y_train)  # ERP features
+
+# Test
+predictions = clf.predict(X_test)
+
+# Calculate sensitivity/specificity
+cm = confusion_matrix(y_test, predictions)
+tn, fp, fn, tp = cm.ravel()
+
+sensitivity = tp / (tp + fn)
+specificity = tn / (tn + fp)
+
+print(f"Sensitivity: {sensitivity * 100:.1f}%")
+print(f"Specificity: {specificity * 100:.1f}%")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Bayesian MPR for P300 target/non-target classification
 
@@ -904,9 +1030,49 @@ specificity = sum(.!target_preds .& .!targets) / sum(.!targets)
 println("Sensitivity: $(round(sensitivity * 100, digits=1))%")
 println("Specificity: $(round(specificity * 100, digits=1))%")
 ```
+  </Tab>
+</Tabs>
 
 ### Comparing with RxLDA/RxGMM
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA, NimbusGMM, NimbusSoftmax
+
+# Train all three models
+lda_clf = NimbusLDA()
+lda_clf.fit(X_train, y_train)
+
+gmm_clf = NimbusGMM()
+gmm_clf.fit(X_train, y_train)
+
+softmax_clf = NimbusSoftmax()
+softmax_clf.fit(X_train, y_train)
+
+# Evaluate all three
+models = [
+    ("NimbusLDA", lda_clf),
+    ("NimbusGMM", gmm_clf),
+    ("NimbusSoftmax", softmax_clf)
+]
+
+for name, clf in models:
+    predictions = clf.predict(X_test)
+    probas = clf.predict_proba(X_test)
+    
+    accuracy = np.mean(predictions == y_test)
+    mean_conf = np.mean(np.max(probas, axis=1))
+    mean_entropy = -np.mean(np.sum(probas * np.log(probas + 1e-10), axis=1))
+    
+    print(f"{name}:")
+    print(f"  Accuracy: {accuracy * 100:.1f}%")
+    print(f"  Mean confidence: {mean_conf:.3f}")
+    print(f"  Mean entropy: {mean_entropy:.3f} bits")
+    print()
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Compare Bayesian MPR with other models
 
@@ -936,6 +1102,8 @@ for (name, model) in models
     println()
 end
 ```
+  </Tab>
+</Tabs>
 
 ## Next Steps
 
