@@ -447,6 +447,43 @@ println("ITR: $(round(itr, digits=1)) bits/minute")
 
 Real-time chunk-by-chunk processing:
 
+<Note>
+For detailed Python streaming examples, see [Python SDK Streaming Inference](/python-sdk/streaming-inference).
+</Note>
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import StreamingSession
+from nimbus_pysdk.data import BCIMetadata
+
+# Configure metadata with chunk size
+metadata = BCIMetadata(
+    sampling_rate=250.0,
+    paradigm="motor_imagery",
+    feature_type="csp",
+    n_features=16,
+    n_classes=4,
+    chunk_size=250  # 1-second chunks
+)
+
+# Initialize streaming session
+session = StreamingSession(clf.model_, metadata)
+
+# Process chunks as they arrive
+for chunk in eeg_feature_stream:
+    result = session.process_chunk(chunk)
+    print(f"Chunk: pred={result.prediction}, conf={result.confidence:.3f}")
+
+# Finalize trial with aggregation
+final_result = session.finalize_trial()
+print(f"Final: pred={final_result.prediction}, conf={final_result.confidence:.3f}")
+
+# Reset for next trial
+session.reset()
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Initialize streaming session
 session = init_streaming(model, metadata_with_chunk_size)
@@ -461,6 +498,8 @@ end
 final_result = finalize_trial(session; method=:weighted_vote)
 println("Final: pred=$(final_result.prediction), conf=$(round(final_result.confidence, digits=3))")
 ```
+  </Tab>
+</Tabs>
 
 ## Hyperparameter Tuning (v0.2.0+)
 
@@ -480,6 +519,20 @@ Consider tuning when:
 
 Use lower regularization to let the data drive the model:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+
+# Lower regularization for clean data
+clf = NimbusLDA(
+    mu_scale=1.0,      # Weaker prior, trust data more
+    sigma_scale=0.1    # Less covariance regularization
+)
+clf.fit(X_train, y_train)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 model = train_model(
     RxLDAModel,
@@ -489,6 +542,8 @@ model = train_model(
     mean_prior_precision = 0.001  # Weaker prior, trust data more
 )
 ```
+  </Tab>
+</Tabs>
 
 **Use when:**
 - SNR > 5 dB
@@ -500,6 +555,20 @@ model = train_model(
 
 Use higher regularization for stability:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+
+# Higher regularization for noisy data
+clf = NimbusLDA(
+    mu_scale=5.0,      # Stronger prior
+    sigma_scale=10.0   # More covariance regularization
+)
+clf.fit(X_train, y_train)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 model = train_model(
     RxLDAModel,
@@ -509,6 +578,8 @@ model = train_model(
     mean_prior_precision = 0.05   # Stronger prior
 )
 ```
+  </Tab>
+</Tabs>
 
 **Use when:**
 - SNR < 2 dB
@@ -631,6 +702,30 @@ Your training data must have shape `(n_features, n_samples, n_trials)` where `n_
 Normalize your features before training for 15-30% accuracy improvement across sessions.
 </Tip>
 
+<Tabs>
+  <Tab title="Python">
+```python
+from sklearn.preprocessing import StandardScaler
+import pickle
+
+# Estimate normalization from training data
+scaler = StandardScaler()
+X_train_norm = scaler.fit_transform(X_train)
+
+# Train with normalized features
+clf = NimbusLDA()
+clf.fit(X_train_norm, y_train)
+
+# Save model and scaler together
+with open("model_with_scaler.pkl", "wb") as f:
+    pickle.dump({'model': clf, 'scaler': scaler}, f)
+
+# Later: Apply same normalization to test data
+X_test_norm = scaler.transform(X_test)
+predictions = clf.predict(X_test_norm)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Estimate normalization from training data
 norm_params = estimate_normalization_params(train_features; method=:zscore)
@@ -646,6 +741,8 @@ model = train_model(RxLDAModel, train_data)
 # Later: Apply same params to test data
 test_norm = apply_normalization(test_features, norm_params)
 ```
+  </Tab>
+</Tabs>
 
 See the [Feature Normalization](/inference-configuration/feature-normalization) guide for complete details.
 
@@ -709,6 +806,32 @@ Accuracy is highly subject-dependent. Subject-specific calibration typically imp
 
 ### View Model Parameters
 
+<Tabs>
+  <Tab title="Python">
+```python
+import numpy as np
+
+# Class means
+print("Class means:")
+for k, class_label in enumerate(clf.classes_):
+    print(f"  Class {class_label}: {clf.model_['means'][k]}")
+
+# Shared covariance matrix (first 3x3)
+print("\nShared covariance matrix (first 3x3):")
+print(clf.model_['covariance'][:3, :3])
+
+# Model info
+print("\nModel info:")
+print(f"  Features: {clf.n_features_in_}")
+print(f"  Classes: {clf.classes_}")
+
+# Class priors (learned from data)
+print("\nClass priors:")
+for k, class_label in enumerate(clf.classes_):
+    print(f"  Class {class_label}: {clf.model_['priors'][k]:.3f}")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Extract point estimates from posterior distributions
 using Distributions
@@ -738,6 +861,8 @@ for (k, prior) in enumerate(model.priors)
     println("  Class $k: ", prior)
 end
 ```
+  </Tab>
+</Tabs>
 
 <Note>
 **Accessing model parameters**: The SDK stores full posterior distributions (not just point estimates) for proper Bayesian inference. To get point estimates, use `mean(posterior)` to extract the mean of the posterior distribution. For precision matrices, use `mean(precision_posterior)` to get the expected precision matrix.
