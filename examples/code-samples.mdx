@@ -813,6 +813,80 @@ process_real_time_eeg()
 
 Robust error handling and recovery for production use.
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+import numpy as np
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def validate_data(X, y=None):
+    """Validate data format and quality."""
+    errors = []
+    
+    # Check for NaN/Inf
+    if np.any(np.isnan(X)) or np.any(np.isinf(X)):
+        errors.append("Data contains NaN or Inf values")
+    
+    # Check dimensionality
+    if X.ndim != 2:
+        errors.append(f"Expected 2D array, got {X.ndim}D")
+    
+    # Check labels if provided
+    if y is not None:
+        if len(X) != len(y):
+            errors.append(f"Feature/label mismatch: {len(X)} vs {len(y)}")
+    
+    return len(errors) == 0, errors
+
+def robust_inference(clf, X, y=None):
+    """Run inference with comprehensive error handling."""
+    
+    try:
+        # Validate data first
+        is_valid, errors = validate_data(X, y)
+        if not is_valid:
+            logger.error(f"Data validation failed: {errors}")
+            return None
+        
+        # Run inference
+        predictions = clf.predict(X)
+        probabilities = clf.predict_proba(X)
+        
+        # Check quality
+        mean_confidence = np.mean(np.max(probabilities, axis=1))
+        if mean_confidence < 0.65:
+            logger.warning(f"Low quality inference: confidence={mean_confidence:.3f}")
+        
+        return {
+            'predictions': predictions,
+            'probabilities': probabilities,
+            'mean_confidence': mean_confidence
+        }
+        
+    except ValueError as e:
+        logger.error(f"Invalid data format: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        return None
+
+# Usage
+results = robust_inference(clf, X_test, y_test)
+
+if results is not None:
+    print("Inference successful!")
+    accuracy = np.mean(results['predictions'] == y_test)
+    print(f"Accuracy: {accuracy:.1%}")
+else:
+    print("Inference failed - check logs")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 using Logging
@@ -874,11 +948,80 @@ else
     println("Inference failed - check logs")
 end
 ```
+  </Tab>
+</Tabs>
 
 ## Data Loading and Preprocessing
 
 Load data from various formats and validate for NimbusSDK.
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+from nimbus_pysdk.compat import from_mne_epochs
+import numpy as np
+import scipy.io as sio
+import mne
+
+def load_csp_features_from_mat(filepath):
+    """Load CSP features from .mat file."""
+    data = sio.loadmat(filepath)
+    
+    features = data['features']  # (n_trials, n_features) or (n_features, n_samples, n_trials)
+    labels = data['labels'].flatten().astype(int)
+    
+    # Reshape if needed (ensure 2D for sklearn compatibility)
+    if features.ndim == 3:
+        # Average over time or take representative features
+        features = features.mean(axis=1).T  # (n_trials, n_features)
+    
+    # Validate
+    assert features.ndim == 2, "Features must be 2D"
+    assert len(labels) == features.shape[0], "Labels must match number of trials"
+    
+    # Check for NaN/Inf
+    if np.any(np.isnan(features)) or np.any(np.isinf(features)):
+        raise ValueError("Features contain NaN or Inf values")
+    
+    print(f"Loaded: {features.shape}")
+    print(f"Classes: {np.unique(labels)}")
+    
+    return features, labels
+
+def load_from_mne_dataset():
+    """Load data using MNE-Python."""
+    # Load raw EEG
+    raw = mne.io.read_raw_gdf("motor_imagery.gdf", preload=True)
+    raw.filter(8, 30)
+    
+    # Create epochs
+    events = mne.find_events(raw)
+    event_id = {'left': 1, 'right': 2, 'feet': 3, 'tongue': 4}
+    epochs = mne.Epochs(raw, events, event_id, tmin=0, tmax=4, preload=True)
+    
+    # Extract features using Nimbus utilities
+    X, y = from_mne_epochs(epochs)
+    
+    print(f"Extracted: {X.shape}")
+    print(f"Classes: {np.unique(y)}")
+    
+    return X, y
+
+# Usage: MAT file
+X, y = load_csp_features_from_mat("motor_imagery.mat")
+
+# Or: MNE integration
+# X, y = load_from_mne_dataset()
+
+# Train classifier
+clf = NimbusLDA()
+clf.fit(X, y)
+
+print("Model trained successfully!")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK, MAT, CSV, DataFrames
 
@@ -944,11 +1087,99 @@ metadata = BCIMetadata(
 
 data = create_bcidata(features, labels, metadata)
 ```
+  </Tab>
+</Tabs>
 
 ## Performance Metrics
 
 Calculate comprehensive performance metrics including ITR.
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import calculate_itr
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+import numpy as np
+
+def calculate_comprehensive_metrics(predictions, probabilities, y_true):
+    """Calculate all performance metrics."""
+    
+    # Basic accuracy
+    accuracy = accuracy_score(y_true, predictions)
+    
+    # Per-class accuracy
+    n_classes = len(np.unique(y_true))
+    per_class_accuracy = []
+    for i in range(n_classes):
+        class_mask = y_true == i
+        if np.sum(class_mask) > 0:
+            class_acc = np.mean(predictions[class_mask] == i)
+            per_class_accuracy.append(class_acc)
+        else:
+            per_class_accuracy.append(0.0)
+    
+    # Confusion matrix
+    conf_matrix = confusion_matrix(y_true, predictions)
+    
+    # Confidence metrics
+    confidences = np.max(probabilities, axis=1)
+    mean_confidence = np.mean(confidences)
+    high_conf_rate = np.mean(confidences > 0.7)
+    
+    return {
+        'accuracy': accuracy,
+        'per_class_accuracy': per_class_accuracy,
+        'confusion_matrix': conf_matrix,
+        'mean_confidence': mean_confidence,
+        'high_confidence_rate': high_conf_rate
+    }
+
+def print_performance_report(predictions, probabilities, y_true, trial_duration=4.0):
+    """Print formatted performance report."""
+    
+    n_classes = len(np.unique(y_true))
+    accuracy = accuracy_score(y_true, predictions)
+    itr = calculate_itr(accuracy, n_classes, trial_duration)
+    
+    print("=" * 60)
+    print("Performance Report")
+    print("=" * 60)
+    
+    # Overall metrics
+    confidences = np.max(probabilities, axis=1)
+    print("\nOverall Metrics:")
+    print(f"  Accuracy: {accuracy * 100:.1f}%")
+    print(f"  ITR: {itr:.1f} bits/minute")
+    print(f"  Mean confidence: {np.mean(confidences):.3f}")
+    
+    # Per-class performance
+    class_names = ["Left", "Right", "Feet", "Tongue"][:n_classes]
+    metrics = calculate_comprehensive_metrics(predictions, probabilities, y_true)
+    
+    print("\nPer-Class Accuracy:")
+    for name, acc in zip(class_names, metrics['per_class_accuracy']):
+        print(f"  {name}: {acc * 100:.1f}%")
+    
+    # Confusion matrix
+    print("\nConfusion Matrix:")
+    conf_mat = metrics['confusion_matrix']
+    print("         " + "  ".join(f"{name:8}" for name in class_names))
+    for i, name in enumerate(class_names):
+        print(f"{name:8} " + "  ".join(f"{conf_mat[i, j]:8}" for j in range(n_classes)))
+    
+    # Quality metrics
+    print("\nQuality Metrics:")
+    print(f"  High confidence trials: {metrics['high_confidence_rate'] * 100:.1f}%")
+    
+    print("=" * 60)
+
+# Usage
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)
+print_performance_report(predictions, probabilities, y_test, trial_duration=4.0)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK, Statistics
 
@@ -1032,6 +1263,8 @@ end
 results = predict_batch(model, data)
 print_performance_report(results, data.labels, 4.0)
 ```
+  </Tab>
+</Tabs>
 
 ## Next Steps
 
