@@ -65,10 +65,41 @@ Most current BCI systems ignore uncertainty and always provide a single answer w
 - **Poor user experience**: Users can't tell when the system is struggling
 - **Safety issues**: Critical applications need to know when predictions are unreliable
 
-### NimbusSDK Probabilistic Approach
+### Probabilistic Approach
 
-NimbusSDK models uncertainty explicitly through Bayesian inference:
+Both SDKs model uncertainty explicitly through Bayesian inference:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+
+# Train and predict
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
+
+# Returns full probability distribution
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)
+
+# Access predictions with uncertainty
+for i, pred in enumerate(predictions):
+    confidence = probabilities[i].max()
+    posterior = probabilities[i]  # Full distribution
+    
+    # Confidence-based decision making
+    if confidence > 0.9:
+        # High confidence - execute immediately
+        execute_command(pred)
+    elif confidence > 0.7:
+        # Medium confidence - show confirmation
+        show_confirmation_dialog(pred, posterior)
+    else:
+        # Low confidence - request clearer signal
+        request_better_signal()
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -93,6 +124,8 @@ for (i, pred) in enumerate(results.predictions)
     end
 end
 ```
+  </Tab>
+</Tabs>
 
 **Benefits:**
 - Full posterior probability distribution over classes

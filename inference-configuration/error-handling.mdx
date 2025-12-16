@@ -6,13 +6,19 @@ icon: "shield"
 
 # Error Handling for BCI Systems
 
-Robust error handling is critical for BCI applications, especially in medical and assistive technology contexts where system failures can have serious consequences. NimbusSDK provides comprehensive validation and error detection to ensure reliable operation.
+Robust error handling is critical for BCI applications, especially in medical and assistive technology contexts where system failures can have serious consequences. Both SDKs provide comprehensive validation and error detection to ensure reliable operation.
+
+<Note>
+**Python SDK**: No authentication errors (fully local). Focus on data validation and inference errors.
+
+**Julia SDK**: Includes API authentication and installation error handling.
+</Note>
 
 ## Error Categories
 
-### Authentication Errors
+### Authentication Errors (Julia SDK Only)
 
-Common installation and setup issues:
+Common installation and setup issues for Julia SDK:
 
 ```julia
 using NimbusSDK
@@ -82,8 +88,51 @@ end
 
 ### Data Validation Errors
 
-NimbusSDK validates data before inference to catch common issues:
+Both SDKs validate data before inference to catch common issues:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+import numpy as np
+
+# 1. NaN or Inf values
+X = np.random.randn(100, 16)
+X[50, 8] = np.nan  # Inject NaN
+
+try:
+    clf = NimbusLDA()
+    clf.fit(X, y_train)
+except ValueError as e:
+    print(f"Data validation failed: {e}")
+    # Fix: Remove or impute NaN values
+    from sklearn.impute import SimpleImputer
+    imputer = SimpleImputer(strategy='mean')
+    X_clean = imputer.fit_transform(X)
+
+# 2. Dimension mismatches
+X_wrong = np.random.randn(100)  # 1D instead of 2D
+
+try:
+    clf.fit(X_wrong, y_train)
+except ValueError as e:
+    print(f"Dimension error: {e}")
+    # Expected: (n_samples, n_features)
+    X_correct = X_wrong.reshape(-1, 1)
+
+# 3. Feature dimension mismatch
+clf = NimbusLDA()
+clf.fit(X_train, y_train)  # Trained on 16 features
+
+X_test_wrong = np.random.randn(10, 8)  # Only 8 features!
+try:
+    clf.predict(X_test_wrong)
+except ValueError as e:
+    print(f"Feature mismatch: {e}")
+    # Expected: same number of features as training
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 

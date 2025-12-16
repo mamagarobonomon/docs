@@ -45,8 +45,38 @@ Most current BCI systems use deterministic classification that always returns a 
 
 ### Bayesian Inference for BCI
 
-NimbusSDK uses Bayesian inference via **RxInfer.jl** to model uncertainty explicitly with three production-ready models: Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian MPR (RxPolya).
+Both SDKs use Bayesian inference to model uncertainty explicitly with three production-ready models: Bayesian LDA, Bayesian GMM, and Bayesian Softmax/MPR.
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA, compute_entropy
+
+# Train classifier
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
+
+# Run inference - returns full posterior distribution
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)  # Full distribution
+
+# Access predictions with confidence
+for i, pred in enumerate(predictions):
+    confidence = probabilities[i].max()
+    posterior = probabilities[i]  # Full distribution over classes
+    entropy = compute_entropy(probabilities[i:i+1])[0]
+    
+    print(f"Prediction: {pred}")
+    print(f"Confidence: {confidence:.3f}")
+    print(f"Posterior distribution: {posterior}")
+    print(f"Entropy: {entropy:.2f} bits")
+    
+    # Make confidence-based decisions
+    if confidence < 0.7:
+        print("⚠️  Low confidence - consider rejecting this trial")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -72,6 +102,8 @@ for (i, pred) in enumerate(results.predictions)
     end
 end
 ```
+  </Tab>
+</Tabs>
 
 **Key advantages:**
 - Returns full posterior probability distribution, not just a single prediction

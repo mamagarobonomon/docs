@@ -6,16 +6,47 @@ icon: "settings"
 
 # Real-time Inference Setup
 
-Setting up NimbusSDK for real-time BCI applications requires proper configuration to achieve 10-25ms latency while maintaining accuracy. This guide covers essential setup steps and best practices for optimal real-time performance.
+Setting up for real-time BCI applications requires proper configuration to achieve 10-25ms latency while maintaining accuracy. This guide covers essential setup steps and best practices for both Python and Julia SDKs.
 
 <Note>
-NimbusSDK supports three Bayesian models: **Bayesian LDA (RxLDA)**, **Bayesian GMM (RxGMM)**, and **Bayesian MPR (RxPolya)**. Choose based on your accuracy and latency requirements.
+Both SDKs support three Bayesian models: **Bayesian LDA**, **Bayesian GMM**, and **Bayesian Softmax/MPR**. Choose based on your accuracy and latency requirements.
 </Note>
 
 ## Quick Start
 
 Minimal setup for real-time streaming:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA, StreamingSession
+from nimbus_pysdk.data import BCIMetadata
+
+# 1. Train classifier
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
+
+# 2. Configure streaming metadata
+metadata = BCIMetadata(
+    sampling_rate=250.0,
+    paradigm="motor_imagery",
+    feature_type="csp",
+    n_features=16,
+    n_classes=4,
+    chunk_size=125,  # 500ms chunks at 250 Hz
+    temporal_aggregation="logvar"
+)
+
+# 3. Initialize streaming session
+session = StreamingSession(clf.model_, metadata)
+
+# 4. Process chunks in real-time
+for chunk in eeg_stream:
+    result = session.process_chunk(chunk)
+    execute_command(result.prediction, result.confidence)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -44,6 +75,8 @@ for chunk in eeg_stream
     execute_command(result.prediction, result.confidence)
 end
 ```
+  </Tab>
+</Tabs>
 
 ## Chunk Size Selection
 
@@ -90,11 +123,15 @@ metadata = BCIMetadata(
 
 ## Model Selection for Real-Time
 
-### RxLDA vs RxGMM
+### Bayesian LDA vs Bayesian GMM
 
-```julia
-# RxLDA: Faster, recommended for real-time
-rxlda_model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA, NimbusGMM
+
+# Bayesian LDA: Faster, recommended for real-time
+clf_lda = NimbusLDA()
 # Typical latency: 10-20ms
 # Use when: Speed is priority, classes are well-separated
 
