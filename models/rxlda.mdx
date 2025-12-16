@@ -611,6 +611,48 @@ model = train_model(
 
 Systematically search for optimal hyperparameters:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+from sklearn.model_selection import GridSearchCV, train_test_split
+
+# Define parameter grid
+param_grid = {
+    'mu_scale': [1.0, 3.0, 5.0, 10.0],
+    'sigma_scale': [0.1, 1.0, 10.0]
+}
+
+# Split data
+X_train_sub, X_val, y_train_sub, y_val = train_test_split(
+    X_train, y_train, test_size=0.2, stratify=y_train, random_state=42
+)
+
+print("Searching hyperparameters...")
+clf = NimbusLDA()
+grid_search = GridSearchCV(
+    clf,
+    param_grid,
+    cv=5,
+    scoring='accuracy',
+    verbose=1
+)
+
+grid_search.fit(X_train_sub, y_train_sub)
+
+print("\nBest hyperparameters:")
+print(f"  mu_scale: {grid_search.best_params_['mu_scale']}")
+print(f"  sigma_scale: {grid_search.best_params_['sigma_scale']}")
+print(f"  CV accuracy: {grid_search.best_score_*100:.1f}%")
+
+# Get best model
+best_clf = grid_search.best_estimator_
+
+# Retrain on all training data
+best_clf.fit(X_train, y_train)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -665,6 +707,8 @@ final_model = train_model(
     mean_prior_precision = best_params.prior
 )
 ```
+  </Tab>
+</Tabs>
 
 ### Quick Tuning Guidelines
 
@@ -870,6 +914,28 @@ end
 
 ### Compare Models
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+import numpy as np
+
+# Train multiple models with different hyperparameters and compare
+models = []
+for mu_scale in [1.0, 3.0, 5.0]:
+    clf = NimbusLDA(mu_scale=mu_scale)
+    clf.fit(X_train, y_train)
+    accuracy = clf.score(X_test, y_test)
+    
+    print(f"mu_scale: {mu_scale}, Accuracy: {accuracy*100:.1f}%")
+    models.append((mu_scale, clf, accuracy))
+
+# Select best model
+best_config, best_clf, best_acc = max(models, key=lambda x: x[2])
+print(f"\nBest configuration: mu_scale={best_config} ({best_acc*100:.1f}%)")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Train multiple models and compare
 models = []
@@ -882,6 +948,8 @@ for n_iter in [20, 50, 100]
     push!(models, (n_iter, model, accuracy))
 end
 ```
+  </Tab>
+</Tabs>
 
 ## Advantages & Limitations
 
