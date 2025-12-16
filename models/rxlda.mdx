@@ -181,6 +181,37 @@ For each class k, compute p(y | μ_k, W) independently, then combine using Bayes
 
 ### 1. Load Pre-trained Model
 
+<Note>
+**Python SDK**: The Python SDK (`nimbus-bci`) trains models locally and doesn't require pre-trained model loading. See [Python SDK Quickstart](/python-sdk/quickstart) for training examples.
+</Note>
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+import pickle
+
+# Python SDK: Train your own model locally
+# No authentication or model zoo needed
+
+# Quick training example
+clf = NimbusLDA(mu_scale=3.0)
+clf.fit(X_train, y_train)
+
+# Save for later use
+with open("my_motor_imagery.pkl", "wb") as f:
+    pickle.dump(clf, f)
+
+# Load saved model
+with open("my_motor_imagery.pkl", "rb") as f:
+    clf = pickle.load(f)
+
+print("Model info:")
+print(f"  Classes: {clf.classes_}")
+print(f"  Features: {clf.n_features_in_}")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -195,9 +226,51 @@ println("  Features: $(get_n_features(model))")
 println("  Classes: $(get_n_classes(model))")
 println("  Paradigm: $(get_paradigm(model))")
 ```
+  </Tab>
+</Tabs>
 
 ### 2. Train Custom Model
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+from nimbus_pysdk.compat import extract_csp_features
+import mne
+import pickle
+
+# Load and preprocess EEG data
+raw = mne.io.read_raw_gdf("motor_imagery.gdf", preload=True)
+raw.filter(8, 30)
+
+events = mne.find_events(raw)
+event_id = {'left': 1, 'right': 2, 'feet': 3, 'tongue': 4}
+epochs = mne.Epochs(raw, events, event_id, tmin=0, tmax=4, preload=True)
+
+# Extract CSP features
+csp_features, csp = extract_csp_features(epochs, n_components=8)
+labels = epochs.events[:, 2]
+
+# Train NimbusLDA model with default hyperparameters
+clf = NimbusLDA()
+clf.fit(csp_features, labels)
+
+# Or train with custom hyperparameters
+clf_tuned = NimbusLDA(
+    mu_scale=3.0,        # Prior strength for means (default: 1.0)
+    sigma_scale=1.0      # Covariance regularization (default: 1.0)
+)
+clf_tuned.fit(csp_features, labels)
+
+# Save for later use
+with open("my_motor_imagery.pkl", "wb") as f:
+    pickle.dump(clf_tuned, f)
+
+print("Model trained successfully!")
+print(f"Training accuracy: {clf_tuned.score(csp_features, labels):.1%}")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -243,6 +316,8 @@ model = train_model(
 # Save for later use
 save_model(model, "my_model.jld2")
 ```
+  </Tab>
+</Tabs>
 
 **Training Parameters:**
 - `iterations`: Number of variational inference iterations (default: 50)
