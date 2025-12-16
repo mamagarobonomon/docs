@@ -16,6 +16,130 @@ This section showcases realistic BCI applications powered by NimbusSDK's **RxLDA
 
 **Solution**: Real-time motor imagery detection using RxLDA for 4-class motor imagery (left hand, right hand, feet, tongue).
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA, StreamingSession
+from nimbus_pysdk.data import BCIMetadata
+import numpy as np
+from dataclasses import dataclass, field
+from typing import List, Dict
+from datetime import date
+
+# Rehabilitation session manager
+@dataclass
+class RehabilitationSession:
+    model: NimbusLDA
+    patient_id: str
+    baseline_accuracy: float
+    session_history: List[Dict] = field(default_factory=list)
+
+def create_rehab_session(patient_id: str) -> RehabilitationSession:
+    # Train or load motor imagery model
+    clf = NimbusLDA()
+    # Load calibration data and fit
+    X_calib = np.random.randn(100, 16)  # Replace with real calibration data
+    y_calib = np.random.randint(0, 4, 100)
+    clf.fit(X_calib, y_calib)
+    
+    print(f"Running baseline assessment for patient {patient_id}...")
+    baseline_acc = 0.65  # run_assessment_trial()
+    
+    return RehabilitationSession(clf, patient_id, baseline_acc, [])
+
+def run_therapy_session(session: RehabilitationSession, session_number: int) -> Dict:
+    # Configure streaming for real-time feedback
+    metadata = BCIMetadata(
+        sampling_rate=250.0,
+        paradigm="motor_imagery",
+        feature_type="csp",
+        n_features=16,
+        n_classes=4,
+        chunk_size=250  # 1-second chunks for responsive feedback
+    )
+    
+    streaming_session = StreamingSession(session.model.model_, metadata)
+    
+    # Track performance
+    successes = 0
+    total_trials = 20
+    confidences = []
+    
+    for trial in range(1, total_trials + 1):
+        print(f"\n--- Trial {trial}/{total_trials} ---")
+        
+        # Patient performs motor imagery task (4 seconds)
+        cued_task_label = np.random.randint(0, 4)
+        task_names = ["Left Hand", "Right Hand", "Feet", "Tongue"]
+        print(f"Cue: {task_names[cued_task_label]}")
+        
+        # Collect 4 chunks (4 seconds total)
+        for chunk_idx in range(4):
+            # In real application: acquire from EEG device
+            chunk = np.random.randn(16, 250)  # acquire_eeg_chunk()
+            
+            # Real-time processing
+            result = streaming_session.process_chunk(chunk)
+            
+            # Provide immediate visual feedback
+            if result.confidence > 0.7:
+                # display_positive_feedback(result.prediction)
+                pass
+        
+        # Finalize trial
+        final_result = streaming_session.finalize_trial(method="weighted_vote")
+        confidences.append(final_result.confidence)
+        
+        # Check success
+        if final_result.prediction == cued_task_label:
+            successes += 1
+            print(f"✓ Correct! (Confidence: {final_result.confidence:.3f})")
+            # provide_success_feedback()
+        else:
+            print(f"✗ Incorrect (Confidence: {final_result.confidence:.3f})")
+            # provide_encouragement()
+        
+        streaming_session.reset()
+    
+    # Session results
+    accuracy = successes / total_trials
+    mean_confidence = np.mean(confidences)
+    improvement = accuracy - session.baseline_accuracy
+    
+    session_data = {
+        "session_number": session_number,
+        "accuracy": accuracy,
+        "mean_confidence": mean_confidence,
+        "improvement": improvement,
+        "date": date.today().isoformat()
+    }
+    
+    session.session_history.append(session_data)
+    
+    print(f"\n=== Session {session_number} Complete ===")
+    print(f"Accuracy: {accuracy * 100:.1f}%")
+    print(f"Mean Confidence: {mean_confidence:.3f}")
+    print(f"Improvement vs Baseline: {improvement * 100:.1f}%")
+    
+    return session_data
+
+# Clinical deployment
+patient_session = create_rehab_session("P001")
+
+# Daily therapy sessions (recommended: 3-5 per week)
+for session_num in range(1, 11):
+    results = run_therapy_session(patient_session, session_num)
+    
+    # Track progress in clinical records
+    # log_to_patient_record(patient_session.patient_id, results)
+    
+    # Check for significant improvement
+    if results["improvement"] > 0.3:
+        print("\n🎉 Significant improvement detected!")
+        print("Consider advancing to next rehabilitation stage")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 using Statistics
@@ -141,6 +265,8 @@ for session_num in 1:10
     # Recommended: 1-2 day break between sessions
 end
 ```
+  </Tab>
+</Tabs>
 
 <Card title="Clinical Results" icon="heart-pulse">
   **Application**: Motor imagery neurofeedback for stroke rehabilitation  
@@ -156,6 +282,114 @@ end
 
 **Solution**: P300 speller using RxGMM for binary target/non-target detection.
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusGMM
+import numpy as np
+from dataclasses import dataclass
+
+# P300 Speller Implementation
+@dataclass
+class P300Speller:
+    model: NimbusGMM
+    character_matrix: np.ndarray
+    intensification_count: int
+
+def create_p300_speller() -> P300Speller:
+    # Train P300 detection model (binary classification)
+    clf = NimbusGMM(n_components=2)
+    # Load calibration data and fit
+    X_calib = np.random.randn(100, 16)  # Replace with real P300 calibration
+    y_calib = np.random.randint(0, 2, 100)  # 0=non-target, 1=target
+    clf.fit(X_calib, y_calib)
+    
+    # Standard 6x6 character matrix
+    char_matrix = np.array([
+        ['A', 'B', 'C', 'D', 'E', 'F'],
+        ['G', 'H', 'I', 'J', 'K', 'L'],
+        ['M', 'N', 'O', 'P', 'Q', 'R'],
+        ['S', 'T', 'U', 'V', 'W', 'X'],
+        ['Y', 'Z', '1', '2', '3', '4'],
+        ['5', '6', '7', '8', '9', '0']
+    ])
+    
+    return P300Speller(clf, char_matrix, 10)  # 10 repetitions per row/col
+
+def spell_character(speller: P300Speller) -> dict:
+    print("Focus on the target character...")
+    
+    # Storage for row/column scores
+    row_scores = np.zeros(6)
+    col_scores = np.zeros(6)
+    
+    # Present intensifications
+    for rep in range(speller.intensification_count):
+        # Flash each row
+        for row in range(6):
+            # flash_row(row)
+            eeg_response = np.random.randn(16)  # record_p300_epoch()
+            
+            # Detect P300
+            result = detect_p300(speller.model, eeg_response)
+            
+            if result["prediction"] == 1:  # Target detected
+                row_scores[row] += result["confidence"]
+        
+        # Flash each column
+        for col in range(6):
+            # flash_column(col)
+            eeg_response = np.random.randn(16)  # record_p300_epoch()
+            
+            # Detect P300
+            result = detect_p300(speller.model, eeg_response)
+            
+            if result["prediction"] == 1:  # Target detected
+                col_scores[col] += result["confidence"]
+    
+    # Identify target character
+    target_row = np.argmax(row_scores)
+    target_col = np.argmax(col_scores)
+    selected_char = speller.character_matrix[target_row, target_col]
+    
+    # Calculate confidence
+    overall_confidence = (row_scores[target_row] + col_scores[target_col]) / \
+                        (2 * speller.intensification_count)
+    
+    print(f"Selected: {selected_char} (Confidence: {overall_confidence:.3f})")
+    
+    return {"character": selected_char, "confidence": overall_confidence}
+
+def detect_p300(model: NimbusGMM, eeg_epoch: np.ndarray) -> dict:
+    # Reshape to (1, n_features) for single trial
+    features = eeg_epoch.reshape(1, -1)
+    
+    # Run inference
+    prediction = model.predict(features)[0]
+    probabilities = model.predict_proba(features)[0]
+    confidence = probabilities[prediction]
+    
+    return {"prediction": prediction, "confidence": confidence}
+
+# Clinical deployment
+speller = create_p300_speller()
+
+print("P300 Speller Ready")
+print("Patient can now spell messages...")
+
+# Spell a message
+message = []
+for i in range(10):  # Spell 10 characters
+    result = spell_character(speller)
+    
+    if result["confidence"] > 0.75:
+        message.append(result["character"])
+        print(f"Message so far: {''.join(message)}")
+    else:
+        print("Low confidence - retry")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -270,6 +504,8 @@ for i in 1:10  # Spell 10 characters
     end
 end
 ```
+  </Tab>
+</Tabs>
 
 <Card title="Communication Application" icon="comments">
   **Application**: P300 speller for locked-in syndrome  
@@ -287,6 +523,85 @@ end
 
 **Solution**: 4-class motor imagery BCI with safety-critical confidence thresholds.
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA, StreamingSession
+from nimbus_pysdk.data import BCIMetadata
+import numpy as np
+from dataclasses import dataclass
+from typing import Dict
+
+# Safety-critical wheelchair controller
+@dataclass
+class WheelchairBCI:
+    model: NimbusLDA
+    safety_threshold: float
+    command_mapping: Dict[int, str]
+
+def create_wheelchair_controller() -> WheelchairBCI:
+    # Train or load motor imagery model
+    clf = NimbusLDA()
+    X_calib = np.random.randn(100, 16)
+    y_calib = np.random.randint(0, 4, 100)
+    clf.fit(X_calib, y_calib)
+    
+    # Map motor imagery classes to wheelchair commands
+    command_map = {
+        0: "forward",
+        1: "backward",
+        2: "left",
+        3: "right"
+    }
+    
+    return WheelchairBCI(clf, 0.85, command_map)  # High threshold for safety
+
+def control_wheelchair(controller: WheelchairBCI):
+    # Configure for safety-critical operation
+    metadata = BCIMetadata(
+        sampling_rate=250.0,
+        paradigm="motor_imagery",
+        feature_type="csp",
+        n_features=16,
+        n_classes=4,
+        chunk_size=500  # 2-second chunks for high confidence
+    )
+    
+    session = StreamingSession(controller.model.model_, metadata)
+    
+    print("Wheelchair BCI Active")
+    print(f"Safety threshold: {controller.safety_threshold}")
+    
+    # Control loop (simplified for demo)
+    for i in range(20):  # In real app: while is_active()
+        # Collect longer trial for safety (2 seconds)
+        chunk = np.random.randn(16, 500)  # acquire_wheelchair_trial()
+        
+        result = session.process_chunk(chunk)
+        
+        # Safety-critical decision making
+        if result.confidence >= controller.safety_threshold:
+            command = controller.command_mapping[result.prediction]
+            
+            print(f"✓ Command: {command} (Confidence: {result.confidence:.3f})")
+            # execute_wheelchair_command(command)
+        else:
+            print(f"⚠️  Low confidence ({result.confidence:.3f}) - no action")
+            # execute_wheelchair_command("stop")
+        
+        session.reset()
+        
+        # Safety override: always allow emergency stop
+        # if emergency_button_pressed():
+        #     execute_wheelchair_command("emergency_stop")
+        #     break
+
+# Deployment
+wheelchair_bci = create_wheelchair_controller()
+control_wheelchair(wheelchair_bci)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -358,6 +673,8 @@ end
 wheelchair_bci = create_wheelchair_controller()
 control_wheelchair(wheelchair_bci)
 ```
+  </Tab>
+</Tabs>
 
 <Card title="Assistive Technology" icon="wheelchair">
   **Application**: Motor imagery wheelchair control  
@@ -375,6 +692,98 @@ control_wheelchair(wheelchair_bci)
 
 **Solution**: NimbusSDK's RxLDA/RxGMM models with custom training for research protocols.
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA, NimbusGMM
+import numpy as np
+from typing import List, Dict
+
+# Research experiment manager
+def run_bci_experiment(paradigm: str, n_subjects: int) -> List[Dict]:
+    results = []
+    
+    for subject_id in range(1, n_subjects + 1):
+        print("\n" + "="*60)
+        print(f"Subject {subject_id} / {n_subjects}")
+        print("="*60)
+        
+        # 1. Collect calibration data
+        print("Phase 1: Calibration (50 trials)")
+        X_calib = np.random.randn(50, 16)  # collect_calibration_data()
+        y_calib = np.random.randint(0, 4, 50)
+        
+        # 2. Train subject-specific model
+        print("Phase 2: Model Training")
+        if paradigm == "motor_imagery":
+            clf = NimbusLDA()
+            clf.fit(X_calib, y_calib)
+        elif paradigm == "p300":
+            clf = NimbusGMM(n_components=2)
+            clf.fit(X_calib, y_calib)
+        
+        # 3. Evaluate on test set
+        print("Phase 3: Evaluation (100 trials)")
+        X_test = np.random.randn(100, 16)  # collect_test_data()
+        y_test = np.random.randint(0, 4, 100)
+        
+        predictions = clf.predict(X_test)
+        probabilities = clf.predict_proba(X_test)
+        confidences = np.max(probabilities, axis=1)
+        
+        # 4. Calculate metrics
+        accuracy = np.mean(predictions == y_test)
+        n_classes = len(np.unique(y_test))
+        itr = calculate_ITR(accuracy, n_classes, 4.0)
+        mean_conf = np.mean(confidences)
+        
+        subject_results = {
+            "subject_id": subject_id,
+            "paradigm": paradigm,
+            "accuracy": accuracy,
+            "itr": itr,
+            "mean_confidence": mean_conf,
+            "calibration_trials": 50,
+            "test_trials": 100
+        }
+        
+        results.append(subject_results)
+        
+        print(f"\nSubject {subject_id} Results:")
+        print(f"  Accuracy: {accuracy * 100:.1f}%")
+        print(f"  ITR: {itr:.1f} bits/min")
+        print(f"  Mean Confidence: {mean_conf:.3f}")
+    
+    # Aggregate results
+    print("\n" + "="*60)
+    print(f"Aggregate Results (N={n_subjects})")
+    print("="*60)
+    
+    accuracies = [r["accuracy"] for r in results]
+    itrs = [r["itr"] for r in results]
+    
+    print(f"Accuracy: {np.mean(accuracies) * 100:.1f}% ± {np.std(accuracies) * 100:.1f}%")
+    print(f"ITR: {np.mean(itrs):.1f} ± {np.std(itrs):.1f} bits/min")
+    
+    return results
+
+def calculate_ITR(accuracy: float, n_classes: int, trial_duration: float) -> float:
+    """Calculate Information Transfer Rate in bits/min"""
+    if accuracy <= 1.0 / n_classes:
+        return 0.0
+    bits_per_trial = np.log2(n_classes) + accuracy * np.log2(accuracy) + \
+                     (1 - accuracy) * np.log2((1 - accuracy) / (n_classes - 1))
+    trials_per_min = 60.0 / trial_duration
+    return bits_per_trial * trials_per_min
+
+# Run motor imagery study
+motor_results = run_bci_experiment("motor_imagery", 10)
+
+# Run P300 study
+p300_results = run_bci_experiment("p300", 10)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 using Statistics
@@ -449,6 +858,8 @@ motor_results = run_bci_experiment(:motor_imagery, 10)
 # Run P300 study
 p300_results = run_bci_experiment(:p300, 10)
 ```
+  </Tab>
+</Tabs>
 
 <Card title="Research Applications" icon="flask">
   **Use Cases**: Cognitive neuroscience, BCI algorithms, clinical trials  

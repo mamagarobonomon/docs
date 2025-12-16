@@ -6,7 +6,15 @@ icon: "clock"
 
 # Real-time Processing for BCI
 
-Real-time performance is critical for brain-computer interfaces. Users expect immediate responses to their neural commands - any delay breaks the sense of direct neural control and degrades the user experience. NimbusSDK achieves 10-25ms inference latency, enabling truly responsive BCI applications.
+Real-time performance is critical for brain-computer interfaces. Users expect immediate responses to their neural commands - any delay breaks the sense of direct neural control and degrades the user experience. Both Python and Julia SDKs achieve 10-25ms inference latency, enabling truly responsive BCI applications.
+
+<Note>
+**Implementation differences:**
+- **Python SDK**: Uses JAX/NumPyro for fast Bayesian inference
+- **Julia SDK**: Uses RxInfer.jl with reactive message passing
+
+Both achieve similar latencies (~10-25ms) with different technical approaches.
+</Note>
 
 ## Why Latency Matters in BCI
 

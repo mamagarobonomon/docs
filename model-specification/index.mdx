@@ -109,6 +109,31 @@ Data Stream ──► Factor Graph ──► Message Passing ──► Posterior
 
 Both models learn from labeled training data:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+import numpy as np
+
+# Prepare labeled training data
+X_train = np.random.randn(100, 16)  # 100 trials, 16 features
+y_train = np.random.randint(0, 4, 100)  # 4 classes
+
+# Train model
+clf = NimbusLDA(mu_scale=3.0)
+clf.fit(X_train, y_train)
+
+print(f"✓ Model trained on {len(y_train)} trials")
+print(f"  Features: {X_train.shape[1]}")
+print(f"  Classes: {len(np.unique(y_train))}")
+
+# Evaluate
+X_test, y_test = load_test_data()
+accuracy = clf.score(X_test, y_test)
+print(f"  Test accuracy: {accuracy:.2%}")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -134,9 +159,11 @@ model = train_model(
     showprogress = true
 )
 ```
+  </Tab>
+</Tabs>
 
 **What happens during training:**
-1. **Initialize parameters**: $ \mu_c, \Sigma $ (RxLDA) or $ \mu_c, \Sigma_c $ (RxGMM)
+1. **Initialize parameters**: $ \mu_c, \Sigma $ (Bayesian LDA) or $ \mu_c, \Sigma_c $ (Bayesian GMM)
 2. **E-step**: Compute posterior probabilities $ p(c|x_i) $
 3. **M-step**: Update model parameters to maximize likelihood
 4. **Iterate**: Repeat until convergence

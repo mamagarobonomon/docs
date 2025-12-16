@@ -1,17 +1,42 @@
 ---
 title: 'Development'
-description: 'Development workflow for building BCI applications with NimbusSDK (Julia)'
+description: 'Development workflow for building BCI applications with Nimbus (Python & Julia)'
 icon: 'code'
 ---
 
 # Development Guide
 
-This guide covers the development workflow for building BCI applications with **NimbusSDK** in Julia, from local setup to production deployment.
+This guide covers the development workflow for building BCI applications with **Nimbus BCI** in both Python and Julia, from local setup to production deployment.
+
+<Note>
+**Choose Your SDK:**
+- **Python SDK** (`nimbus-pysdk`): Ideal for sklearn integration, MNE-Python workflows, and rapid prototyping
+- **Julia SDK** (`NimbusSDK.jl`): Optimal for research applications requiring RxInfer.jl and custom Bayesian models
+
+Both SDKs provide the same core Bayesian classifiers with language-specific ergonomics.
+</Note>
 
 ## Development Environment Setup
 
 ### Prerequisites
 
+<Tabs>
+  <Tab title="Python SDK">
+<Info>
+**Required:**
+- **Python 3.9+** (3.10+ recommended)
+- **pip** or **conda** for package management
+- **Git** for version control
+- **EEG Hardware** or sample data for testing
+
+**Recommended:**
+- **VSCode** with Python extension or **PyCharm**
+- **Jupyter** for interactive development
+- **MNE-Python** for EEG preprocessing
+- **scikit-learn** for ML pipelines
+</Info>
+  </Tab>
+  <Tab title="Julia SDK">
 <Info>
 **Required:**
 - **Julia 1.9+** (1.10+ recommended for best performance)
@@ -24,9 +49,83 @@ This guide covers the development workflow for building BCI applications with **
 - **Jupyter** for interactive development
 - **Preprocessing pipeline** (CSP, bandpower, ERP extraction)
 </Info>
+  </Tab>
+</Tabs>
 
 ### Installation
 
+<Tabs>
+  <Tab title="Python SDK">
+<Steps>
+<Step title="Install Python">
+
+Ensure Python 3.9+ is installed:
+
+```bash
+# Verify installation
+python --version
+# Expected: Python 3.9.0 (or later)
+```
+
+</Step>
+
+<Step title="Create Virtual Environment">
+
+Set up an isolated Python environment for your BCI project:
+
+```bash
+# Create project directory
+mkdir my-bci-project
+cd my-bci-project
+
+# Create virtual environment
+python -m venv venv
+
+# Activate (Linux/Mac)
+source venv/bin/activate
+
+# Activate (Windows)
+# venv\Scripts\activate
+```
+
+</Step>
+
+<Step title="Install nimbus-pysdk">
+
+Install from PyPI:
+
+```bash
+# Install nimbus-pysdk
+pip install nimbus-pysdk
+
+# Optional: Install with MNE-Python
+pip install "nimbus-pysdk[mne]"
+
+# Verify installation
+python -c "import nimbus_pysdk; print('✓ nimbus-pysdk installed')"
+```
+
+</Step>
+
+<Step title="Install Dependencies">
+
+For complete BCI workflow:
+
+```bash
+# Data science stack
+pip install numpy scipy scikit-learn matplotlib
+
+# EEG preprocessing (optional)
+pip install mne
+
+# Create requirements.txt
+pip freeze > requirements.txt
+```
+
+</Step>
+</Steps>
+  </Tab>
+  <Tab title="Julia SDK">
 <Steps>
 <Step title="Install Julia">
 
@@ -106,9 +205,39 @@ NimbusSDK.install_core(api_key)
 
 </Step>
 </Steps>
+  </Tab>
+</Tabs>
 
 ## Project Structure
 
+<Tabs>
+  <Tab title="Python SDK">
+Organize your Python BCI project:
+
+```
+my-bci-project/
+├── requirements.txt      # Python dependencies
+├── setup.py              # Package configuration (optional)
+├── src/
+│   ├── __init__.py
+│   ├── preprocessing.py  # Feature extraction
+│   ├── training.py       # Model training
+│   ├── inference.py      # Real-time inference
+│   └── utils.py          # Utility functions
+├── data/
+│   ├── raw/              # Raw EEG recordings
+│   ├── processed/        # Preprocessed features
+│   └── models/           # Trained models (pickled)
+├── tests/
+│   ├── __init__.py
+│   ├── test_training.py
+│   └── test_inference.py
+├── notebooks/            # Jupyter notebooks for exploration
+│   └── motor_imagery_demo.ipynb
+└── README.md
+```
+  </Tab>
+  <Tab title="Julia SDK">
 Organize your Julia BCI project:
 
 ```
@@ -132,6 +261,8 @@ my-bci-project/
 │   └── motor_imagery_demo.jl
 └── README.md
 ```
+  </Tab>
+</Tabs>
 
 ## Development Workflow
 
@@ -139,6 +270,110 @@ my-bci-project/
 
 #### Preprocessing Pipeline
 
+<Tabs>
+  <Tab title="Python">
+```python
+# src/preprocessing.py
+import numpy as np
+from scipy import signal
+from sklearn.covariance import LedoitWolf
+
+def extract_csp_features(eeg_data: np.ndarray, csp_filters: np.ndarray) -> np.ndarray:
+    """
+    Extract CSP features for motor imagery BCI.
+    
+    Args:
+        eeg_data: EEG data [n_channels × n_samples]
+        csp_filters: CSP spatial filters [n_components × n_channels]
+    
+    Returns:
+        features: Log-variance features [n_components]
+    """
+    # Apply spatial filters
+    spatial_filtered = csp_filters @ eeg_data
+    
+    # Compute log-variance features
+    features = np.log(np.var(spatial_filtered, axis=1) + 1e-10)
+    
+    return features
+
+def extract_erp_features(eeg_epoch: np.ndarray, time_windows: list) -> np.ndarray:
+    """
+    Extract ERP amplitude features for P300 BCI.
+    
+    Args:
+        eeg_epoch: EEG epoch [n_channels × n_samples]
+        time_windows: List of (start_sample, end_sample) tuples
+    
+    Returns:
+        features: Mean amplitude features
+    """
+    features = []
+    
+    for start_idx, end_idx in time_windows:
+        window_data = eeg_epoch[:, start_idx:end_idx]
+        # Mean amplitude in window for each channel
+        features.extend(np.mean(window_data, axis=1))
+    
+    return np.array(features)
+
+def bandpass_filter(data: np.ndarray, low_freq: float, high_freq: float, fs: float) -> np.ndarray:
+    """
+    Apply bandpass filter to EEG data.
+    
+    Args:
+        data: EEG data [n_channels × n_samples]
+        low_freq: Low frequency cutoff (Hz)
+        high_freq: High frequency cutoff (Hz)
+        fs: Sampling frequency (Hz)
+    
+    Returns:
+        filtered_data: Bandpass filtered EEG
+    """
+    # Design Butterworth bandpass filter
+    nyq = fs / 2.0
+    low = low_freq / nyq
+    high = high_freq / nyq
+    b, a = signal.butter(4, [low, high], btype='band')
+    
+    # Apply filter to each channel
+    filtered = np.zeros_like(data)
+    for ch in range(data.shape[0]):
+        filtered[ch, :] = signal.filtfilt(b, a, data[ch, :])
+    
+    return filtered
+
+def compute_csp_filters(X_class1: np.ndarray, X_class2: np.ndarray, n_components: int = 6) -> np.ndarray:
+    """
+    Compute CSP filters from two classes of EEG data.
+    
+    Args:
+        X_class1: EEG trials for class 1 [n_trials × n_channels × n_samples]
+        X_class2: EEG trials for class 2 [n_trials × n_channels × n_samples]
+        n_components: Number of CSP components to return
+    
+    Returns:
+        csp_filters: CSP spatial filters [n_components × n_channels]
+    """
+    # Compute covariance matrices
+    cov1 = LedoitWolf().fit(X_class1.reshape(X_class1.shape[0], -1)).covariance_
+    cov2 = LedoitWolf().fit(X_class2.reshape(X_class2.shape[0], -1)).covariance_
+    
+    # Solve generalized eigenvalue problem
+    eigenvalues, eigenvectors = np.linalg.eig(np.linalg.inv(cov1 + cov2) @ cov1)
+    
+    # Sort by eigenvalue
+    idx = np.argsort(eigenvalues)[::-1]
+    eigenvectors = eigenvectors[:, idx]
+    
+    # Return top and bottom components
+    n_half = n_components // 2
+    csp_filters = np.vstack([eigenvectors[:, :n_half].T, eigenvectors[:, -n_half:].T])
+    
+    return csp_filters
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # src/preprocessing.jl
 using DSP, LinearAlgebra, Statistics
@@ -200,6 +435,8 @@ function bandpass_filter(data::Matrix{Float64}, low_freq::Float64, high_freq::Fl
     return filtered
 end
 ```
+  </Tab>
+</Tabs>
 
 ### 2. Model Training
 
