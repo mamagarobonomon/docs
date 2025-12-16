@@ -30,7 +30,7 @@
         ]
       },
       {
-        "group": "Python SDK & API",
+        "group": "Python SDK",
         "pages": [
           "python-sdk/introduction",
           "python-sdk/installation",
@@ -41,7 +41,7 @@
         ]
       },
       {
-        "group": "Julia SDK & API",
+        "group": "Julia SDK & Cloud API",
         "pages": [
           "api-reference/julia-sdk",
           "api-reference/introduction",
@@ -56,7 +56,7 @@
           "models/rxlda",
           "models/rxgmm",
           "models/rxpolya",
-          "model-specification/index",
+          "model-specification",
           "model-specification/bci-examples",
           "model-specification/advanced-techniques"
         ]
@@ -82,11 +82,16 @@
         ]
       },
       {
-        "group": "Examples & Development",
+        "group": "Examples",
         "pages": [
           "examples/basic-examples",
           "examples/advanced-applications",
-          "examples/industry-use-cases",
+          "examples/industry-use-cases"
+        ]
+      },
+      {
+        "group": "Development",
+        "pages": [
           "development",
           "development/preprocessing-integration"
         ]

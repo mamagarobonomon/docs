@@ -123,6 +123,7 @@ Train a custom model on your own labeled data:
 
 <Tabs>
   <Tab title="Python">
+
 ```python
 from nimbus_pysdk import NimbusLDA
 import numpy as np
@@ -148,8 +149,9 @@ print(f"  Test accuracy: {accuracy:.2%}")
 from nimbus_pysdk import nimbus_save
 nimbus_save(clf.model_, "my_motor_imagery.npz")
 ```
-  </Tab>
+</Tab>
   <Tab title="Julia">
+
 ```julia
 using NimbusSDK
 
@@ -193,6 +195,8 @@ test_results = predict_batch(model, test_data)
 test_accuracy = sum(test_results.predictions .== test_labels) / length(test_labels)
 println("Test accuracy: $(round(test_accuracy * 100, digits=1))%")
 ```
+</Tab>
+</Tabs>
 
 ### Subject-Specific Calibration
 

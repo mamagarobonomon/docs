@@ -92,6 +92,7 @@ Both SDKs validate data before inference to catch common issues:
 
 <Tabs>
   <Tab title="Python">
+
 ```python
 from nimbus_pysdk import NimbusLDA
 import numpy as np
@@ -131,8 +132,9 @@ except ValueError as e:
     print(f"Feature mismatch: {e}")
     # Expected: same number of features as training
 ```
-  </Tab>
+</Tab>
   <Tab title="Julia">
+
 ```julia
 using NimbusSDK
 
@@ -176,6 +178,8 @@ catch e
     println("Feature dimension mismatch: Check your preprocessing")
 end
 ```
+</Tab>
+</Tabs>
 
 **Best Practice: Pre-validation Function**
 

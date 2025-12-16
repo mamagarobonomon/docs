@@ -127,6 +127,7 @@ metadata = BCIMetadata(
 
 <Tabs>
   <Tab title="Python">
+
 ```python
 from nimbus_pysdk import NimbusLDA, NimbusGMM
 
@@ -135,11 +136,29 @@ clf_lda = NimbusLDA()
 # Typical latency: 10-20ms
 # Use when: Speed is priority, classes are well-separated
 
-# RxGMM: More flexible, slightly slower
-rxgmm_model = load_model(RxGMMModel, "motor_imagery_4class_gmm_v1")
+# Bayesian GMM: More flexible, slightly slower
+clf_gmm = NimbusGMM()
 # Typical latency: 15-25ms
 # Use when: Need flexibility for overlapping classes
 ```
+</Tab>
+  <Tab title="Julia">
+
+```julia
+using NimbusSDK
+
+# RxLDA: Faster, recommended for real-time
+lda_model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+# Typical latency: 10-20ms
+# Use when: Speed is priority, classes are well-separated
+
+# RxGMM: More flexible, slightly slower
+gmm_model = load_model(RxGMMModel, "motor_imagery_4class_gmm_v1")
+# Typical latency: 15-25ms
+# Use when: Need flexibility for overlapping classes
+```
+  </Tab>
+</Tabs>
 
 <Tip>
 For most real-time applications, **Bayesian LDA (RxLDA) is recommended** due to its faster inference while maintaining good accuracy.

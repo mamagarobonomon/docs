@@ -628,6 +628,7 @@ Systematically search for optimal hyperparameters:
 
 <Tabs>
   <Tab title="Python">
+
 ```python
 from sklearn.model_selection import GridSearchCV, train_test_split
 from nimbus_pysdk import NimbusSoftmax
@@ -657,8 +658,9 @@ print(f"  Validation accuracy: {grid_search.best_score_ * 100:.1f}%")
 # Use best model
 best_clf = grid_search.best_estimator_
 ```
-  </Tab>
+</Tab>
   <Tab title="Julia">
+
 ```julia
 using NimbusSDK
 
@@ -717,6 +719,8 @@ final_model = train_model(
     W_df = Float64(n_classes + best_params.df_offset)
 )
 ```
+</Tab>
+</Tabs>
 
 ### Quick Tuning Guidelines
 
