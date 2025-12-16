@@ -69,6 +69,26 @@ EEG and BCI feature amplitudes vary significantly across sessions due to:
 
 **When to use**: Default choice for most BCI applications
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import estimate_normalization_params, apply_normalization
+
+# Estimate params from training data
+norm_params = estimate_normalization_params(X_train, method="zscore")
+
+# Apply to train and test
+X_train_norm = apply_normalization(X_train, norm_params)
+X_test_norm = apply_normalization(X_test, norm_params)
+
+# Or use sklearn StandardScaler
+from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()
+X_train_norm = scaler.fit_transform(X_train)
+X_test_norm = scaler.transform(X_test)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -79,6 +99,8 @@ norm_params = estimate_normalization_params(train_features; method=:zscore)
 train_norm = apply_normalization(train_features, norm_params)
 test_norm = apply_normalization(test_features, norm_params)
 ```
+  </Tab>
+</Tabs>
 
 **Pros**:
 - Standard statistical normalization
@@ -99,10 +121,28 @@ test_norm = apply_normalization(test_features, norm_params)
 - When you need bounded features
 - For algorithms sensitive to feature range
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import estimate_normalization_params, apply_normalization
+
+norm_params = estimate_normalization_params(X_train, method="minmax")
+X_normalized = apply_normalization(X_test, norm_params)
+
+# Or use sklearn MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler
+scaler = MinMaxScaler()
+X_train_norm = scaler.fit_transform(X_train)
+X_test_norm = scaler.transform(X_test)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 norm_params = estimate_normalization_params(train_features; method=:minmax)
 normalized = apply_normalization(test_features, norm_params)
 ```
+  </Tab>
+</Tabs>
 
 **Pros**:
 - Bounded output range [0, 1]
@@ -124,10 +164,28 @@ where MAD = median(|x - median(x)|) × 1.4826
 - Poor artifact rejection in preprocessing
 - Online BCI with variable data quality
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import estimate_normalization_params, apply_normalization
+
+norm_params = estimate_normalization_params(X_train, method="robust")
+X_normalized = apply_normalization(X_test, norm_params)
+
+# Or use sklearn RobustScaler
+from sklearn.preprocessing import RobustScaler
+scaler = RobustScaler()
+X_train_norm = scaler.fit_transform(X_train)
+X_test_norm = scaler.transform(X_test)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 norm_params = estimate_normalization_params(train_features; method=:robust)
 normalized = apply_normalization(test_features, norm_params)
 ```
+  </Tab>
+</Tabs>
 
 **Pros**:
 - Resistant to outliers

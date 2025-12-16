@@ -6,10 +6,10 @@ icon: "list"
 
 # Batch Processing for BCI
 
-Batch processing is essential for offline analysis, model training, research studies, and comprehensive data evaluation. NimbusSDK provides efficient batch inference capabilities optimized for processing multiple trials simultaneously.
+Batch processing is essential for offline analysis, model training, research studies, and comprehensive data evaluation. Both Python and Julia SDKs provide efficient batch inference capabilities optimized for processing multiple trials simultaneously.
 
 <Note>
-NimbusSDK supports three Bayesian models: **Bayesian LDA (RxLDA)**, **Bayesian GMM (RxGMM)**, and **Bayesian MPR (RxPolya)**. Examples use RxLDA, but you can use any model type.
+Both SDKs support three Bayesian models: **Bayesian LDA**, **Bayesian GMM**, and **Bayesian Softmax/MPR**. Examples show both SDKs - you can use any model type.
 </Note>
 
 ## When to Use Batch Processing
@@ -31,6 +31,39 @@ Batch processing trades real-time responsiveness for computational efficiency. U
 
 ### Simple Batch Setup
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+from sklearn.model_selection import cross_val_score
+import numpy as np
+
+# 1. Load your preprocessed features
+X = load_preprocessed_features()  # Shape: (n_trials, n_features)
+y = load_trial_labels()           # Shape: (n_trials,)
+
+# 2. Create and train classifier
+clf = NimbusLDA()
+clf.fit(X, y)
+
+# 3. Batch predictions
+predictions = clf.predict(X)
+probabilities = clf.predict_proba(X)
+
+# 4. Analyze results
+print(f"Processed {len(predictions)} trials")
+print(f"Mean confidence: {probabilities.max(axis=1).mean():.3f}")
+
+# Calculate accuracy
+accuracy = (predictions == y).mean()
+print(f"Accuracy: {accuracy * 100:.1f}%")
+
+# Cross-validation
+cv_scores = cross_val_score(clf, X, y, cv=5)
+print(f"CV Accuracy: {cv_scores.mean():.2%} (+/- {cv_scores.std():.2%})")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -68,6 +101,8 @@ if !isnothing(labels)
     println("Accuracy: $(round(accuracy * 100, digits=1))%")
 end
 ```
+  </Tab>
+</Tabs>
 
 ### Performance Characteristics
 
@@ -86,6 +121,35 @@ Batch inference is more efficient than processing trials individually. Process a
 
 Train a custom model on your own labeled data:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+import numpy as np
+
+# Prepare training data
+X_train = load_training_features()  # Shape: (n_trials, n_features)
+y_train = load_training_labels()    # Shape: (n_trials,)
+
+# Train Bayesian LDA model
+clf = NimbusLDA(mu_scale=3.0)
+clf.fit(X_train, y_train)
+
+print(f"✓ Model trained on {len(y_train)} trials")
+print(f"  Features: {X_train.shape[1]}")
+print(f"  Classes: {len(np.unique(y_train))}")
+
+# Evaluate on test set
+X_test, y_test = load_test_data()
+accuracy = clf.score(X_test, y_test)
+print(f"  Test accuracy: {accuracy:.2%}")
+
+# Save model
+from nimbus_pysdk import nimbus_save
+nimbus_save(clf.model_, "my_motor_imagery.npz")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 

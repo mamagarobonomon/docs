@@ -6,10 +6,12 @@ icon: "play"
 
 # Streaming Inference for BCI
 
-Streaming inference is essential for real-time BCI applications. NimbusSDK's streaming mode processes neural data chunk-by-chunk as it arrives, enabling responsive brain-computer interfaces with sub-25ms latency per chunk.
+Streaming inference is essential for real-time BCI applications. Both Python and Julia SDKs support chunk-by-chunk processing for responsive brain-computer interfaces with sub-25ms latency per chunk.
 
 <Note>
-NimbusSDK supports three Bayesian models: **Bayesian LDA (RxLDA)**, **Bayesian GMM (RxGMM)**, and **Bayesian MPR (RxPolya)**. All support streaming inference with similar latencies.
+Both SDKs support three Bayesian models: **Bayesian LDA**, **Bayesian GMM**, and **Bayesian Softmax/MPR**. All support streaming inference with similar latencies.
+
+**Python SDK users**: See [Python Streaming Inference](/python-sdk/streaming-inference) for Python-specific detailed examples and patterns.
 </Note>
 
 ## Streaming vs Batch Processing
@@ -18,10 +20,24 @@ NimbusSDK supports three Bayesian models: **Bayesian LDA (RxLDA)**, **Bayesian G
 
 Process complete trials offline:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+
+# Batch: Process all trials at once
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
+predictions = clf.predict(X_test)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Batch: Process all trials at once
 results = predict_batch(model, all_trials_data)
 ```
+  </Tab>
+</Tabs>
 
 **Best for:**
 - Offline analysis
@@ -33,6 +49,21 @@ results = predict_batch(model, all_trials_data)
 
 Process chunks as they arrive in real-time:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import StreamingSession
+
+# Streaming: Process chunks incrementally
+session = StreamingSession(clf.model_, metadata)
+for chunk in eeg_stream:
+    chunk_result = session.process_chunk(chunk)
+    # Immediate response to user
+
+final_result = session.finalize_trial(method="weighted_vote")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Streaming: Process chunks incrementally
 session = init_streaming(model, metadata)
@@ -42,6 +73,8 @@ for chunk in eeg_stream
 end
 final_result = finalize_trial(session)
 ```
+  </Tab>
+</Tabs>
 
 **Best for:**
 - Real-time BCI control
@@ -53,6 +86,51 @@ final_result = finalize_trial(session)
 
 ### Basic Streaming Setup
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA, StreamingSession
+from nimbus_pysdk.data import BCIMetadata
+import numpy as np
+
+# 1. Train classifier
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
+
+# 2. Configure streaming metadata
+metadata = BCIMetadata(
+    sampling_rate=250.0,
+    paradigm="motor_imagery",
+    feature_type="csp",
+    n_features=16,
+    n_classes=4,
+    chunk_size=125,  # 500ms chunks at 250 Hz
+    temporal_aggregation="logvar"
+)
+
+# 3. Initialize streaming session
+session = StreamingSession(clf.model_, metadata)
+print("✓ Streaming session initialized")
+
+# 4. Process chunks as they arrive
+for chunk in your_eeg_stream():
+    # chunk shape: (n_features, chunk_size)
+    chunk_result = session.process_chunk(chunk)
+    
+    print(f"Chunk prediction: {chunk_result.prediction}")
+    print(f"Confidence: {chunk_result.confidence:.3f}")
+    
+    # Provide immediate feedback
+    if chunk_result.confidence > 0.75:
+        provide_feedback(chunk_result.prediction)
+
+# 5. Finalize trial with aggregated result
+final_result = session.finalize_trial(method="weighted_vote")
+print(f"\n✓ Final prediction: {final_result.prediction}")
+print(f"Final confidence: {final_result.confidence:.3f}")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -93,11 +171,33 @@ final_result = finalize_trial(session; method=:weighted_vote)
 println("\n✓ Final prediction: $(final_result.prediction)")
 println("Final confidence: $(round(final_result.confidence, digits=3))")
 ```
+  </Tab>
+</Tabs>
 
 ### Chunk Size Selection
 
 Choose chunk size based on your application:
 
+<Tabs>
+  <Tab title="Python">
+```python
+# Fast updates (0.5 second chunks)
+chunk_size = 125  # At 250 Hz sampling rate
+# Pro: More responsive, frequent updates
+# Con: Less data per prediction, potentially lower confidence
+
+# Standard (0.5-1 second chunks) - Recommended for Python
+chunk_size = 125  # 500ms at 250 Hz
+# Pro: Good balance of responsiveness and accuracy
+# Con: None - recommended default
+
+# Longer chunks (1 second chunks)
+chunk_size = 250
+# Pro: More data, higher confidence
+# Con: Less responsive, slower feedback
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Fast updates (0.5 second chunks)
 chunk_size = 125  # At 250 Hz sampling rate
@@ -114,9 +214,13 @@ chunk_size = 500
 # Pro: More data, higher confidence
 # Con: Less responsive, slower feedback
 ```
+  </Tab>
+</Tabs>
 
 <Tip>
-Start with 1-second chunks (chunk_size = sampling_rate). Adjust based on your accuracy/latency requirements.
+**Python SDK**: Start with 500ms chunks (125 samples at 250 Hz). See [Python Streaming Inference](/python-sdk/streaming-inference) for detailed examples.
+
+**Julia SDK**: Start with 1-second chunks (chunk_size = sampling_rate). Adjust based on your accuracy/latency requirements.
 </Tip>
 
 ## Aggregation Methods
@@ -125,10 +229,20 @@ Start with 1-second chunks (chunk_size = sampling_rate). Adjust based on your ac
 
 Weight chunks by confidence (recommended):
 
+<Tabs>
+  <Tab title="Python">
+```python
+# Aggregate with weighted voting
+final_result = session.finalize_trial(method="weighted_vote")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Aggregate with weighted voting
 final_result = finalize_trial(session; method=:weighted_vote)
 ```
+  </Tab>
+</Tabs>
 
 High-confidence chunks contribute more to the final decision. Best for most applications.
 
@@ -136,10 +250,20 @@ High-confidence chunks contribute more to the final decision. Best for most appl
 
 Simple majority across chunks:
 
+<Tabs>
+  <Tab title="Python">
+```python
+# Aggregate with majority voting
+final_result = session.finalize_trial(method="majority_vote")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Aggregate with majority voting
 final_result = finalize_trial(session; method=:majority_vote)
 ```
+  </Tab>
+</Tabs>
 
 Each chunk has equal weight. Use when all chunks have similar quality.
 
@@ -147,6 +271,14 @@ Each chunk has equal weight. Use when all chunks have similar quality.
 
 Use only the most recent chunk:
 
+<Tabs>
+  <Tab title="Python">
+```python
+# Use only latest chunk
+final_result = session.finalize_trial(method="latest")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Use only latest chunk
 final_result = finalize_trial(session; method=:latest)
