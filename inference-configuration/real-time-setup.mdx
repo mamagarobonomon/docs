@@ -19,8 +19,8 @@ Minimal setup for real-time streaming:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA, StreamingSession
-from nimbus_pysdk.data import BCIMetadata
+from nimbus_bci import NimbusLDA, StreamingSession
+from nimbus_bci.data import BCIMetadata
 
 # 1. Train classifier
 clf = NimbusLDA()
@@ -129,7 +129,7 @@ metadata = BCIMetadata(
   <Tab title="Python">
 
 ```python
-from nimbus_pysdk import NimbusLDA, NimbusGMM
+from nimbus_bci import NimbusLDA, NimbusGMM
 
 # Bayesian LDA: Faster, recommended for real-time
 clf_lda = NimbusLDA()

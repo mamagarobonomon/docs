@@ -72,7 +72,7 @@ EEG and BCI feature amplitudes vary significantly across sessions due to:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import estimate_normalization_params, apply_normalization
+from nimbus_bci import estimate_normalization_params, apply_normalization
 
 # Estimate params from training data
 norm_params = estimate_normalization_params(X_train, method="zscore")
@@ -124,7 +124,7 @@ test_norm = apply_normalization(test_features, norm_params)
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import estimate_normalization_params, apply_normalization
+from nimbus_bci import estimate_normalization_params, apply_normalization
 
 norm_params = estimate_normalization_params(X_train, method="minmax")
 X_normalized = apply_normalization(X_test, norm_params)
@@ -167,7 +167,7 @@ where MAD = median(|x - median(x)|) × 1.4826
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import estimate_normalization_params, apply_normalization
+from nimbus_bci import estimate_normalization_params, apply_normalization
 
 norm_params = estimate_normalization_params(X_train, method="robust")
 X_normalized = apply_normalization(X_test, norm_params)

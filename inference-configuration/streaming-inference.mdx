@@ -23,7 +23,7 @@ Process complete trials offline:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 # Batch: Process all trials at once
 clf = NimbusLDA()
@@ -52,7 +52,7 @@ Process chunks as they arrive in real-time:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import StreamingSession
+from nimbus_bci import StreamingSession
 
 # Streaming: Process chunks incrementally
 session = StreamingSession(clf.model_, metadata)
@@ -89,8 +89,8 @@ final_result = finalize_trial(session)
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA, StreamingSession
-from nimbus_pysdk.data import BCIMetadata
+from nimbus_bci import NimbusLDA, StreamingSession
+from nimbus_bci.data import BCIMetadata
 import numpy as np
 
 # 1. Train classifier

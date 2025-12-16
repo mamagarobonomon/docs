@@ -34,7 +34,7 @@ Batch processing trades real-time responsiveness for computational efficiency. U
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 from sklearn.model_selection import cross_val_score
 import numpy as np
 
@@ -125,7 +125,7 @@ Train a custom model on your own labeled data:
   <Tab title="Python">
 
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 import numpy as np
 
 # Prepare training data
@@ -146,7 +146,7 @@ accuracy = clf.score(X_test, y_test)
 print(f"  Test accuracy: {accuracy:.2%}")
 
 # Save model
-from nimbus_pysdk import nimbus_save
+from nimbus_bci import nimbus_save
 nimbus_save(clf.model_, "my_motor_imagery.npz")
 ```
 </Tab>

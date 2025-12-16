@@ -15,7 +15,7 @@ Complete reference for the nimbus-bci Python library.
 Bayesian Linear Discriminant Analysis with shared covariance.
 
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 clf = NimbusLDA(
     mu_loc=0.0,
@@ -47,7 +47,7 @@ clf = NimbusLDA(
 **Example:**
 
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 import numpy as np
 
 # Create and fit
@@ -67,7 +67,7 @@ clf.partial_fit(X_new, y_new)
 Bayesian Gaussian Mixture Model with class-specific covariances.
 
 ```python
-from nimbus_pysdk import NimbusGMM
+from nimbus_bci import NimbusGMM
 
 clf = NimbusGMM(
     mu_loc=0.0,
@@ -86,7 +86,7 @@ clf = NimbusGMM(
 **Example:**
 
 ```python
-from nimbus_pysdk import NimbusGMM
+from nimbus_bci import NimbusGMM
 
 # Better for overlapping distributions (e.g., P300)
 clf = NimbusGMM()
@@ -99,7 +99,7 @@ probs = clf.predict_proba(X_test)
 Bayesian Multinomial Logistic Regression (Polya-Gamma VI).
 
 ```python
-from nimbus_pysdk import NimbusSoftmax
+from nimbus_bci import NimbusSoftmax
 
 clf = NimbusSoftmax(
     w_loc=0.0,
@@ -119,7 +119,7 @@ clf = NimbusSoftmax(
 **Example:**
 
 ```python
-from nimbus_pysdk import NimbusSoftmax
+from nimbus_bci import NimbusSoftmax
 
 # For non-Gaussian decision boundaries
 clf = NimbusSoftmax()
@@ -134,7 +134,7 @@ predictions = clf.predict(X_test)
 Container for BCI features, metadata, and labels.
 
 ```python
-from nimbus_pysdk.data import BCIData
+from nimbus_bci.data import BCIData
 
 data = BCIData(
     features,      # (n_features, n_samples, n_trials)
@@ -161,7 +161,7 @@ data = BCIData(
 Metadata for BCI experiments.
 
 ```python
-from nimbus_pysdk.data import BCIMetadata
+from nimbus_bci.data import BCIMetadata
 
 metadata = BCIMetadata(
     sampling_rate=250.0,
@@ -190,7 +190,7 @@ metadata = BCIMetadata(
 Batch inference with comprehensive diagnostics.
 
 ```python
-from nimbus_pysdk import predict_batch
+from nimbus_bci import predict_batch
 
 result = predict_batch(
     model,           # Trained model
@@ -214,8 +214,8 @@ result = predict_batch(
 **Example:**
 
 ```python
-from nimbus_pysdk import predict_batch, NimbusLDA
-from nimbus_pysdk.data import BCIData, BCIMetadata
+from nimbus_bci import predict_batch, NimbusLDA
+from nimbus_bci.data import BCIData, BCIMetadata
 
 clf = NimbusLDA()
 clf.fit(X_train, y_train)
@@ -239,7 +239,7 @@ print(f"Mean entropy: {result.mean_entropy:.2f} bits")
 Real-time chunk-by-chunk processing.
 
 ```python
-from nimbus_pysdk import StreamingSession
+from nimbus_bci import StreamingSession
 
 session = StreamingSession(
     model,      # Trained model
@@ -255,8 +255,8 @@ session = StreamingSession(
 **Example:**
 
 ```python
-from nimbus_pysdk import NimbusLDA, StreamingSession
-from nimbus_pysdk.data import BCIMetadata
+from nimbus_bci import NimbusLDA, StreamingSession
+from nimbus_bci.data import BCIMetadata
 
 clf = NimbusLDA()
 clf.fit(X_train, y_train)
@@ -325,7 +325,7 @@ Result from batch inference.
 Compute Shannon entropy from probabilities.
 
 ```python
-from nimbus_pysdk import compute_entropy
+from nimbus_bci import compute_entropy
 
 entropy = compute_entropy(probabilities)  # bits
 ```
@@ -341,7 +341,7 @@ entropy = compute_entropy(probabilities)  # bits
 Compute Expected Calibration Error (ECE) and Maximum Calibration Error (MCE).
 
 ```python
-from nimbus_pysdk import compute_calibration_metrics
+from nimbus_bci import compute_calibration_metrics
 
 metrics = compute_calibration_metrics(
     predictions,
@@ -365,7 +365,7 @@ metrics = compute_calibration_metrics(
 Calculate Information Transfer Rate.
 
 ```python
-from nimbus_pysdk import calculate_itr
+from nimbus_bci import calculate_itr
 
 itr = calculate_itr(
     accuracy=0.85,
@@ -387,7 +387,7 @@ itr = calculate_itr(
 Assess quality of predictions.
 
 ```python
-from nimbus_pysdk import assess_trial_quality
+from nimbus_bci import assess_trial_quality
 
 quality = assess_trial_quality(
     probabilities,
@@ -409,7 +409,7 @@ quality = assess_trial_quality(
 Determine if trial should be rejected based on confidence.
 
 ```python
-from nimbus_pysdk import should_reject_trial
+from nimbus_bci import should_reject_trial
 
 reject = should_reject_trial(confidence, threshold=0.7)
 ```
@@ -428,7 +428,7 @@ reject = should_reject_trial(confidence, threshold=0.7)
 Estimate normalization parameters from data.
 
 ```python
-from nimbus_pysdk import estimate_normalization_params
+from nimbus_bci import estimate_normalization_params
 
 params = estimate_normalization_params(
     X,
@@ -450,7 +450,7 @@ params = estimate_normalization_params(
 Apply normalization to data.
 
 ```python
-from nimbus_pysdk import apply_normalization
+from nimbus_bci import apply_normalization
 
 X_normalized = apply_normalization(X, params)
 ```
@@ -467,7 +467,7 @@ X_normalized = apply_normalization(X, params)
 Diagnose preprocessing quality.
 
 ```python
-from nimbus_pysdk import diagnose_preprocessing
+from nimbus_bci import diagnose_preprocessing
 
 report = diagnose_preprocessing(
     features,
@@ -489,7 +489,7 @@ report = diagnose_preprocessing(
 Compute Fisher score for feature discriminability.
 
 ```python
-from nimbus_pysdk import compute_fisher_score
+from nimbus_bci import compute_fisher_score
 
 scores = compute_fisher_score(X, y)
 ```
@@ -506,7 +506,7 @@ scores = compute_fisher_score(X, y)
 Rank features by discriminability.
 
 ```python
-from nimbus_pysdk import rank_features_by_discriminability
+from nimbus_bci import rank_features_by_discriminability
 
 ranking = rank_features_by_discriminability(X, y)
 ```
@@ -525,7 +525,7 @@ ranking = rank_features_by_discriminability(X, y)
 Convert MNE Epochs to BCIData.
 
 ```python
-from nimbus_pysdk.compat import from_mne_epochs
+from nimbus_bci.compat import from_mne_epochs
 
 data = from_mne_epochs(
     epochs,
@@ -547,7 +547,7 @@ data = from_mne_epochs(
 Extract CSP features from MNE Epochs.
 
 ```python
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci.compat import extract_csp_features
 
 features, csp = extract_csp_features(
     epochs,
@@ -570,7 +570,7 @@ features, csp = extract_csp_features(
 Extract bandpower features from MNE Epochs.
 
 ```python
-from nimbus_pysdk.compat import extract_bandpower_features
+from nimbus_bci.compat import extract_bandpower_features
 
 features = extract_bandpower_features(
     epochs,
@@ -592,7 +592,7 @@ features = extract_bandpower_features(
 Create complete BCI pipeline with MNE and nimbus-bci.
 
 ```python
-from nimbus_pysdk.compat import create_bci_pipeline
+from nimbus_bci.compat import create_bci_pipeline
 
 pipeline = create_bci_pipeline(
     classifier="lda",
@@ -614,7 +614,7 @@ pipeline = create_bci_pipeline(
 ### LDA Functions
 
 ```python
-from nimbus_pysdk import (
+from nimbus_bci import (
     nimbus_lda_fit,
     nimbus_lda_predict,
     nimbus_lda_predict_proba,
@@ -635,7 +635,7 @@ model = nimbus_lda_update(model, X_new, y_new)
 ### GMM Functions
 
 ```python
-from nimbus_pysdk import (
+from nimbus_bci import (
     nimbus_gmm_fit,
     nimbus_gmm_predict,
     nimbus_gmm_predict_proba,
@@ -650,7 +650,7 @@ probs = nimbus_gmm_predict_proba(model, X_test)
 ### Softmax Functions
 
 ```python
-from nimbus_pysdk import (
+from nimbus_bci import (
     nimbus_softmax_fit,
     nimbus_softmax_predict,
     nimbus_softmax_predict_proba,
@@ -665,7 +665,7 @@ probs = nimbus_softmax_predict_proba(model, X_test)
 ### Model I/O
 
 ```python
-from nimbus_pysdk import nimbus_save, nimbus_load
+from nimbus_bci import nimbus_save, nimbus_load
 
 # Save model
 nimbus_save(model, "model.npz")
@@ -679,7 +679,7 @@ model = nimbus_load("model.npz")
 All functions and classes include type hints for better IDE support:
 
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 import numpy as np
 from numpy.typing import NDArray
 

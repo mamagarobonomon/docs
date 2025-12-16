@@ -35,7 +35,7 @@ Bayesian GMM extends beyond traditional Gaussian classifiers by allowing each cl
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusGMM
+from nimbus_bci import NimbusGMM
 import numpy as np
 
 # Create and fit classifier
@@ -166,7 +166,7 @@ end
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusGMM
+from nimbus_bci import NimbusGMM
 import pickle
 
 # Python SDK: Train locally, no model zoo
@@ -206,8 +206,8 @@ println("  Paradigm: $(get_paradigm(model))")
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusGMM
-from nimbus_pysdk.compat import from_mne_epochs
+from nimbus_bci import NimbusGMM
+from nimbus_bci.compat import from_mne_epochs
 import mne
 import pickle
 
@@ -303,7 +303,7 @@ save_model(model, "my_p300_gmm.jld2")
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusGMM
+from nimbus_bci import NimbusGMM
 import pickle
 
 # Load baseline model
@@ -400,7 +400,7 @@ For detailed Python streaming examples, see [Python SDK Streaming Inference](/py
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import StreamingSession
+from nimbus_bci import StreamingSession
 
 # Initialize streaming session
 session = StreamingSession(clf.model_, metadata_with_chunk_size)
@@ -457,7 +457,7 @@ Use lower regularization to let the data drive the model:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusGMM
+from nimbus_bci import NimbusGMM
 
 # Lower regularization for clean data
 clf = NimbusGMM(
@@ -493,7 +493,7 @@ Use higher regularization for stability (especially important for GMM with class
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusGMM
+from nimbus_bci import NimbusGMM
 
 # Higher regularization for noisy data
 clf = NimbusGMM(

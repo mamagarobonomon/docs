@@ -19,8 +19,8 @@ This section showcases realistic BCI applications powered by NimbusSDK's **RxLDA
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA, StreamingSession
-from nimbus_pysdk.data import BCIMetadata
+from nimbus_bci import NimbusLDA, StreamingSession
+from nimbus_bci.data import BCIMetadata
 import numpy as np
 from dataclasses import dataclass, field
 from typing import List, Dict
@@ -285,7 +285,7 @@ end
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusGMM
+from nimbus_bci import NimbusGMM
 import numpy as np
 from dataclasses import dataclass
 
@@ -526,8 +526,8 @@ end
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA, StreamingSession
-from nimbus_pysdk.data import BCIMetadata
+from nimbus_bci import NimbusLDA, StreamingSession
+from nimbus_bci.data import BCIMetadata
 import numpy as np
 from dataclasses import dataclass
 from typing import Dict
@@ -695,7 +695,7 @@ control_wheelchair(wheelchair_bci)
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA, NimbusGMM
+from nimbus_bci import NimbusLDA, NimbusGMM
 import numpy as np
 from typing import List, Dict
 

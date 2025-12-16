@@ -27,8 +27,8 @@ Classify left vs right hand motor imagery:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci import NimbusLDA
+from nimbus_bci.compat import extract_csp_features
 import mne
 
 # Load EEG data
@@ -102,8 +102,8 @@ Classify left hand, right hand, feet, and tongue movements:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci import NimbusLDA
+from nimbus_bci.compat import extract_csp_features
 import numpy as np
 import mne
 
@@ -192,8 +192,8 @@ Train a model on your own data:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA, NimbusGMM
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci import NimbusLDA, NimbusGMM
+from nimbus_bci.compat import extract_csp_features
 from sklearn.model_selection import train_test_split
 import numpy as np
 import mne
@@ -305,7 +305,7 @@ Detect target vs non-target stimuli:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusGMM  # GMM often better for P300
+from nimbus_bci import NimbusGMM  # GMM often better for P300
 import numpy as np
 import mne
 
@@ -397,7 +397,7 @@ Implement a P300-based speller:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusGMM
+from nimbus_bci import NimbusGMM
 import numpy as np
 
 # Train P300 speller model
@@ -519,8 +519,8 @@ Real-time cursor control with streaming inference:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA, StreamingSession
-from nimbus_pysdk.data import BCIMetadata
+from nimbus_bci import NimbusLDA, StreamingSession
+from nimbus_bci.data import BCIMetadata
 import numpy as np
 
 # Train or load model
@@ -619,7 +619,7 @@ Adjust control sensitivity based on performance:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import StreamingSession
+from nimbus_bci import StreamingSession
 from collections import deque
 import numpy as np
 
@@ -740,7 +740,7 @@ Personalize a model with minimal calibration data:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 from sklearn.model_selection import train_test_split
 import numpy as np
 import pickle
@@ -844,7 +844,7 @@ println("Improvement: $(round((personalized_acc - baseline_acc) * 100, digits=1)
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 import numpy as np
 
 # Run inference
@@ -1051,7 +1051,7 @@ Compare the two models:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA, NimbusGMM
+from nimbus_bci import NimbusLDA, NimbusGMM
 import numpy as np
 
 # Train both models on same data

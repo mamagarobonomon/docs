@@ -35,7 +35,7 @@ Bayesian LDA extends traditional Linear Discriminant Analysis with full Bayesian
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 import numpy as np
 
 # Create and fit classifier
@@ -188,7 +188,7 @@ For each class k, compute p(y | μ_k, W) independently, then combine using Bayes
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 import pickle
 
 # Python SDK: Train your own model locally
@@ -234,8 +234,8 @@ println("  Paradigm: $(get_paradigm(model))")
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci import NimbusLDA
+from nimbus_bci.compat import extract_csp_features
 import mne
 import pickle
 
@@ -336,7 +336,7 @@ Fine-tune a pre-trained model with subject-specific data (much faster than train
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 import numpy as np
 import pickle
 
@@ -403,7 +403,7 @@ Process multiple trials efficiently:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 import numpy as np
 
 # Run batch inference
@@ -454,8 +454,8 @@ For detailed Python streaming examples, see [Python SDK Streaming Inference](/py
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import StreamingSession
-from nimbus_pysdk.data import BCIMetadata
+from nimbus_bci import StreamingSession
+from nimbus_bci.data import BCIMetadata
 
 # Configure metadata with chunk size
 metadata = BCIMetadata(
@@ -522,7 +522,7 @@ Use lower regularization to let the data drive the model:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 # Lower regularization for clean data
 clf = NimbusLDA(
@@ -558,7 +558,7 @@ Use higher regularization for stability:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 # Higher regularization for noisy data
 clf = NimbusLDA(
@@ -614,7 +614,7 @@ Systematically search for optimal hyperparameters:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 from sklearn.model_selection import GridSearchCV, train_test_split
 
 # Define parameter grid
@@ -917,7 +917,7 @@ end
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 import numpy as np
 
 # Train multiple models with different hyperparameters and compare

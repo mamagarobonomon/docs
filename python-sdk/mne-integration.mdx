@@ -66,7 +66,7 @@ epochs = mne.Epochs(
 ### 2. Extract Features
 
 ```python
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci.compat import extract_csp_features
 
 # Extract CSP features
 csp_features, csp = extract_csp_features(epochs, n_components=8)
@@ -78,7 +78,7 @@ csp_features, csp = extract_csp_features(epochs, n_components=8)
 ### 3. Train Classifier
 
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 # Get labels
 labels = epochs.events[:, 2]
@@ -97,8 +97,8 @@ print(f"Accuracy: {scores.mean():.2%} (+/- {scores.std():.2%})")
 
 ```python
 import mne
-from nimbus_pysdk import NimbusLDA
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci import NimbusLDA
+from nimbus_bci.compat import extract_csp_features
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -154,7 +154,7 @@ print(f"Test accuracy: {test_score:.2%}")
 ### Basic CSP
 
 ```python
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci.compat import extract_csp_features
 
 # Extract CSP features
 features, csp = extract_csp_features(
@@ -188,7 +188,7 @@ csp_features = csp.fit_transform(X, y)
 For more than 2 classes:
 
 ```python
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci.compat import extract_csp_features
 
 # Works automatically for multi-class
 features, csp = extract_csp_features(
@@ -197,7 +197,7 @@ features, csp = extract_csp_features(
 )
 
 # Train multi-class classifier
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 clf = NimbusLDA()
 clf.fit(features, epochs.events[:, 2])
 ```
@@ -207,7 +207,7 @@ clf.fit(features, epochs.events[:, 2])
 ### Extract Bandpower
 
 ```python
-from nimbus_pysdk.compat import extract_bandpower_features
+from nimbus_bci.compat import extract_bandpower_features
 
 # Define frequency bands
 bands = {
@@ -226,7 +226,7 @@ features = extract_bandpower_features(
 )
 
 # Train classifier
-from nimbus_pysdk import NimbusGMM
+from nimbus_bci import NimbusGMM
 clf = NimbusGMM()
 clf.fit(features, epochs.events[:, 2])
 ```
@@ -251,7 +251,7 @@ features_multitaper = extract_bandpower_features(
 
 ```python
 import mne
-from nimbus_pysdk import NimbusGMM
+from nimbus_bci import NimbusGMM
 import numpy as np
 
 # Load P300 data
@@ -296,7 +296,7 @@ clf.fit(erp_features, epochs.events[:, 2])
 ### MNE Epochs to BCIData
 
 ```python
-from nimbus_pysdk.compat import from_mne_epochs
+from nimbus_bci.compat import from_mne_epochs
 
 # Convert MNE Epochs to BCIData
 data = from_mne_epochs(
@@ -306,14 +306,14 @@ data = from_mne_epochs(
 )
 
 # Use with batch inference
-from nimbus_pysdk import predict_batch
+from nimbus_bci import predict_batch
 result = predict_batch(clf.model_, data)
 ```
 
 ### BCIData to MNE Epochs
 
 ```python
-from nimbus_pysdk.compat import to_mne_epochs
+from nimbus_bci.compat import to_mne_epochs
 
 # Convert BCIData back to MNE Epochs
 epochs_reconstructed = to_mne_epochs(
@@ -327,7 +327,7 @@ epochs_reconstructed = to_mne_epochs(
 Create end-to-end pipeline:
 
 ```python
-from nimbus_pysdk.compat import create_bci_pipeline
+from nimbus_bci.compat import create_bci_pipeline
 
 # Create complete pipeline
 pipeline = create_bci_pipeline(
@@ -359,9 +359,9 @@ predictions = pipeline.predict(X)
 
 ```python
 import mne
-from nimbus_pysdk import NimbusLDA, StreamingSession
-from nimbus_pysdk.data import BCIMetadata
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci import NimbusLDA, StreamingSession
+from nimbus_bci.data import BCIMetadata
+from nimbus_bci.compat import extract_csp_features
 
 # 1. Calibration phase
 print("=== Calibration ===")
@@ -423,9 +423,9 @@ Handle different sessions with normalization:
 
 ```python
 import mne
-from nimbus_pysdk import NimbusLDA
-from nimbus_pysdk import estimate_normalization_params, apply_normalization
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci import NimbusLDA
+from nimbus_bci import estimate_normalization_params, apply_normalization
+from nimbus_bci.compat import extract_csp_features
 
 # Session 1 (training)
 raw1 = mne.io.read_raw_gdf("session1.gdf", preload=True)
@@ -465,8 +465,8 @@ print(f"Cross-session accuracy: {accuracy:.2%}")
 
 ```python
 import mne
-from nimbus_pysdk import NimbusLDA
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci import NimbusLDA
+from nimbus_bci.compat import extract_csp_features
 
 # Load data
 raw = mne.io.read_raw_gdf("data.gdf", preload=True)
@@ -515,7 +515,7 @@ epochs.drop_bad(reject=reject_criteria)
 print(f"Kept {len(epochs)} / {len(events)} epochs")
 
 # Continue with clean epochs
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci.compat import extract_csp_features
 features, csp = extract_csp_features(epochs)
 ```
 
@@ -525,7 +525,7 @@ features, csp = extract_csp_features(epochs)
 
 ```python
 import mne
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci.compat import extract_csp_features
 import matplotlib.pyplot as plt
 
 # Extract CSP
@@ -597,7 +597,7 @@ norm_params = joblib.load('norm_params.pkl')
 Check data quality before training:
 
 ```python
-from nimbus_pysdk import diagnose_preprocessing
+from nimbus_bci import diagnose_preprocessing
 
 # Diagnose features
 report = diagnose_preprocessing(

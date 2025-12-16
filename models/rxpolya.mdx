@@ -36,7 +36,7 @@ Bayesian Softmax/MPR provides a powerful alternative to traditional Gaussian cla
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusSoftmax
+from nimbus_bci import NimbusSoftmax
 import numpy as np
 
 # Create and fit classifier
@@ -211,7 +211,7 @@ end
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusSoftmax
+from nimbus_bci import NimbusSoftmax
 import pickle
 
 # Python SDK: Train locally
@@ -251,8 +251,8 @@ println("  Paradigm: $(get_paradigm(model))")
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusSoftmax
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci import NimbusSoftmax
+from nimbus_bci.compat import extract_csp_features
 import mne
 import pickle
 
@@ -357,7 +357,7 @@ Fine-tune a pre-trained model with subject-specific data (much faster than train
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusSoftmax
+from nimbus_bci import NimbusSoftmax
 import pickle
 
 # Load baseline model
@@ -432,7 +432,7 @@ accuracy = np.mean(predictions == y_test)
 print(f"Accuracy: {accuracy * 100:.1f}%")
 
 # Calculate ITR
-from nimbus_pysdk.metrics import calculate_itr
+from nimbus_bci.metrics import calculate_itr
 itr = calculate_itr(accuracy, n_classes=4, trial_time=4.0)
 print(f"ITR: {itr:.1f} bits/minute")
 ```
@@ -471,7 +471,7 @@ For detailed Python streaming examples, see [Python SDK Streaming Inference](/py
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import StreamingSession
+from nimbus_bci import StreamingSession
 
 # Initialize streaming session
 session = StreamingSession(clf.model_, metadata_with_chunk_size)
@@ -527,7 +527,7 @@ Use weaker priors to let the data drive the model:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusSoftmax
+from nimbus_bci import NimbusSoftmax
 
 # Weaker regularization for clean data
 clf = NimbusSoftmax(reg_strength=0.1)  # Lower regularization
@@ -561,7 +561,7 @@ Use stronger priors for stability:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusSoftmax
+from nimbus_bci import NimbusSoftmax
 
 # Stronger regularization for noisy data
 clf = NimbusSoftmax(reg_strength=10.0)  # Higher regularization
@@ -595,7 +595,7 @@ The defaults work well for most scenarios:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusSoftmax
+from nimbus_bci import NimbusSoftmax
 
 # Default regularization (balanced)
 clf = NimbusSoftmax(reg_strength=1.0)  # Default
@@ -631,7 +631,7 @@ Systematically search for optimal hyperparameters:
 
 ```python
 from sklearn.model_selection import GridSearchCV, train_test_split
-from nimbus_pysdk import NimbusSoftmax
+from nimbus_bci import NimbusSoftmax
 
 # Split data
 X_train, X_val, y_train, y_val = train_test_split(
@@ -907,7 +907,7 @@ println("  Classes: ", model.metadata.n_classes)
   <Tab title="Python">
 ```python
 from sklearn.model_selection import cross_val_score
-from nimbus_pysdk import NimbusSoftmax
+from nimbus_bci import NimbusSoftmax
 
 # Compare different regularization strengths
 results = []
@@ -992,7 +992,7 @@ Do you need Mahalanobis-based outlier detection?
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusSoftmax
+from nimbus_bci import NimbusSoftmax
 from sklearn.metrics import classification_report
 
 # Train on motor imagery data (4-class MI)
@@ -1038,7 +1038,7 @@ end
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusSoftmax
+from nimbus_bci import NimbusSoftmax
 from sklearn.metrics import confusion_matrix
 
 # Train on P300 data (binary: 0=non-target, 1=target)
@@ -1088,7 +1088,7 @@ println("Specificity: $(round(specificity * 100, digits=1))%")
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_pysdk import NimbusLDA, NimbusGMM, NimbusSoftmax
+from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax
 
 # Train all three models
 lda_clf = NimbusLDA()

@@ -102,7 +102,7 @@ pip install nimbus-bci
 pip install "nimbus-bci[mne]"
 
 # Verify installation
-python -c "import nimbus_pysdk; print('✓ nimbus-bci installed')"
+python -c "import nimbus_bci; print('✓ nimbus-bci installed')"
 ```
 
 </Step>
@@ -446,7 +446,7 @@ end
   <Tab title="Python">
 ```python
 # src/training.py
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 import numpy as np
 import pickle
 from datetime import date
@@ -647,8 +647,8 @@ end
   <Tab title="Python">
 ```python
 # src/inference.py
-from nimbus_pysdk import NimbusLDA, StreamingSession
-from nimbus_pysdk.data import BCIMetadata
+from nimbus_bci import NimbusLDA, StreamingSession
+from nimbus_bci.data import BCIMetadata
 import numpy as np
 import pickle
 import time
@@ -864,8 +864,8 @@ end
 # tests/test_training.py
 import pytest
 import numpy as np
-from nimbus_pysdk import NimbusLDA, NimbusGMM
-from nimbus_pysdk.data import BCIData, BCIMetadata
+from nimbus_bci import NimbusLDA, NimbusGMM
+from nimbus_bci.data import BCIData, BCIMetadata
 
 def test_model_training():
     """Test basic model training"""
@@ -908,8 +908,8 @@ def test_streaming_inference():
     clf.fit(X_train, y_train)
     
     # Create streaming session
-    from nimbus_pysdk import StreamingSession
-    from nimbus_pysdk.data import BCIMetadata
+    from nimbus_bci import StreamingSession
+    from nimbus_bci.data import BCIMetadata
     
     metadata = BCIMetadata(
         sampling_rate=250.0,

@@ -92,11 +92,11 @@ This includes:
 Test your installation:
 
 ```python
-import nimbus_pysdk
-print(f"nimbus-bci version: {nimbus_pysdk.__version__}")
+import nimbus_bci
+print(f"nimbus-bci version: {nimbus_bci.__version__}")
 
 # Check available classifiers
-from nimbus_pysdk import NimbusLDA, NimbusGMM, NimbusSoftmax
+from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax
 print("✓ All classifiers imported successfully")
 
 # Quick test
@@ -111,7 +111,7 @@ print("✓ Basic functionality works")
 Expected output:
 
 ```
-nimbus-bci version: 0.2.0
+nimbus-bci version: 0.2.7
 ✓ All classifiers imported successfully
 ✓ Basic functionality works
 ```
@@ -200,8 +200,8 @@ pip install --upgrade nimbus-bci
 Check your version:
 
 ```python
-import nimbus_pysdk
-print(nimbus_pysdk.__version__)
+import nimbus_bci
+print(nimbus_bci.__version__)
 ```
 
 ## Uninstalling

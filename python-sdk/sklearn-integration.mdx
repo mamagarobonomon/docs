@@ -13,7 +13,7 @@ The nimbus-bci classifiers are fully compatible with scikit-learn, allowing seam
 All nimbus-bci classifiers implement the sklearn estimator interface:
 
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 clf = NimbusLDA()
 
@@ -33,7 +33,7 @@ Combine preprocessing with classification:
 ```python
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 # Create pipeline
 pipe = make_pipeline(
@@ -56,7 +56,7 @@ Add feature selection and normalization:
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, RobustScaler
 from sklearn.feature_selection import SelectKBest, f_classif
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 pipe = Pipeline([
     ('scaler', RobustScaler()),
@@ -76,7 +76,7 @@ Complete BCI preprocessing pipeline:
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 # Complete BCI pipeline
 bci_pipeline = Pipeline([
@@ -101,7 +101,7 @@ Evaluate model performance:
 
 ```python
 from sklearn.model_selection import cross_val_score
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 clf = NimbusLDA()
 scores = cross_val_score(clf, X, y, cv=5, scoring='accuracy')
@@ -115,7 +115,7 @@ Maintain class balance in folds:
 
 ```python
 from sklearn.model_selection import StratifiedKFold, cross_val_score
-from nimbus_pysdk import NimbusGMM
+from nimbus_bci import NimbusGMM
 
 clf = NimbusGMM()
 cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
@@ -130,7 +130,7 @@ Evaluate multiple metrics simultaneously:
 
 ```python
 from sklearn.model_selection import cross_validate
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 clf = NimbusLDA()
 scoring = ['accuracy', 'precision_macro', 'recall_macro', 'f1_macro']
@@ -146,7 +146,7 @@ For BCI with multiple subjects:
 
 ```python
 from sklearn.model_selection import LeaveOneGroupOut, cross_val_score
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 clf = NimbusLDA()
 logo = LeaveOneGroupOut()
@@ -166,7 +166,7 @@ Exhaustive search over parameter grid:
 
 ```python
 from sklearn.model_selection import GridSearchCV
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 # Define parameter grid
 param_grid = {
@@ -202,7 +202,7 @@ More efficient for large parameter spaces:
 ```python
 from sklearn.model_selection import RandomizedSearchCV
 from scipy.stats import uniform, randint
-from nimbus_pysdk import NimbusGMM
+from nimbus_bci import NimbusGMM
 
 # Define parameter distributions
 param_dist = {
@@ -233,7 +233,7 @@ Tune parameters across entire pipeline:
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import GridSearchCV
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 pipe = Pipeline([
     ('scaler', StandardScaler()),
@@ -262,7 +262,7 @@ Compare different nimbus-bci classifiers:
 
 ```python
 from sklearn.model_selection import cross_val_score
-from nimbus_pysdk import NimbusLDA, NimbusGMM, NimbusSoftmax
+from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax
 
 classifiers = {
     'LDA': NimbusLDA(),
@@ -290,7 +290,7 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.model_selection import cross_val_score
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 classifiers = {
     'NimbusLDA': NimbusLDA(),
@@ -313,7 +313,7 @@ Select best features before classification:
 ```python
 from sklearn.feature_selection import SelectKBest, f_classif
 from sklearn.pipeline import Pipeline
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 pipe = Pipeline([
     ('feature_selection', SelectKBest(f_classif, k=10)),
@@ -333,7 +333,7 @@ Iteratively remove least important features:
 
 ```python
 from sklearn.feature_selection import RFE
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 clf = NimbusLDA()
 rfe = RFE(clf, n_features_to_select=10)
@@ -351,7 +351,7 @@ Combine multiple nimbus-bci classifiers:
 
 ```python
 from sklearn.ensemble import VotingClassifier
-from nimbus_pysdk import NimbusLDA, NimbusGMM, NimbusSoftmax
+from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax
 
 ensemble = VotingClassifier(
     estimators=[
@@ -373,7 +373,7 @@ Bootstrap aggregating for variance reduction:
 
 ```python
 from sklearn.ensemble import BaggingClassifier
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 bagging = BaggingClassifier(
     base_estimator=NimbusLDA(),
@@ -394,7 +394,7 @@ Calibrate predicted probabilities:
 
 ```python
 from sklearn.calibration import CalibratedClassifierCV
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 # Calibrate with cross-validation
 calibrated = CalibratedClassifierCV(
@@ -441,7 +441,7 @@ class TemporalAggregator(BaseEstimator, TransformerMixin):
 
 # Use in pipeline
 from sklearn.pipeline import Pipeline
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 pipe = Pipeline([
     ('temporal_agg', TemporalAggregator(method='logvar')),
@@ -462,7 +462,7 @@ from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     confusion_matrix, classification_report
 )
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 clf = NimbusLDA()
 clf.fit(X_train, y_train)
@@ -487,7 +487,7 @@ For binary classification:
 ```python
 from sklearn.metrics import roc_curve, auc, roc_auc_score
 import matplotlib.pyplot as plt
-from nimbus_pysdk import NimbusGMM
+from nimbus_bci import NimbusGMM
 
 clf = NimbusGMM()
 clf.fit(X_train, y_train)
@@ -517,7 +517,7 @@ Save entire pipeline:
 ```python
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 import joblib
 
 # Create and train pipeline

@@ -45,8 +45,8 @@ pip install nimbus-bci[mne]
 Verify installation:
 
 ```python
-import nimbus_pysdk
-print(f"nimbus-bci version: {nimbus_pysdk.__version__}")
+import nimbus_bci
+print(f"nimbus-bci version: {nimbus_bci.__version__}")
 ```
   </Step>
 
@@ -54,7 +54,7 @@ print(f"nimbus-bci version: {nimbus_pysdk.__version__}")
 Create your first Bayesian classifier:
 
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 import numpy as np
 
 # Generate sample data (in practice, use your preprocessed EEG features)
@@ -88,7 +88,7 @@ Use nimbus-bci with sklearn pipelines:
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import cross_val_score
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 # Create pipeline with preprocessing
 pipe = make_pipeline(
@@ -117,7 +117,7 @@ Optimize classifier parameters with GridSearchCV:
 
 ```python
 from sklearn.model_selection import GridSearchCV
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 # Define parameter grid
 param_grid = {
@@ -151,7 +151,7 @@ best_clf = grid.best_estimator_
 Update models incrementally with new data:
 
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 # Initial training
 clf = NimbusLDA()
@@ -174,8 +174,8 @@ print("Model updated with new data")
 Use batch inference for comprehensive diagnostics:
 
 ```python
-from nimbus_pysdk import predict_batch, NimbusLDA
-from nimbus_pysdk.data import BCIData, BCIMetadata
+from nimbus_bci import predict_batch, NimbusLDA
+from nimbus_bci.data import BCIData, BCIMetadata
 
 # Train model
 clf = NimbusLDA()
@@ -213,8 +213,8 @@ print(f"Latency: {result.latency_ms:.1f}ms")
 Process data in real-time chunks:
 
 ```python
-from nimbus_pysdk import NimbusLDA, StreamingSession
-from nimbus_pysdk.data import BCIMetadata
+from nimbus_bci import NimbusLDA, StreamingSession
+from nimbus_bci.data import BCIMetadata
 
 # Train model
 clf = NimbusLDA()
@@ -260,7 +260,7 @@ print(f"Entropy: {final.entropy:.2f} bits")
 Try different Bayesian models:
 
 ```python
-from nimbus_pysdk import NimbusLDA, NimbusGMM, NimbusSoftmax
+from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax
 
 # Bayesian LDA (shared covariance)
 clf_lda = NimbusLDA()
@@ -292,8 +292,8 @@ Use nimbus-bci with MNE-Python for complete EEG pipeline:
 
 ```python
 import mne
-from nimbus_pysdk import NimbusLDA
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci import NimbusLDA
+from nimbus_bci.compat import extract_csp_features
 
 # Load EEG data with MNE
 raw = mne.io.read_raw_gdf("motor_imagery.gdf", preload=True)
@@ -323,7 +323,7 @@ See [MNE Integration](/python-sdk/mne-integration) for more details.
 Compute BCI-specific metrics:
 
 ```python
-from nimbus_pysdk import (
+from nimbus_bci import (
     compute_entropy,
     compute_calibration_metrics,
     calculate_itr,
@@ -357,7 +357,7 @@ print(f"Quality: {quality.overall_quality}")
 Critical for cross-session BCI performance:
 
 ```python
-from nimbus_pysdk import estimate_normalization_params, apply_normalization
+from nimbus_bci import estimate_normalization_params, apply_normalization
 
 # Estimate normalization from training data
 norm_params = estimate_normalization_params(X_train, method="zscore")
@@ -383,7 +383,7 @@ Always use the same normalization parameters for training and testing data. Esti
 Save trained models for later use:
 
 ```python
-from nimbus_pysdk import nimbus_save, nimbus_load
+from nimbus_bci import nimbus_save, nimbus_load
 
 # Train model
 clf = NimbusLDA()
@@ -396,7 +396,7 @@ nimbus_save(clf.model_, "my_bci_model.npz")
 loaded_model = nimbus_load("my_bci_model.npz")
 
 # Use loaded model
-from nimbus_pysdk.models.nimbus_lda import nimbus_lda_predict
+from nimbus_bci.models.nimbus_lda import nimbus_lda_predict
 predictions = nimbus_lda_predict(loaded_model, X_test)
 ```
 
@@ -424,7 +424,7 @@ predictions = nimbus_lda_predict(loaded_model, X_test)
 ```python
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 # Complete pipeline
 pipe = make_pipeline(
@@ -442,7 +442,7 @@ prediction = pipe.predict(new_trial.reshape(1, -1))[0]
 ### P300 Speller
 
 ```python
-from nimbus_pysdk import NimbusGMM
+from nimbus_bci import NimbusGMM
 
 # GMM works better for P300 (overlapping distributions)
 clf = NimbusGMM()
@@ -456,7 +456,7 @@ high_confidence = probs[:, 1] > 0.8  # Target probability > 80%
 ### Adaptive BCI
 
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 # Initial training
 clf = NimbusLDA()

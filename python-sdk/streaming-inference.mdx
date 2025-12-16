@@ -25,7 +25,7 @@ Streaming inference allows you to process EEG data as it arrives, making predict
 First, train a classifier on your calibration data:
 
 ```python
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 import numpy as np
 
 # Train on calibration data
@@ -38,8 +38,8 @@ clf.fit(X_calibration, y_calibration)
 Set up a streaming session with metadata:
 
 ```python
-from nimbus_pysdk import StreamingSession
-from nimbus_pysdk.data import BCIMetadata
+from nimbus_bci import StreamingSession
+from nimbus_bci.data import BCIMetadata
 
 metadata = BCIMetadata(
     sampling_rate=250.0,          # Hz
@@ -93,8 +93,8 @@ session.reset()
 ## Complete Streaming Example
 
 ```python
-from nimbus_pysdk import NimbusLDA, StreamingSession
-from nimbus_pysdk.data import BCIMetadata
+from nimbus_bci import NimbusLDA, StreamingSession
+from nimbus_bci.data import BCIMetadata
 import numpy as np
 
 # 1. Train model
@@ -230,7 +230,7 @@ metadata = BCIMetadata(
 Monitor and reject low-quality trials:
 
 ```python
-from nimbus_pysdk import should_reject_trial
+from nimbus_bci import should_reject_trial
 
 # Process trial
 for chunk in trial_chunks:
@@ -267,9 +267,9 @@ if final.confidence < safety_threshold:
 Complete example for motor imagery:
 
 ```python
-from nimbus_pysdk import NimbusLDA, StreamingSession
-from nimbus_pysdk.data import BCIMetadata
-from nimbus_pysdk.compat import extract_csp_features
+from nimbus_bci import NimbusLDA, StreamingSession
+from nimbus_bci.data import BCIMetadata
+from nimbus_bci.compat import extract_csp_features
 import mne
 
 # 1. Calibration phase
@@ -338,8 +338,8 @@ while True:
 For P300-based BCI:
 
 ```python
-from nimbus_pysdk import NimbusGMM, StreamingSession
-from nimbus_pysdk.data import BCIMetadata
+from nimbus_bci import NimbusGMM, StreamingSession
+from nimbus_bci.data import BCIMetadata
 
 # Train on P300 data
 clf = NimbusGMM()  # GMM works better for P300
@@ -421,7 +421,7 @@ metadata_accurate = BCIMetadata(chunk_size=250)  # 1000ms
 Handle streaming errors gracefully:
 
 ```python
-from nimbus_pysdk import StreamingSession
+from nimbus_bci import StreamingSession
 
 session = StreamingSession(clf.model_, metadata)
 

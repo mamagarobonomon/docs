@@ -151,7 +151,7 @@ Use grid search or Bayesian optimization to find optimal hyperparameters:
 
 ```python
 from sklearn.model_selection import GridSearchCV
-from nimbus_pysdk import NimbusLDA
+from nimbus_bci import NimbusLDA
 
 param_grid = {
     'mu_scale': [1.0, 3.0, 5.0, 7.0],
@@ -194,7 +194,7 @@ See [Python SDK - sklearn Integration](/python-sdk/sklearn-integration) for more
 Train on multiple subjects for better generalization:
 
 ```python
-from nimbus_pysdk import NimbusLDA, estimate_normalization_params, apply_normalization
+from nimbus_bci import NimbusLDA, estimate_normalization_params, apply_normalization
 import numpy as np
 
 # Collect data from multiple subjects
@@ -218,7 +218,7 @@ clf.partial_fit(X_new_subject[:20], y_new[:20])
 Combine multiple models for improved robustness:
 
 ```python
-from nimbus_pysdk import NimbusLDA, NimbusGMM
+from nimbus_bci import NimbusLDA, NimbusGMM
 import numpy as np
 
 # Train multiple models
@@ -242,7 +242,7 @@ Ensure predicted probabilities match actual accuracy:
 
 ```python
 from sklearn.calibration import CalibratedClassifierCV
-from nimbus_pysdk import NimbusLDA, compute_calibration_metrics
+from nimbus_bci import NimbusLDA, compute_calibration_metrics
 
 # Train and calibrate
 clf = NimbusLDA()
