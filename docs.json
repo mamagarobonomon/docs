@@ -30,7 +30,7 @@
         ]
       },
       {
-        "group": "Python SDK",
+        "group": "Python SDK & API",
         "pages": [
           "python-sdk/introduction",
           "python-sdk/installation",
