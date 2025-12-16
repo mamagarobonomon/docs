@@ -84,6 +84,56 @@ Total: 18-23ms (sub-25ms target achieved)
 
 NimbusSDK handles continuous data streams efficiently:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA, StreamingSession
+from nimbus_pysdk.data import BCIMetadata
+import numpy as np
+import time
+
+# Train a model
+clf = NimbusLDA()
+X_train = np.random.randn(100, 16)
+y_train = np.random.randint(0, 4, 100)
+clf.fit(X_train, y_train)
+
+# Initialize streaming session
+metadata = BCIMetadata(
+    sampling_rate=250.0,
+    paradigm="motor_imagery",
+    feature_type="csp",
+    n_features=16,
+    n_classes=4,
+    chunk_size=250  # 1 second chunks
+)
+
+session = StreamingSession(clf.model_, metadata)
+print("Python streaming session initialized.")
+
+# Simulate real-time data stream
+num_chunks = 5
+for i in range(num_chunks):
+    start_time = time.perf_counter()
+    chunk = np.random.randn(16, 250) # (n_features, chunk_size)
+    chunk_result = session.process_chunk(chunk)
+    end_time = time.perf_counter()
+    latency_ms = (end_time - start_time) * 1000
+    
+    print(f"Python Chunk {i+1}: Pred={chunk_result.prediction}, Conf={chunk_result.confidence:.2f}, Latency={latency_ms:.2f}ms")
+    
+    # Immediate feedback to user
+    if chunk_result.confidence > 0.7:
+        # provide_immediate_feedback(chunk_result.prediction)
+        pass
+
+# Finalize with weighted voting across chunks
+final_result = session.finalize_trial(method="weighted_vote")
+print(f"\nPython Final prediction: {final_result.prediction}, Confidence={final_result.confidence:.2f}")
+session.reset()
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -113,11 +163,41 @@ end
 # Finalize with weighted voting across chunks
 final_result = finalize_trial(session; method=:weighted_vote)
 ```
+  </Tab>
+</Tabs>
 
 ### Batch Processing for Offline Analysis
 
 For offline analysis where latency isn't critical:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA, predict_batch
+from nimbus_pysdk.data import BCIData, BCIMetadata
+import numpy as np
+
+# Train a model
+clf = NimbusLDA()
+X_train = np.random.randn(100, 16)
+y_train = np.random.randint(0, 4, 100)
+clf.fit(X_train, y_train)
+
+# Prepare batch test data
+X_test = np.random.randn(200, 16)
+y_test = np.random.randint(0, 4, 200)
+
+# Sklearn-compatible batch inference
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)
+
+# Typical performance: 200 trials in ~5 seconds
+# Average latency per trial: ~25ms
+accuracy = np.mean(predictions == y_test)
+print(f"Batch accuracy: {accuracy:.1%}")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -127,6 +207,8 @@ results = predict_batch(model, bci_data; iterations=10)
 # Typical performance: 200 trials in ~5 seconds
 # Average latency per trial: ~25ms
 ```
+  </Tab>
+</Tabs>
 
 ### Reactive Message Passing
 
@@ -170,13 +252,31 @@ Real-time systems must manage memory carefully:
   <Accordion title="Adaptive Precision">
     Adjust computational precision based on requirements:
     
-    ```julia
-    # RxLDA: Fast with shared covariance
-    # RxGMM: More flexible with class-specific covariances
-    
-    # Choose based on accuracy/speed tradeoff
-    model = accuracy_priority ? RxGMMModel : RxLDAModel
-    ```
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA, NimbusGMM
+
+# NimbusLDA: Fast with shared covariance
+# NimbusGMM: More flexible with class-specific covariances
+
+# Choose based on accuracy/speed tradeoff
+if accuracy_priority:
+    clf = NimbusGMM(n_components=2)  # More flexible
+else:
+    clf = NimbusLDA()  # Faster
+```
+  </Tab>
+  <Tab title="Julia">
+```julia
+# RxLDA: Fast with shared covariance
+# RxGMM: More flexible with class-specific covariances
+
+# Choose based on accuracy/speed tradeoff
+model = accuracy_priority ? RxGMMModel : RxLDAModel
+```
+  </Tab>
+</Tabs>
   </Accordion>
 </AccordionGroup>
 
@@ -234,6 +334,20 @@ For optimal latency, deploy NimbusSDK locally:
 
 ### System Requirements
 
+<Tabs>
+  <Tab title="Python SDK">
+**Minimum:**
+- Python 3.9+
+- 4GB RAM
+- Modern CPU (Intel i5 or equivalent)
+
+**Recommended:**
+- Python 3.10+
+- 8GB RAM
+- Fast CPU (Intel i7 or equivalent)
+- SSD for data loading
+  </Tab>
+  <Tab title="Julia SDK">
 **Minimum:**
 - Julia 1.9+
 - 4GB RAM
@@ -244,6 +358,8 @@ For optimal latency, deploy NimbusSDK locally:
 - 8GB RAM
 - Fast CPU (Intel i7 or equivalent)
 - SSD for model loading
+  </Tab>
+</Tabs>
 
 ## Monitoring and Debugging
 
@@ -251,6 +367,32 @@ For optimal latency, deploy NimbusSDK locally:
 
 Monitor system performance during inference:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import OnlinePerformanceTracker
+import numpy as np
+
+# Track performance with built-in metrics
+tracker = OnlinePerformanceTracker(window_size=50)
+
+# Simulate predictions
+predictions = np.random.randint(0, 4, 50)
+true_labels = np.random.randint(0, 4, 50)
+confidences = np.random.uniform(0.5, 1.0, 50)
+
+for pred, label, conf in zip(predictions, true_labels, confidences):
+    metrics = tracker.update_and_report(pred, label, conf)
+
+# Get comprehensive metrics
+full_metrics = tracker.get_metrics(n_classes=4, trial_duration=4.0)
+
+print(f"Accuracy: {full_metrics['accuracy'] * 100:.1f}%")
+print(f"ITR: {full_metrics['information_transfer_rate']:.1f} bits/min")
+print(f"Mean confidence: {full_metrics['mean_confidence']:.3f}")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -268,11 +410,36 @@ println("Accuracy: $(round(full_metrics.accuracy * 100, digits=1))%")
 println("ITR: $(round(full_metrics.information_transfer_rate, digits=1)) bits/min")
 println("Mean confidence: $(round(full_metrics.mean_confidence, digits=3))")
 ```
+  </Tab>
+</Tabs>
 
 ### Quality Assessment
 
 Identify trials with poor signal quality:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import assess_trial_quality, should_reject_trial
+
+# Assess each trial's quality
+# Assume 'result' is from predict_proba or StreamingSession
+confidence = 0.65
+
+quality = assess_trial_quality(confidence)
+
+if not quality["confidence_acceptable"]:
+    print(f"⚠️ Trial quality below threshold: {quality['overall_score']:.2f}")
+    print(f"Recommendation: {quality['recommendation']}")
+
+# Check if rejection is warranted
+if should_reject_trial(confidence, threshold=0.7):
+    print("⚠️  Low confidence trial - consider rejecting")
+else:
+    print("✓ Trial quality acceptable")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -289,6 +456,8 @@ if should_reject_trial(confidence, 0.7)
     println("⚠️  Low confidence trial - consider rejecting")
 end
 ```
+  </Tab>
+</Tabs>
 
 <Tip>
 Use quality assessment to identify when recalibration is needed or when environmental conditions are affecting signal quality.
@@ -299,14 +468,14 @@ Use quality assessment to identify when recalibration is needed or when environm
 Ready to build ultra-fast BCI applications?
 
 <CardGroup cols={2}>
-  <Card title="Quick Start" icon="play" href="/quickstart">
-    Build your first real-time BCI system
+  <Card title="Python SDK" icon="python" href="/python-sdk/quickstart">
+    Get started with Python
+  </Card>
+  <Card title="Julia SDK" icon="code" href="/quickstart">
+    Get started with Julia
   </Card>
   <Card title="Streaming Setup" icon="signal" href="/inference-configuration/real-time-setup">
     Configure streaming inference
-  </Card>
-  <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
-    Complete SDK reference
   </Card>
   <Card title="Examples" icon="code" href="/examples/code-samples">
     See real-time BCI in action
