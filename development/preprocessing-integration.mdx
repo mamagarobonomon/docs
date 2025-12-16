@@ -1,12 +1,18 @@
 ---
 title: "Preprocessing Integration"
-description: "Complete guides for integrating NimbusSDK with MNE-Python, EEGLAB, and OpenVibe"
+description: "Complete guides for integrating Nimbus BCI with MNE-Python, EEGLAB, and OpenVibe"
 icon: "link"
 ---
 
 # Preprocessing Integration Guide
 
-Complete workflows for preprocessing EEG data with external tools and using the features in NimbusSDK.jl.
+Complete workflows for preprocessing EEG data with external tools and using the features in Nimbus BCI (Python and Julia SDKs).
+
+<Note>
+**Python SDK Users:** The `nimbus-pysdk` has native MNE-Python integration! See the [MNE Integration](/python-sdk/mne-integration) guide for streamlined workflows.
+
+**Julia SDK Users:** This guide shows how to preprocess in external tools and load into Julia.
+</Note>
 
 <Tip>
 **New to preprocessing?** Start with [Preprocessing Requirements](/inference-configuration/preprocessing-requirements) for an overview before diving into specific tools.
@@ -14,15 +20,69 @@ Complete workflows for preprocessing EEG data with external tools and using the 
 
 ## Integration Options
 
-| Tool | Language | Difficulty | Best For |
-|------|----------|------------|----------|
-| **MNE-Python** | Python | Easy | Complete workflows, research |
-| **EEGLAB** | MATLAB/GUI | Medium | Visual inspection, ICA |
-| **OpenVibe** | GUI | Easy | Real-time preprocessing |
+| Tool | Language | Difficulty | Best For | Python SDK | Julia SDK |
+|------|----------|------------|----------|------------|-----------|
+| **MNE-Python** | Python | Easy | Complete workflows, research | ✅ Native | ✅ Via export |
+| **EEGLAB** | MATLAB/GUI | Medium | Visual inspection, ICA | ⚠️ Via export | ✅ Via export |
+| **OpenVibe** | GUI | Easy | Real-time preprocessing | ⚠️ Via export | ✅ Via export |
 
-## MNE-Python Integration
+## Python SDK: Native MNE Integration
 
-Complete pipeline for Motor Imagery preprocessing with MNE-Python.
+<Note>
+**Recommended for Python users:** Use the Python SDK's native MNE integration for seamless workflows.
+</Note>
+
+### Quick Start with Python SDK
+
+```python
+from nimbus_pysdk import NimbusLDA
+from nimbus_pysdk.mne_integration import from_mne_epochs, extract_csp_features
+import mne
+
+# 1. Preprocess with MNE-Python
+raw = mne.io.read_raw_brainvision('motor_imagery.vhdr', preload=True)
+raw.filter(8.0, 30.0)
+
+# 2. Create epochs
+events = mne.find_events(raw)
+event_id = {'Left': 1, 'Right': 2, 'Feet': 3, 'Tongue': 4}
+epochs = mne.Epochs(raw, events, event_id, tmin=0, tmax=4.0, baseline=None, preload=True)
+
+# 3. Extract CSP features using nimbus-pysdk
+X_csp, y = extract_csp_features(epochs, n_components=6)
+
+# 4. Train directly (no data export needed!)
+clf = NimbusLDA()
+clf.fit(X_csp, y)
+
+# 5. Predict
+predictions = clf.predict(X_csp)
+print(f"Accuracy: {np.mean(predictions == y):.1%}")
+```
+
+### Complete Python SDK + MNE Workflow
+
+See the [MNE Integration](/python-sdk/mne-integration) guide for:
+- `from_mne_epochs()` for direct conversion
+- `extract_csp_features()` for motor imagery
+- `extract_bandpower_features()` for spectral analysis
+- Complete preprocessing pipelines
+
+<Tip>
+**Python users:** Skip the export/import steps below and use the native Python SDK integration instead!
+</Tip>
+
+---
+
+## MNE-Python → Julia SDK Integration
+
+<Note>
+**For Julia SDK users:** This section shows how to preprocess in Python with MNE and export to Julia.
+
+**Python SDK users:** Use the [native MNE integration](/python-sdk/mne-integration) instead (see above).
+</Note>
+
+Complete pipeline for Motor Imagery preprocessing with MNE-Python and export to Julia SDK.
 
 ### Installation
 
@@ -466,14 +526,17 @@ labels = Int.(vec(data["labels"]))
 ## Next Steps
 
 <CardGroup cols={2}>
+  <Card title="Python SDK MNE Integration" icon="python" href="/python-sdk/mne-integration">
+    Native MNE-Python integration (Python SDK)
+  </Card>
   <Card title="Preprocessing Requirements" icon="cog" href="/inference-configuration/preprocessing-requirements">
     Complete preprocessing guide and requirements
   </Card>
   <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
-    SDK API reference
+    Julia SDK API reference
   </Card>
   <Card title="Code Examples" icon="file-code" href="/examples/code-samples">
-    Full working examples
+    Full working examples (Python & Julia)
   </Card>
 </CardGroup>
 
