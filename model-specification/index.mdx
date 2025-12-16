@@ -6,151 +6,33 @@ icon: "cube"
 
 # Probabilistic Model Specification
 
-NimbusSDK provides **pre-built probabilistic models** (Bayesian LDA, Bayesian GMM, and Bayesian Softmax) powered by [RxInfer.jl](https://github.com/ReactiveBayes/RxInfer.jl), a reactive message passing framework for efficient Bayesian inference.
+NimbusSDK provides **pre-built probabilistic models** powered by [RxInfer.jl](https://github.com/ReactiveBayes/RxInfer.jl), a reactive message passing framework for efficient Bayesian inference.
 
-<Note>
-**Current Status**: NimbusSDK provides **ready-to-use models** (Bayesian LDA / RxLDA, Bayesian GMM / RxGMM, and Bayesian Softmax/MPR / RxPolya) rather than a custom model specification language. This page documents the conceptual foundations of these models.
-
-For detailed implementation guides, see:
+<Info>
+**Three Production Models Available:**
 - [Bayesian LDA (RxLDA)](/models/rxlda) - Fast, shared covariance
 - [Bayesian GMM (RxGMM)](/models/rxgmm) - Flexible, class-specific covariances
 - [Bayesian Softmax (RxPolya)](/models/rxpolya) - Multinomial logistic regression
-</Note>
 
-## Available Models
+For detailed implementation, see the individual model pages above.
+</Info>
 
-### Bayesian LDA (RxLDA)
+## Page Navigation
 
-**Python**: `NimbusLDA` | **Julia**: `RxLDAModel`  
-**Mathematical Model**: Pooled Gaussian Classifier (PGC)
+<CardGroup cols={2}>
+  <Card title="BCI Paradigm Examples" icon="beaker" href="/model-specification/bci-examples">
+    Motor Imagery, P300, SSVEP implementations
+  </Card>
+  <Card title="Advanced Techniques" icon="sparkles" href="/model-specification/advanced-techniques">
+    Hyperparameter tuning, transfer learning, ensemble methods
+  </Card>
+</CardGroup>
 
-A probabilistic classifier using Bayesian LDA with reactive message passing:
-
-<Tabs>
-  <Tab title="Python">
-
-```python
-from nimbus_pysdk import NimbusLDA
-import numpy as np
-
-# Train your own model
-clf = NimbusLDA(mu_scale=3.0)
-clf.fit(X_train, y_train)
-
-# Predict with uncertainty
-predictions = clf.predict(X_test)
-probabilities = clf.predict_proba(X_test)
-```
-</Tab>
-  <Tab title="Julia">
-
-```julia
-using NimbusSDK
-
-# Load pre-trained model
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
-
-# Or train your own
-trained_model = train_model(RxLDAModel, training_data; iterations=50)
-```
-</Tab>
-</Tabs>
-
-**Characteristics:**
-- **Shared covariance** across all classes (Pooled Gaussian Classifier)
-- **Fast inference**: 10-15ms per trial
-- **Best for**: Well-separated classes (motor imagery, SSVEP)
-- **Mathematical model**: $ p(x|c) = \mathcal{N}(x | \mu_c, \Sigma) $
-
-### Bayesian GMM (RxGMM)
-
-**Python**: `NimbusGMM` | **Julia**: `RxGMMModel`  
-**Mathematical Model**: Heteroscedastic Gaussian Classifier (HGC)
-
-A more flexible classifier with class-specific covariances:
-
-<Tabs>
-  <Tab title="Python">
-
-```python
-from nimbus_pysdk import NimbusGMM
-import numpy as np
-
-# Train your own model
-clf = NimbusGMM(mu_scale=3.0)
-clf.fit(X_train, y_train)
-
-# Predict with uncertainty
-predictions = clf.predict(X_test)
-probabilities = clf.predict_proba(X_test)
-```
-</Tab>
-  <Tab title="Julia">
-
-```julia
-using NimbusSDK
-
-# Load pre-trained model
-model = load_model(RxGMMModel, "p300_binary_v1")
-
-# Or train your own
-trained_model = train_model(RxGMMModel, training_data; iterations=50)
-```
-</Tab>
-</Tabs>
-
-**Characteristics:**
-- **Class-specific covariances** (Heteroscedastic Gaussian Classifier)
-- **Moderate inference**: 15-25ms per trial
-- **Best for**: Overlapping classes, complex distributions (P300)
-- **Mathematical model**: $ p(x|c) = \mathcal{N}(x | \mu_c, \Sigma_c) $
-
-### Bayesian Softmax (RxPolya)
-
-**Python**: `NimbusSoftmax` | **Julia**: `RxPolyaModel`  
-**Mathematical Model**: Bayesian Multinomial Logistic Regression
-
-A flexible classifier for complex decision boundaries using Polya-Gamma augmentation:
-
-<Tabs>
-  <Tab title="Python">
-
-```python
-from nimbus_pysdk import NimbusSoftmax
-import numpy as np
-
-# Train your own model
-clf = NimbusSoftmax(reg_strength=1.0)
-clf.fit(X_train, y_train)
-
-# Predict with uncertainty
-predictions = clf.predict(X_test)
-probabilities = clf.predict_proba(X_test)
-```
-</Tab>
-  <Tab title="Julia">
-
-```julia
-using NimbusSDK
-
-# Load pre-trained model
-model = load_model(RxPolyaModel, "motor_imagery_4class_softmax_v1")
-
-# Or train your own
-trained_model = train_model(RxPolyaModel, training_data; iterations=50)
-```
-</Tab>
-</Tabs>
-
-**Characteristics:**
-- **Flexible decision boundaries** (non-Gaussian, multinomial logistic)
-- **Moderate inference**: 15-25ms per trial
-- **Best for**: Complex multinomial tasks, non-Gaussian features
-- **Mathematical model**: $ p(c|x) = \text{softmax}(W^T x + b) $ with Bayesian inference
+---
 
 ## Model Architecture
 
-All three models are built on factor graphs with reactive message passing:
+All three models are built on **factor graphs** with **reactive message passing**:
 
 ```
         Prior               Likelihood            Posterior
@@ -191,409 +73,6 @@ Data Stream ──► Factor Graph ──► Message Passing ──► Posterior
 - **Memory efficient**: Constant memory usage
 - **Real-time capable**: Streaming inference without buffering
 
-## Training Process
-
-### Supervised Training
-
-All models learn from labeled training data:
-
-<Tabs>
-  <Tab title="Python">
-
-```python
-from nimbus_pysdk import NimbusLDA, NimbusGMM, NimbusSoftmax
-import numpy as np
-
-# Prepare labeled training data
-X_train = np.random.randn(100, 16)  # 100 trials, 16 features
-y_train = np.random.randint(0, 4, 100)  # 4 classes
-
-# Train Bayesian LDA
-clf_lda = NimbusLDA(mu_scale=3.0)
-clf_lda.fit(X_train, y_train)
-
-# Train Bayesian GMM
-clf_gmm = NimbusGMM(mu_scale=3.0)
-clf_gmm.fit(X_train, y_train)
-
-# Train Bayesian Softmax
-clf_softmax = NimbusSoftmax(reg_strength=1.0)
-clf_softmax.fit(X_train, y_train)
-
-# Evaluate all models
-for name, clf in [("LDA", clf_lda), ("GMM", clf_gmm), ("Softmax", clf_softmax)]:
-    accuracy = clf.score(X_test, y_test)
-    print(f"{name} accuracy: {accuracy:.2%}")
-```
-</Tab>
-  <Tab title="Julia">
-
-```julia
-using NimbusSDK
-
-# Prepare labeled training data
-features = randn(16, 250, 100)  # 100 trials
-labels = rand(1:4, 100)  # 4 classes
-
-metadata = BCIMetadata(
-    sampling_rate = 250.0,
-    paradigm = :motor_imagery,
-    feature_type = :csp,
-    n_features = 16,
-    n_classes = 4
-)
-
-training_data = BCIData(features, metadata, labels)
-
-# Train Bayesian LDA
-model_lda = train_model(
-    RxLDAModel, 
-    training_data; 
-    iterations = 50,
-    showprogress = true
-)
-
-# Train Bayesian GMM
-model_gmm = train_model(
-    RxGMMModel,
-    training_data;
-    iterations = 50,
-    showprogress = true
-)
-
-# Train Bayesian Softmax
-model_softmax = train_model(
-    RxPolyaModel,
-    training_data;
-    iterations = 50,
-    showprogress = true
-)
-```
-</Tab>
-</Tabs>
-
-**What happens during training:**
-1. **Initialize parameters**: $ \mu_c, \Sigma $ (LDA), $ \mu_c, \Sigma_c $ (GMM), or $ W, b $ (Softmax)
-2. **E-step**: Compute posterior probabilities $ p(c|x_i) $
-3. **M-step**: Update model parameters to maximize likelihood
-4. **Iterate**: Repeat until convergence
-
-### Model Calibration
-
-Adapt pre-trained models to individual users:
-
-<Tabs>
-  <Tab title="Python">
-
-```python
-from nimbus_pysdk import NimbusLDA
-import numpy as np
-
-# Train baseline model on large dataset
-baseline_clf = NimbusLDA()
-baseline_clf.fit(X_baseline, y_baseline)
-
-# Collect small calibration dataset from new user (10-20 trials)
-X_calib = collect_user_calibration_data()
-y_calib = collect_user_labels()
-
-# Personalize with online learning
-personalized_clf = NimbusLDA()
-personalized_clf.fit(X_baseline, y_baseline)  # Start with baseline
-personalized_clf.partial_fit(X_calib, y_calib)  # Adapt to user
-
-print("Model personalized for new user")
-```
-</Tab>
-  <Tab title="Julia">
-
-```julia
-# Load baseline model
-baseline_model = load_model(RxLDAModel, "motor_imagery_baseline_v1")
-
-# Collect small calibration dataset from new user
-calib_data = collect_calibration_data(num_trials = 20)
-
-# Personalize model
-personalized_model = calibrate_model(baseline_model, calib_data; iterations = 20)
-```
-</Tab>
-</Tabs>
-
-**Calibration updates:**
-- **Class means** $ \mu_c $ to match user-specific patterns
-- **Covariance** $ \Sigma $ to reflect user variability
-- **Prior probabilities** $ p(c) $ based on user performance
-
-## Inference Modes
-
-### Batch Inference
-
-Process entire trials at once:
-
-<Tabs>
-  <Tab title="Python">
-
-```python
-from nimbus_pysdk import predict_batch, NimbusLDA
-from nimbus_pysdk.data import BCIData, BCIMetadata
-import numpy as np
-
-# Train model
-clf = NimbusLDA()
-clf.fit(X_train, y_train)
-
-# Prepare batch data
-metadata = BCIMetadata(
-    sampling_rate=250.0,
-    paradigm="motor_imagery",
-    feature_type="csp",
-    n_features=16,
-    n_classes=4
-)
-
-# Reshape for BCIData: (n_features, n_samples, n_trials)
-X_batch = X_test.T[:, np.newaxis, :]
-data = BCIData(X_batch, metadata)
-
-# Batch inference with diagnostics
-result = predict_batch(clf.model_, data)
-
-print(f"Predictions: {result.predictions}")
-print(f"Mean entropy: {result.mean_entropy:.2f} bits")
-print(f"Latency: {result.latency_ms:.1f}ms per trial")
-```
-</Tab>
-  <Tab title="Julia">
-
-```julia
-# Batch inference on test set
-results = predict_batch(model, test_data; iterations=10)
-
-# Returns full posterior distribution
-posterior = results.posteriors  # [n_classes × n_trials]
-predictions = results.predictions  # [n_trials]
-confidences = results.confidences  # [n_trials]
-```
-</Tab>
-</Tabs>
-
-**Use cases:**
-- Offline analysis
-- Model validation
-- Performance benchmarking
-
-### Streaming Inference
-
-Process data incrementally in real-time:
-
-<Tabs>
-  <Tab title="Python">
-
-```python
-from nimbus_pysdk import NimbusLDA, StreamingSession
-from nimbus_pysdk.data import BCIMetadata
-import numpy as np
-
-# Train model
-clf = NimbusLDA()
-clf.fit(X_train, y_train)
-
-# Setup streaming session
-metadata = BCIMetadata(
-    sampling_rate=250.0,
-    paradigm="motor_imagery",
-    feature_type="csp",
-    n_features=16,
-    n_classes=4,
-    chunk_size=125,  # 500ms chunks at 250 Hz
-    temporal_aggregation="logvar"
-)
-
-session = StreamingSession(clf.model_, metadata)
-
-# Process chunks as they arrive
-for i in range(4):
-    chunk = np.random.randn(16, 125)  # (n_features, chunk_size)
-    result = session.process_chunk(chunk)
-    print(f"Chunk {i+1}: class {result.prediction} (conf: {result.confidence:.2%})")
-
-# Finalize with aggregation
-final = session.finalize_trial(method="weighted_vote")
-print(f"Final: class {final.prediction} (entropy: {final.entropy:.2f} bits)")
-```
-</Tab>
-  <Tab title="Julia">
-
-```julia
-# Initialize streaming session
-session = init_streaming(model, metadata)
-
-# Process chunks as they arrive
-for chunk in eeg_stream
-    result = process_chunk(session, chunk)
-    # result contains: prediction, confidence, posterior
-end
-
-# Finalize with aggregation
-final_result = finalize_trial(session; method=:weighted_vote)
-```
-</Tab>
-</Tabs>
-
-**Use cases:**
-- Real-time BCI control
-- Online neurofeedback
-- Adaptive systems
-
-## Uncertainty Quantification
-
-All models provide explicit uncertainty measures:
-
-### Confidence Scores
-
-<Tabs>
-  <Tab title="Python">
-
-```python
-from nimbus_pysdk import NimbusLDA
-import numpy as np
-
-clf = NimbusLDA()
-clf.fit(X_train, y_train)
-
-# Get predictions with confidence
-predictions = clf.predict(X_test)
-probabilities = clf.predict_proba(X_test)
-confidences = probabilities.max(axis=1)
-
-# Quality control based on confidence
-for i, conf in enumerate(confidences):
-    if conf > 0.9:
-        print(f"Trial {i}: High confidence - accept")
-    elif conf > 0.7:
-        print(f"Trial {i}: Medium confidence - caution")
-    else:
-        print(f"Trial {i}: Low confidence - reject or repeat")
-```
-</Tab>
-  <Tab title="Julia">
-
-```julia
-results = predict_batch(model, data)
-
-# Confidence = max posterior probability
-for (i, conf) in enumerate(results.confidences)
-    if conf > 0.9
-        println("Trial $i: High confidence")
-    elseif conf > 0.7
-        println("Trial $i: Medium confidence")
-    else
-        println("Trial $i: Low confidence - reject?")
-    end
-end
-```
-</Tab>
-</Tabs>
-
-### Posterior Distributions
-
-<Tabs>
-  <Tab title="Python">
-
-```python
-from nimbus_pysdk import compute_entropy
-import numpy as np
-
-# Get full posterior distributions
-probabilities = clf.predict_proba(X_test)
-
-# Example: [0.05, 0.12, 0.78, 0.05] for 4 classes
-# Class 3 (index 2) has highest probability (78%)
-
-# Compute entropy as uncertainty measure
-entropy = compute_entropy(probabilities)
-print(f"Mean entropy: {entropy.mean():.2f} bits")
-
-# High entropy → high uncertainty
-# Low entropy → confident prediction
-```
-</Tab>
-  <Tab title="Julia">
-
-```julia
-# Full probability distribution over classes
-posterior = results.posteriors[:, trial_idx]
-
-# Example: [0.05, 0.12, 0.78, 0.05] for 4 classes
-# Class 3 has highest probability (78%)
-
-# Entropy as uncertainty measure
-entropy = -sum(posterior .* log.(posterior .+ 1e-10))
-# High entropy → high uncertainty
-```
-</Tab>
-</Tabs>
-
-## Model Limitations
-
-<Warning>
-**Current Limitations:**
-
-**Bayesian LDA (RxLDA):**
-- Assumes Gaussian distributions with shared covariance
-- Linear decision boundaries may struggle with complex patterns
-- Best for well-separated classes
-
-**Bayesian GMM (RxGMM):**
-- Assumes Gaussian distributions (class-specific covariances)
-- More parameters → higher overfitting risk with limited data
-- Best for overlapping but still Gaussian distributions
-
-**Bayesian Softmax (RxPolya):**
-- Assumes features are informative for logistic regression
-- May require more training data than LDA/GMM
-- Best for non-Gaussian, complex decision boundaries
-
-**All Models:**
-- **Static models**: No built-in temporal dynamics (use preprocessing for temporal features)
-- **Supervised only**: Require labeled training data
-- **Fixed structure**: Cannot modify factor graph structure at runtime
-</Warning>
-
-## Custom Model Development
-
-### Using RxInfer.jl Directly
-
-<Info>
-**For Advanced Users Only**: Most users should use the provided models (RxLDA, RxGMM, RxPolya), which cover the majority of BCI use cases. Custom RxInfer.jl models are for researchers building novel probabilistic architectures.
-</Info>
-
-Advanced users can build custom models using [RxInfer.jl](https://github.com/ReactiveBayes/RxInfer.jl):
-
-```julia
-using RxInfer
-
-# Define custom factor graph
-@model function custom_bci_model(y, σ²)
-    # Define latent variables and distributions
-    x ~ NormalMeanVariance(0.0, 1.0)
-    y ~ NormalMeanVariance(x, σ²)
-end
-
-# Perform inference
-result = infer(
-    model = custom_bci_model(),
-    data  = (y = observations,),
-    constraints = MeanField(),
-    iterations = 50
-)
-```
-
-<Note>
-Custom RxInfer.jl models are independent of NimbusSDK's training/inference API. For production BCI applications, use the provided models (RxLDA, RxGMM, RxPolya).
-</Note>
-
 ## Model Comparison
 
 | Feature              | RxLDA (NimbusLDA)      | RxGMM (NimbusGMM)         | RxPolya (NimbusSoftmax)   |
@@ -608,26 +87,73 @@ Custom RxInfer.jl models are independent of NimbusSDK's training/inference API. 
 | **Overfitting Risk** | Lowest                 | Moderate                  | Higher (more parameters)  |
 | **Data Requirements**| 40+ trials/class       | 60+ trials/class          | 80+ trials/class          |
 
+## Uncertainty Quantification
+
+All models provide explicit uncertainty measures through full posterior distributions:
+
+- **Confidence scores**: Maximum posterior probability
+- **Entropy**: Measure of prediction uncertainty
+- **Posterior distributions**: Full probability over all classes
+- **Quality assessment**: Trial-level reliability metrics
+
+See [Uncertainty Handling](/core-concepts/uncertainty-handling) for conceptual details and [individual model pages](/models/rxlda) for implementation.
+
+## Training & Inference Modes
+
+### Training
+- **Supervised training**: Learn from labeled data
+- **Model calibration**: Adapt pre-trained models to new users
+- **Online learning**: Incremental updates with new data
+
+### Inference
+- **Batch inference**: Process entire trials at once (offline analysis)
+- **Streaming inference**: Real-time chunk-by-chunk processing
+
+See [Batch Processing](/inference-configuration/batch-processing) and [Streaming Inference](/inference-configuration/streaming-inference) for implementation details.
+
+## Model Limitations
+
+<Warning>
+**General Limitations:**
+
+- **Static models**: No built-in temporal dynamics (use preprocessing for temporal features)
+- **Supervised only**: Require labeled training data
+- **Fixed structure**: Cannot modify factor graph structure at runtime
+
+**Model-Specific:**
+- **RxLDA**: Assumes Gaussian distributions with shared covariance, linear decision boundaries
+- **RxGMM**: Assumes Gaussian distributions, higher overfitting risk with limited data
+- **RxPolya**: May require more training data than LDA/GMM for complex tasks
+</Warning>
+
+## Custom Model Development
+
+<Info>
+**For Advanced Users Only**: Most users should use the provided models (RxLDA, RxGMM, RxPolya), which cover the majority of BCI use cases. Custom RxInfer.jl models are for researchers building novel probabilistic architectures.
+</Info>
+
+Advanced users can build custom models using [RxInfer.jl](https://github.com/ReactiveBayes/RxInfer.jl) directly. Custom models are independent of NimbusSDK's training/inference API.
+
 ## Next Steps
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
   <Card title="Bayesian LDA (RxLDA)" icon="brain" href="/models/rxlda">
-    Fast, shared covariance classifier for motor imagery
+    Fast, shared covariance classifier
   </Card>
   <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
-    Flexible, class-specific covariances for P300
+    Flexible, class-specific covariances
   </Card>
   <Card title="Bayesian Softmax (RxPolya)" icon="brain" href="/models/rxpolya">
-    Multinomial logistic regression for complex tasks
+    Multinomial logistic regression
   </Card>
-  <Card title="Model Training" icon="graduation-cap" href="/inference-configuration/batch-processing">
-    Train custom models on your data
+  <Card title="BCI Paradigm Examples" icon="beaker" href="/model-specification/bci-examples">
+    Motor Imagery, P300, SSVEP
   </Card>
-  <Card title="Streaming Inference" icon="signal" href="/inference-configuration/streaming-inference">
-    Real-time model deployment
+  <Card title="Advanced Techniques" icon="sparkles" href="/model-specification/advanced-techniques">
+    Tuning, transfer learning, ensembles
   </Card>
   <Card title="Python SDK" icon="python" href="/python-sdk/introduction">
-    sklearn-compatible Bayesian classifiers
+    sklearn-compatible classifiers
   </Card>
 </CardGroup>
 

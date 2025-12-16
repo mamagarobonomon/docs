@@ -1,65 +1,52 @@
 ---
-title: "BCI Model Examples"
-description: "Detailed examples of BCI paradigms with Nimbus models"
+title: "BCI Paradigm Examples"
+description: "Paradigm-specific implementations with Nimbus models"
 icon: "beaker"
 ---
 
-# BCI Model Examples
+# BCI Paradigm Examples
 
-<Warning>
-**Note**: This page describes **conceptual probabilistic models** for educational purposes. NimbusSDK currently implements **RxLDA** and **RxGMM** models. The examples below illustrate the theoretical foundations that inform these implementations.
+This page shows how to apply Nimbus models to specific BCI paradigms: **Motor Imagery**, **P300**, and **SSVEP**. Each section covers the probabilistic model, recommended Nimbus model, and paradigm-specific considerations.
 
-For **working code examples**, see:
-- [Julia Quickstart](/quickstart) - Working Julia SDK examples
-- [Basic Examples](/examples/basic-examples) - RxLDA/RxGMM applications
-- [Advanced Applications](/examples/advanced-applications) - Advanced RxLDA/RxGMM usage
-</Warning>
+<Info>
+**Looking for working code?** See:
+- [Basic Examples](/examples/basic-examples) - Complete Python & Julia implementations
+- [Advanced Applications](/examples/advanced-applications) - Calibration, adaptation, hybrid systems
+- [Python SDK Quickstart](/python-sdk/quickstart) - Step-by-step Python tutorial
+- [Julia SDK Quickstart](/quickstart) - Step-by-step Julia tutorial
+</Info>
 
-## Motor Imagery: Theoretical Model
+---
 
-### Conceptual Probabilistic Model
+## Motor Imagery BCI
 
-Motor imagery BCI can be understood through this probabilistic lens:
+### Paradigm Overview
+
+Motor imagery involves imagining movement without physical execution. Common classes:
+- **2-class**: Left hand vs right hand
+- **4-class**: Left hand, right hand, feet, tongue
+
+**Neural Signature**: Event-related desynchronization (ERD) in mu (8-13 Hz) and beta (13-30 Hz) bands over sensorimotor cortex.
+
+### Probabilistic Model
+
+Motor imagery can be modeled as:
 
 $$
 p(\text{class}, \text{features}) = p(\text{class}) \cdot p(\text{features}|\text{class})
 $$
 
 **Components:**
-1. **Prior**: $ p(\text{class}) $ - Equal probability for each motor imagery class (left, right, feet, tongue)
-2. **Likelihood**: $ p(\text{features}|\text{class}) $ - Gaussian distribution of EEG features given the class
+1. **Prior**: $ p(\text{class}) $ - Equal probability for each class (uniform prior)
+2. **Likelihood**: $ p(\text{features}|\text{class}) $ - Gaussian distribution of CSP features
 3. **Posterior**: $ p(\text{class}|\text{features}) $ - Computed via Bayes' rule
 
-### RxLDA Implementation
+### Recommended Model: Bayesian LDA (RxLDA)
 
-NimbusSDK implements this using **RxLDA** with shared covariance:
-
-```julia
-using NimbusSDK
-
-# Load pre-trained RxLDA motor imagery model
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
-
-# Or train from scratch
-metadata = BCIMetadata(
-    sampling_rate = 250.0,
-    paradigm = :motor_imagery,
-    feature_type = :csp,
-    n_features = 16,
-    n_classes = 4
-)
-
-features = randn(16, 250, 100)  # 100 trials
-labels = rand(1:4, 100)  # 4 classes
-training_data = BCIData(features, metadata, labels)
-
-# Train model - learns μ₁, μ₂, μ₃, μ₄ and shared Σ
-trained_model = train_model(RxLDAModel, training_data; iterations=50)
-
-# Inference
-test_data = BCIData(test_features, metadata)
-results = predict_batch(trained_model, test_data)
-```
+**Why RxLDA?**
+- Motor imagery classes are typically **well-separated** in CSP feature space
+- **Fast inference** (10-15ms) enables real-time control
+- **Shared covariance** assumption holds well for MI data
 
 **Mathematical Model:**
 
@@ -68,65 +55,68 @@ p(x|c) = \mathcal{N}(x | \mu_c, \Sigma)
 $$
 
 Where:
-- $ x $: CSP-extracted features (16-dimensional)
+- $ x $: CSP-extracted features (typically 8-16 dimensional)
 - $ c \in \{1,2,3,4\} $: Motor imagery class
-- $ \mu_c $: Class-specific mean (learned from data)
-- $ \Sigma $: Shared covariance matrix (learned from data)
+- $ \mu_c $: Class-specific mean
+- $ \Sigma $: Shared covariance matrix
 
 ### Performance Expectations
 
-<Card title="Motor Imagery with RxLDA" icon="brain">
-  **Typical Accuracy**: 70-85% for 4-class MI  
-  **Calibration Time**: 5-10 minutes (50-100 trials)  
-  **Inference Latency**: 10-20ms per trial  
-  **ITR**: 15-25 bits/minute (4-second trials)  
-</Card>
+| Metric | 2-class | 4-class |
+|--------|---------|---------|
+| **Typical Accuracy** | 75-90% | 70-85% |
+| **Calibration Time** | 3-5 minutes | 5-10 minutes |
+| **Trials Needed** | 40-60 | 80-120 |
+| **Inference Latency** | 10-15ms | 10-15ms |
+| **ITR** | 20-30 bits/min | 15-25 bits/min |
 
-## P300 Detection: Theoretical Model
+### Paradigm-Specific Tips
 
-### Conceptual Probabilistic Model
+<Tip>
+**Motor Imagery Best Practices:**
 
-P300 detection distinguishes target from non-target stimuli:
+1. **Feature Extraction**: Use CSP with 8-16 components
+2. **Frequency Bands**: Focus on mu (8-13 Hz) and beta (13-30 Hz)
+3. **Trial Length**: 3-4 seconds optimal
+4. **Normalization**: Critical for cross-session performance
+5. **Calibration**: 10-20 trials per class for personalization
+</Tip>
+
+### Implementation
+
+See [Basic Examples - Motor Imagery](/examples/basic-examples#motor-imagery-4-class) for complete Python and Julia code.
+
+---
+
+## P300 Event-Related Potential
+
+### Paradigm Overview
+
+P300 is an event-related potential (ERP) occurring ~300ms after a rare, task-relevant stimulus. Common applications:
+- **P300 Speller**: Character selection in communication devices
+- **Binary Detection**: Target vs non-target classification
+
+**Neural Signature**: Positive deflection at ~300ms post-stimulus over parietal electrodes (Pz, CPz).
+
+### Probabilistic Model
+
+P300 detection distinguishes target from non-target:
 
 $$
-p(\text{target}, \text{ERP features}) = p(\text{target}) \cdot p(\text{ERP}|\text{target})
+p(\text{target}, \text{ERP}) = p(\text{target}) \cdot p(\text{ERP}|\text{target})
 $$
 
 **Components:**
 1. **Prior**: $ p(\text{target}) $ - Low probability (e.g., 1/6 for 6×6 speller)
-2. **Likelihood**: $ p(\text{ERP}|\text{target}) $ - Gaussian distribution with P300 component
+2. **Likelihood**: $ p(\text{ERP}|\text{target}) $ - Gaussian with P300 component
 3. **Posterior**: $ p(\text{target}|\text{ERP}) $ - Target probability given ERP
 
-### RxGMM Implementation
+### Recommended Model: Bayesian GMM (RxGMM)
 
-NimbusSDK uses **RxGMM** for flexible P300 detection:
-
-```julia
-using NimbusSDK
-
-# Load pre-trained P300 model
-model = load_model(RxGMMModel, "p300_binary_v1")
-
-# Or train from scratch
-metadata = BCIMetadata(
-    sampling_rate = 250.0,
-    paradigm = :p300,
-    feature_type = :erp,
-    n_features = 12,  # ERP amplitudes from 12 channels
-    n_classes = 2  # target vs non-target
-)
-
-# Training data: post-stimulus ERP features
-features = randn(12, 200, 150)  # 150 epochs, 0.8s post-stimulus
-labels = rand(1:2, 150)  # 1=target, 2=non-target
-training_data = BCIData(features, metadata, labels)
-
-# Train - learns μ₁, Σ₁ (target) and μ₂, Σ₂ (non-target)
-trained_model = train_model(RxGMMModel, training_data; iterations=50)
-
-# Inference
-results = predict_batch(trained_model, test_data)
-```
+**Why RxGMM?**
+- Target and non-target ERPs have **overlapping distributions**
+- **Class-specific covariances** better capture ERP morphology differences
+- More flexible than LDA for P300's complex signal
 
 **Mathematical Model:**
 
@@ -138,102 +128,166 @@ p(x|\text{non-target}) = \mathcal{N}(x | \mu_{\text{non-target}}, \Sigma_{\text{
 $$
 
 Where:
-- $ x $: ERP features (12-dimensional)
+- $ x $: ERP features (amplitudes from multiple channels/time points)
 - Class-specific means and covariances capture P300 morphology
 
 ### Performance Expectations
 
-<Card title="P300 Detection with RxGMM" icon="signal">
-  **Typical Accuracy**: 85-95% binary detection  
-  **Calibration Time**: 3-5 minutes (100-150 epochs)  
-  **Inference Latency**: 15-25ms per epoch  
-  **ITR**: 10-20 bits/minute (with 10 repetitions)  
-</Card>
+| Metric | Single-trial | With averaging (10 reps) |
+|--------|--------------|--------------------------|
+| **Typical Accuracy** | 70-85% | 85-95% |
+| **Calibration Time** | 3-5 minutes | 3-5 minutes |
+| **Epochs Needed** | 100-150 | 100-150 |
+| **Inference Latency** | 15-25ms | 15-25ms |
+| **ITR** | 5-10 bits/min | 10-20 bits/min |
 
-## Online Learning (Available Now)
+### Paradigm-Specific Tips
 
-Both Python and Julia SDKs support online learning for model adaptation:
+<Tip>
+**P300 Best Practices:**
 
-### Python SDK
+1. **Feature Extraction**: ERP amplitudes from Fz, Cz, Pz at 250-450ms post-stimulus
+2. **Epoch Length**: 0-800ms post-stimulus
+3. **Stimulus Timing**: 200-300ms ISI, avoid habituation
+4. **Repetitions**: Average 5-15 repetitions for robust detection
+5. **Artifact Rejection**: Critical due to eye movements and blinks
+</Tip>
 
-```python
-from nimbus_pysdk import NimbusLDA
+### Implementation
 
-# Initial training
-clf = NimbusLDA()
-clf.fit(X_train, y_train)
+See [Basic Examples - P300 Speller](/examples/basic-examples#p300-speller) for complete Python and Julia code.
 
-# Online adaptation with new data
-clf.partial_fit(X_new, y_new)
-```
+---
 
-### Julia SDK
+## SSVEP (Steady-State Visual Evoked Potential)
 
-```julia
-using NimbusSDK
+### Paradigm Overview
 
-# Initial training
-model = train_model(RxLDAModel, train_data)
+SSVEP uses flickering visual stimuli at different frequencies. The brain responds at the stimulus frequency, enabling frequency-based classification.
 
-# Update with new data
-updated_model = update_model(model, new_data)
-```
+**Typical Setup**: 2-6 targets flickering at different frequencies (e.g., 6 Hz, 7 Hz, 8 Hz, 9 Hz)
 
-**Benefits:**
-- Adapt to changing brain states
-- Personalization over time
-- No full retraining required
+**Neural Signature**: Steady-state response at stimulus frequency in occipital cortex (O1, O2, Oz).
 
-## Current SDK Capabilities
+### Probabilistic Model
 
-<CardGroup cols={2}>
-  <Card title="✅ Bayesian LDA" icon="check">
-    Motor imagery, P300, any classification task
-  </Card>
-  <Card title="✅ Bayesian GMM" icon="check">
-    Flexible classification with class-specific covariances
-  </Card>
-  <Card title="✅ Bayesian Softmax/MPR" icon="check">
-    Multinomial logistic regression for complex boundaries
-  </Card>
-  <Card title="✅ Model Training" icon="check">
-    Supervised training on labeled data
-  </Card>
-  <Card title="✅ Model Calibration" icon="check">
-    Subject-specific adaptation
-  </Card>
-  <Card title="✅ Online Learning" icon="check">
-    Incremental updates with partial_fit (Python) or update_model (Julia)
-  </Card>
-  <Card title="✅ Streaming Inference" icon="check">
-    Real-time chunk-by-chunk processing
-  </Card>
-  <Card title="✅ Quality Assessment" icon="check">
-    Entropy, calibration metrics, ITR calculation
-  </Card>
-</CardGroup>
+SSVEP classification models frequency-specific responses:
 
-## Working Examples
+$$
+p(\text{frequency}, \text{spectrum}) = p(\text{frequency}) \cdot p(\text{spectrum}|\text{frequency})
+$$
 
-For **actual working code** with Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian MPR (RxPolya):
+**Components:**
+1. **Prior**: $ p(\text{frequency}) $ - Equal probability for each target
+2. **Likelihood**: $ p(\text{spectrum}|\text{frequency}) $ - Gaussian distribution of power spectrum
+3. **Posterior**: $ p(\text{frequency}|\text{spectrum}) $ - Frequency probability given spectrum
+
+### Recommended Model: Bayesian LDA (RxLDA) or Bayesian GMM (RxGMM)
+
+**Why RxLDA?**
+- SSVEP frequencies are typically **well-separated** in frequency domain
+- **Fast inference** for high-ITR applications
+- Good for 2-4 target systems
+
+**Why RxGMM?**
+- Better for **6+ targets** with overlapping harmonics
+- Handles individual differences in SSVEP response better
+
+### Performance Expectations
+
+| Metric | 4-target | 6-target |
+|--------|----------|----------|
+| **Typical Accuracy** | 85-95% | 80-90% |
+| **Calibration Time** | 2-4 minutes | 3-5 minutes |
+| **Trials Needed** | 40-60 | 60-90 |
+| **Inference Latency** | 10-20ms | 15-25ms |
+| **ITR** | 30-50 bits/min | 25-40 bits/min |
+
+### Paradigm-Specific Tips
+
+<Tip>
+**SSVEP Best Practices:**
+
+1. **Feature Extraction**: Power spectrum at stimulus frequency and harmonics
+2. **Frequency Selection**: Use frequencies >6 Hz to avoid alpha band
+3. **Trial Length**: 1-3 seconds optimal
+4. **Electrode Placement**: Focus on occipital electrodes (O1, O2, Oz)
+5. **Stimulus Design**: High contrast, large visual angle
+</Tip>
+
+### Implementation
+
+See [Advanced Applications - SSVEP Control](/examples/advanced-applications#ssvep-control) for complete implementations.
+
+---
+
+## Paradigm Comparison
+
+| Paradigm | Recommended Model | Typical Accuracy | ITR | Setup Complexity | User Training |
+|----------|-------------------|------------------|-----|------------------|---------------|
+| **Motor Imagery** | RxLDA | 70-85% (4-class) | 15-25 bits/min | Low | High (requires practice) |
+| **P300** | RxGMM | 85-95% (with reps) | 10-20 bits/min | Medium | Low (natural response) |
+| **SSVEP** | RxLDA/RxGMM | 85-95% (4-class) | 30-50 bits/min | Medium | Low (passive viewing) |
+
+## Model Selection Guide
+
+<AccordionGroup>
+  <Accordion title="When to use Bayesian LDA (RxLDA)" icon="brain">
+    **Best for:**
+    - Motor imagery (2-4 class)
+    - SSVEP (2-4 targets)
+    - Any paradigm with well-separated classes
+    
+    **Advantages:**
+    - Fastest inference (10-15ms)
+    - Lowest data requirements
+    - Most robust to overfitting
+  </Accordion>
+  
+  <Accordion title="When to use Bayesian GMM (RxGMM)" icon="brain">
+    **Best for:**
+    - P300 detection
+    - SSVEP (6+ targets)
+    - Paradigms with overlapping distributions
+    
+    **Advantages:**
+    - More flexible modeling
+    - Better for complex signal morphology
+    - Handles individual differences better
+  </Accordion>
+  
+  <Accordion title="When to use Bayesian Softmax (RxPolya)" icon="brain">
+    **Best for:**
+    - Hybrid BCI systems
+    - Complex multinomial tasks
+    - Non-Gaussian feature spaces
+    
+    **Advantages:**
+    - Most flexible decision boundaries
+    - No Gaussian assumption
+    - Good for complex feature combinations
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
 
 <CardGroup cols={2}>
   <Card title="Basic Examples" icon="play" href="/examples/basic-examples">
-    Complete Julia examples
-  </Card>
-  <Card title="Basic Examples" icon="play" href="/examples/basic-examples">
-    Motor imagery & P300
+    Complete Python & Julia implementations
   </Card>
   <Card title="Advanced Applications" icon="rocket" href="/examples/advanced-applications">
     Calibration, adaptation, hybrid systems
   </Card>
-  <Card title="Batch Processing" icon="layers" href="/inference-configuration/batch-processing">
-    Training and evaluation
+  <Card title="Model Specification" icon="cube" href="/model-specification">
+    Probabilistic model architecture
+  </Card>
+  <Card title="Advanced Techniques" icon="sparkles" href="/model-specification/advanced-techniques">
+    Hyperparameter tuning, transfer learning
   </Card>
 </CardGroup>
 
 ---
 
 <Note>
-**Purpose of This Page**: This page provides **conceptual foundations** for understanding probabilistic BCI models. For **practical implementation**, use the working Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian MPR (RxPolya) models documented in the examples and API reference.
+**Purpose of This Page**: This page provides **paradigm-specific guidance** for applying Nimbus models to Motor Imagery, P300, and SSVEP BCIs. For **working code**, see the [Examples](/examples/basic-examples) section.
 </Note>
