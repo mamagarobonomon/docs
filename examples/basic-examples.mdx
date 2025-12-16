@@ -87,48 +87,66 @@ results = predict_batch(model, data; iterations=10)
   </Tab>
 </Tabs>
 
-```julia
-using NimbusSDK
+**Key Points:**
+- **Python**: Uses MNE for preprocessing, sklearn-compatible API
+- **Julia**: Uses pre-trained models with RxInfer.jl inference
 
-# 1. Setup (one-time)
-NimbusSDK.install_core("your-api-key")
-
-# 2. Load pre-trained 2-class model
-model = load_model(RxLDAModel, "motor_imagery_2class_v1")
-
-# 3. Prepare your preprocessed CSP features
-# Features must be CSP-transformed EEG (8-30 Hz bandpass)
-# Shape: (n_features × n_samples × n_trials)
-csp_features = load_your_csp_features()  # (8, 250, 100) - 8 CSP features, 1s trials, 100 trials
-labels = [1, 2, 1, 2, ...]  # 1 = left hand, 2 = right hand
-
-metadata = BCIMetadata(
-    sampling_rate = 250.0,
-    paradigm = :motor_imagery,
-    feature_type = :csp,
-    n_features = 8,
-    n_classes = 2,
-    chunk_size = nothing
-)
-
-data = BCIData(csp_features, metadata, labels)
-
-# 4. Run batch inference
-results = predict_batch(model, data; iterations=10)
-
-# 5. Analyze results
-accuracy = sum(results.predictions .== labels) / length(labels)
-itr = calculate_ITR(accuracy, 2, 4.0)  # 2 classes, 4-second trials
-
-println("Accuracy: $(round(accuracy * 100, digits=1))%")
-println("ITR: $(round(itr, digits=1)) bits/minute")
-println("Mean confidence: $(round(mean(results.confidences), digits=3))")
-```
+<Card title="Accuracy Tip" icon="chart-line">
+For 2-class motor imagery, expect 65-85% accuracy after proper CSP preprocessing and calibration.
+</Card>
 
 ### 4-Class Motor Imagery
 
 Classify left hand, right hand, feet, and tongue movements:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+from nimbus_pysdk.compat import extract_csp_features
+import numpy as np
+import mne
+
+# Load and preprocess EEG
+raw = mne.io.read_raw_gdf("motor_imagery_4class.gdf", preload=True)
+raw.filter(8, 30)
+
+# Create epochs for 4 classes
+events = mne.find_events(raw)
+event_id = {
+    'left_hand': 1,
+    'right_hand': 2,
+    'feet': 3,
+    'tongue': 4
+}
+epochs = mne.Epochs(raw, events, event_id, tmin=0, tmax=4, preload=True)
+
+# Extract CSP features (more components for 4-class)
+csp_features, csp = extract_csp_features(epochs, n_components=16)
+labels = epochs.events[:, 2]
+
+# Train classifier
+clf = NimbusLDA()
+clf.fit(csp_features, labels)
+
+# Predict
+predictions = clf.predict(csp_features)
+probabilities = clf.predict_proba(csp_features)
+
+# Per-class analysis
+for class_id in range(1, 5):
+    class_name = list(event_id.keys())[class_id - 1]
+    class_mask = labels == class_id
+    class_acc = np.mean(predictions[class_mask] == class_id)
+    print(f"{class_name} accuracy: {class_acc * 100:.1f}%")
+
+# Overall metrics
+accuracy = np.mean(predictions == labels)
+print(f"\nOverall accuracy: {accuracy * 100:.1f}%")
+print(f"Mean confidence: {np.mean(np.max(probabilities, axis=1)):.3f}")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -164,11 +182,66 @@ itr = calculate_ITR(accuracy, 4, 4.0)
 println("\nOverall accuracy: $(round(accuracy * 100, digits=1))%")
 println("ITR: $(round(itr, digits=1)) bits/minute")
 ```
+  </Tab>
+</Tabs>
 
 ### Training Custom Motor Imagery Model
 
 Train a model on your own data:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA, NimbusGMM
+from nimbus_pysdk.compat import extract_csp_features
+from sklearn.model_selection import train_test_split
+import numpy as np
+import mne
+import pickle
+
+# Load and preprocess training data
+# Minimum: 50 trials per class recommended
+# Optimal: 200+ trials per class
+raw = mne.io.read_raw_gdf("training_data.gdf", preload=True)
+raw.filter(8, 30)
+
+events = mne.find_events(raw)
+event_id = {'left_hand': 1, 'right_hand': 2, 'feet': 3, 'tongue': 4}
+epochs = mne.Epochs(raw, events, event_id, tmin=0, tmax=4, preload=True)
+
+# Extract features
+csp_features, csp = extract_csp_features(epochs, n_components=16)
+labels = epochs.events[:, 2]
+
+# Split into train/test
+X_train, X_test, y_train, y_test = train_test_split(
+    csp_features, labels, test_size=0.2, random_state=42, stratify=labels
+)
+
+# Train NimbusLDA model (faster, shared covariance)
+clf_lda = NimbusLDA(mu_scale=3.0)
+clf_lda.fit(X_train, y_train)
+
+# Or train NimbusGMM model (more flexible, class-specific covariances)
+clf_gmm = NimbusGMM(mu_scale=3.0)
+clf_gmm.fit(X_train, y_train)
+
+# Save trained model
+with open("my_motor_imagery_lda.pkl", "wb") as f:
+    pickle.dump(clf_lda, f)
+
+# Evaluate on test data
+test_predictions = clf_lda.predict(X_test)
+test_accuracy = np.mean(test_predictions == y_test)
+print(f"Test accuracy: {test_accuracy * 100:.1f}%")
+
+# Cross-validation for robust estimate
+from sklearn.model_selection import cross_val_score
+cv_scores = cross_val_score(clf_lda, csp_features, labels, cv=5)
+print(f"CV accuracy: {cv_scores.mean() * 100:.1f}% (+/- {cv_scores.std() * 100:.1f}%)")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -218,6 +291,8 @@ test_results = predict_batch(rxlda_model, test_data)
 test_accuracy = sum(test_results.predictions .== test_labels) / length(test_labels)
 println("Test accuracy: $(round(test_accuracy * 100, digits=1))%")
 ```
+  </Tab>
+</Tabs>
 
 ## P300 Event-Related Potential Detection
 
@@ -227,6 +302,57 @@ P300 BCIs detect attention-related brain responses to visual stimuli.
 
 Detect target vs non-target stimuli:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusGMM  # GMM often better for P300
+import numpy as np
+import mne
+
+# Load P300 EEG data
+raw = mne.io.read_raw_fif("p300_oddball.fif", preload=True)
+raw.filter(0.5, 10)  # P300 band
+
+# Create epochs around stimulus
+events = mne.find_events(raw)
+event_id = {'target': 1, 'non-target': 2}
+epochs = mne.Epochs(raw, events, event_id, tmin=-0.2, tmax=0.8, 
+                    baseline=(-0.2, 0), preload=True)
+
+# Extract ERP features (mean amplitude in time windows)
+# Focus on P300 window (250-500ms)
+data = epochs.get_data()  # (n_epochs, n_channels, n_times)
+labels = epochs.events[:, 2]
+
+# Extract mean amplitude from key electrodes (Pz, Cz, Fz)
+ch_names = ['Pz', 'Cz', 'Fz']
+ch_indices = [epochs.ch_names.index(ch) for ch in ch_names]
+
+# Time window: 250-500ms (P300 peak)
+times = epochs.times
+p300_window = (times >= 0.25) & (times <= 0.5)
+
+# Extract features: mean amplitude per channel in P300 window
+features = np.mean(data[:, ch_indices, :][:, :, p300_window], axis=2)
+
+# Train classifier (GMM better for P300's overlapping distributions)
+clf = NimbusGMM()
+clf.fit(features, labels)
+
+# Predict
+predictions = clf.predict(features)
+probabilities = clf.predict_proba(features)
+
+# Analyze target detection
+target_mask = labels == 1
+target_detected = np.sum(predictions[target_mask] == 1)
+target_total = np.sum(target_mask)
+
+print(f"Target detection rate: {100 * target_detected / target_total:.1f}%")
+print(f"Mean target confidence: {np.mean(probabilities[target_mask, 0]):.3f}")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -261,6 +387,8 @@ target_total = sum(target_mask)
 println("Target detection rate: $(round(100 * target_detected / target_total, digits=1))%")
 println("Mean target confidence: $(round(mean(results.confidences[target_mask]), digits=3))")
 ```
+  </Tab>
+</Tabs>
 
 ### P300 Speller Application
 
