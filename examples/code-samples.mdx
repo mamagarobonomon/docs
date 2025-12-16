@@ -464,10 +464,70 @@ println("  Improvement: +$(round((acc_personalized - acc_baseline) * 100, digits
   </Tab>
 </Tabs>
 
-## Hyperparameter Tuning (v0.2.0+)
+## Hyperparameter Tuning
 
 Example of tuning model hyperparameters for optimal performance.
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.metrics import classification_report
+import numpy as np
+
+print("=" * 60)
+print("Hyperparameter Tuning with GridSearchCV")
+print("=" * 60)
+
+# Split data
+X_train_sub, X_val, y_train_sub, y_val = train_test_split(
+    X_train, y_train, test_size=0.2, stratify=y_train, random_state=42
+)
+
+# Define parameter grid
+param_grid = {
+    'mu_scale': [1.0, 3.0, 5.0, 10.0],        # Prior strength
+    'sigma_scale': [0.1, 1.0, 10.0],           # Covariance regularization
+}
+
+# Setup GridSearchCV
+clf = NimbusLDA()
+grid_search = GridSearchCV(
+    clf,
+    param_grid,
+    cv=5,
+    scoring='accuracy',
+    verbose=2,
+    n_jobs=-1
+)
+
+# Run grid search
+print("\nRunning grid search...")
+grid_search.fit(X_train_sub, y_train_sub)
+
+# Results
+print("\nBest parameters found:")
+print(f"  mu_scale: {grid_search.best_params_['mu_scale']}")
+print(f"  sigma_scale: {grid_search.best_params_['sigma_scale']}")
+print(f"\nBest CV accuracy: {grid_search.best_score_:.1%}")
+
+# Test best model
+best_clf = grid_search.best_estimator_
+test_accuracy = best_clf.score(X_test, y_test)
+print(f"Test accuracy with best params: {test_accuracy:.1%}")
+
+# Detailed results
+print("\nAll tested configurations:")
+results = grid_search.cv_results_
+for i in range(len(results['params'])):
+    print(f"  {results['params'][i]}: {results['mean_test_score'][i]:.1%} "
+          f"(+/- {results['std_test_score'][i]:.1%})")
+
+print("=" * 60)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 using Statistics
@@ -608,11 +668,77 @@ final_accuracy = sum(final_results.predictions .== test_labels) / length(test_la
 println("\n✓ Final optimized model test accuracy: $(round(final_accuracy*100, digits=1))%")
 println("="^60)
 ```
+  </Tab>
+</Tabs>
 
 ## Streaming Inference
 
 Real-time chunk-by-chunk processing for continuous BCI control.
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import StreamingSession
+from nimbus_pysdk.data import BCIMetadata
+import numpy as np
+
+# Initialize streaming
+metadata = BCIMetadata(
+    sampling_rate=250.0,
+    paradigm="motor_imagery",
+    feature_type="csp",
+    n_features=16,
+    n_classes=4,
+    chunk_size=250  # 1 second chunks
+)
+
+session = StreamingSession(clf.model_, metadata)
+
+# Simulate real-time EEG stream
+def process_real_time_eeg():
+    class_names = ["Left", "Right", "Feet", "Tongue"]
+    
+    for trial in range(1, 21):  # 20 trials
+        print(f"\n--- Trial {trial} ---")
+        
+        for chunk_idx in range(1, 5):  # 4 chunks per trial (4 seconds total)
+            # In practice: get chunk from EEG hardware
+            chunk = np.random.randn(16, 250)  # 16 features × 250 samples
+            
+            # Process chunk
+            result = session.process_chunk(chunk)
+            
+            # Real-time feedback
+            print(f"  Chunk {chunk_idx}: {class_names[result.prediction]} "
+                  f"(confidence: {result.confidence:.3f})")
+            
+            # Implement control logic
+            if result.confidence > 0.7:
+                handle_bci_command(result.prediction)
+        
+        # Finalize trial
+        final = session.finalize_trial()
+        print(f"✓ Final: {class_names[final.prediction]} "
+              f"(confidence: {final.confidence:.3f})")
+        
+        # Reset for next trial
+        session.reset()
+
+# Your BCI control function
+def handle_bci_command(prediction):
+    commands = {
+        0: "    ↖ Moving left",
+        1: "    ↗ Moving right",
+        2: "    ↑ Moving up",
+        3: "    ↓ Moving down"
+    }
+    print(commands.get(prediction, "Unknown command"))
+
+# Run the processing
+process_real_time_eeg()
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -680,6 +806,8 @@ end
 # Run the processing
 process_real_time_eeg()
 ```
+  </Tab>
+</Tabs>
 
 ## Error Handling
 
