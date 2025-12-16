@@ -1,0 +1,339 @@
+---
+title: "Model Specification"
+description: "Overview of probabilistic models in Nimbus"
+icon: "cube"
+---
+
+# Probabilistic Model Specification
+
+NimbusSDK provides **pre-built probabilistic models** powered by [RxInfer.jl](https://github.com/ReactiveBayes/RxInfer.jl), a reactive message passing framework for efficient Bayesian inference.
+
+<Info>
+**Three Production Models Available:**
+- [Bayesian LDA (RxLDA)](/models/rxlda) - Fast, shared covariance
+- [Bayesian GMM (RxGMM)](/models/rxgmm) - Flexible, class-specific covariances
+- [Bayesian Softmax (RxPolya)](/models/rxpolya) - Multinomial logistic regression
+
+For detailed implementation, see the individual model pages above.
+</Info>
+
+---
+
+## Model Architecture
+
+All three models are built on **factor graphs** with **reactive message passing**:
+
+```
+        Prior               Likelihood            Posterior
+    p(class)  ────────────────────────────────►  p(class|data)
+                          ▲
+                          │
+                      p(data|class)
+                   (Gaussian or Softmax)
+```
+
+### Factor Graphs
+
+Factor graphs represent the joint probability distribution:
+
+$$
+p(\text{class}, \text{data}) = p(\text{class}) \cdot p(\text{data}|\text{class})
+$$
+
+**Components:**
+1. **Prior**: $ p(\text{class}) $ - uniform or learned class probabilities
+2. **Likelihood**: $ p(\text{data}|\text{class}) $ - Gaussian (LDA/GMM) or Softmax (RxPolya)
+3. **Posterior**: $ p(\text{class}|\text{data}) $ - computed via message passing
+
+### Reactive Message Passing
+
+RxInfer.jl uses **reactive programming** for efficient inference:
+
+```
+Data Stream ──► Factor Graph ──► Message Passing ──► Posterior Updates
+                     │
+                     ▼
+              (Incremental Updates)
+```
+
+**Benefits:**
+- **Incremental processing**: Process data chunks as they arrive
+- **Low latency**: 10-25ms per chunk
+- **Memory efficient**: Constant memory usage
+- **Real-time capable**: Streaming inference without buffering
+
+## Model Comparison
+
+| Feature              | RxLDA (NimbusLDA)      | RxGMM (NimbusGMM)         | RxPolya (NimbusSoftmax)   |
+| -------------------- | ---------------------- | ------------------------- | ------------------------- |
+| **Covariance**       | Shared across classes  | Class-specific            | N/A (logistic)            |
+| **Decision Boundary**| Linear                 | Quadratic                 | Non-linear (flexible)     |
+| **Flexibility**      | Lower                  | Higher                    | Highest                   |
+| **Speed**            | Fastest (10-15ms)      | Fast (15-25ms)            | Fast (15-25ms)            |
+| **Training Time**    | Fast                   | Moderate                  | Moderate                  |
+| **Parameters**       | Fewer (efficient)      | More (flexible)           | Most (very flexible)      |
+| **Best For**         | Well-separated classes | Overlapping distributions | Complex multinomial tasks |
+| **Overfitting Risk** | Lowest                 | Moderate                  | Higher (more parameters)  |
+| **Data Requirements**| 40+ trials/class       | 60+ trials/class          | 80+ trials/class          |
+
+---
+
+## BCI Paradigm Applications
+
+### Motor Imagery
+
+**Recommended Model**: Bayesian LDA (RxLDA)
+
+Motor imagery classes are typically well-separated in CSP feature space, making RxLDA ideal:
+
+- **2-class** (left/right hand): 75-90% accuracy
+- **4-class** (hands/feet/tongue): 70-85% accuracy
+- **Inference**: 10-15ms per trial
+- **ITR**: 15-25 bits/minute
+
+**Why RxLDA?**
+- Fast inference for real-time control
+- Shared covariance assumption holds well
+- Lowest data requirements
+
+See [Basic Examples - Motor Imagery](/examples/basic-examples#motor-imagery) for implementation.
+
+### P300 Event-Related Potential
+
+**Recommended Model**: Bayesian GMM (RxGMM)
+
+P300 target and non-target ERPs have overlapping distributions, requiring flexible modeling:
+
+- **Binary detection**: 85-95% accuracy (with averaging)
+- **Inference**: 15-25ms per epoch
+- **ITR**: 10-20 bits/minute
+
+**Why RxGMM?**
+- Class-specific covariances capture ERP morphology
+- Better for overlapping distributions
+- Handles individual differences
+
+See [Basic Examples - P300 Speller](/examples/basic-examples#p300-speller) for implementation.
+
+### SSVEP (Steady-State Visual Evoked Potential)
+
+**Recommended Model**: Bayesian LDA (RxLDA) or Bayesian GMM (RxGMM)
+
+- **4-target**: 85-95% accuracy, use RxLDA
+- **6+ target**: 80-90% accuracy, use RxGMM
+- **Inference**: 10-20ms per trial
+- **ITR**: 30-50 bits/minute
+
+**Model Selection:**
+- **RxLDA**: For 2-4 targets with well-separated frequencies
+- **RxGMM**: For 6+ targets with overlapping harmonics
+
+See [Advanced Applications - SSVEP Control](/examples/advanced-applications#ssvep-control) for implementation.
+
+### Paradigm Comparison
+
+| Paradigm | Recommended Model | Typical Accuracy | ITR | User Training |
+|----------|-------------------|------------------|-----|---------------|
+| **Motor Imagery** | RxLDA | 70-85% (4-class) | 15-25 bits/min | High |
+| **P300** | RxGMM | 85-95% (with reps) | 10-20 bits/min | Low |
+| **SSVEP** | RxLDA/RxGMM | 85-95% (4-class) | 30-50 bits/min | Low |
+
+---
+
+## Advanced Techniques
+
+### Hyperparameter Optimization
+
+Use grid search or Bayesian optimization to find optimal hyperparameters:
+
+<Tabs>
+  <Tab title="Python">
+
+```python
+from sklearn.model_selection import GridSearchCV
+from nimbus_pysdk import NimbusLDA
+
+param_grid = {
+    'mu_scale': [1.0, 3.0, 5.0, 7.0],
+    'class_prior_alpha': [0.5, 1.0, 2.0]
+}
+
+grid = GridSearchCV(NimbusLDA(), param_grid, cv=5, n_jobs=-1)
+grid.fit(X_train, y_train)
+
+print(f"Best params: {grid.best_params_}")
+best_clf = grid.best_estimator_
+```
+</Tab>
+  <Tab title="Julia">
+
+```julia
+# Grid search over hyperparameters
+mu_scales = [1.0, 3.0, 5.0, 7.0]
+best_accuracy = 0.0
+best_params = nothing
+
+for mu_scale in mu_scales
+    model = train_model(RxLDAModel, train_data; mu_scale=mu_scale)
+    results = predict_batch(model, val_data)
+    accuracy = sum(results.predictions .== val_data.labels) / length(val_data.labels)
+    
+    if accuracy > best_accuracy
+        best_accuracy = accuracy
+        best_params = (mu_scale=mu_scale,)
+    end
+end
+```
+</Tab>
+</Tabs>
+
+See [Python SDK - sklearn Integration](/python-sdk/sklearn-integration) for more tuning examples.
+
+### Cross-Subject Transfer Learning
+
+Train on multiple subjects for better generalization:
+
+```python
+from nimbus_pysdk import NimbusLDA, estimate_normalization_params, apply_normalization
+import numpy as np
+
+# Collect data from multiple subjects
+all_X = [load_subject_data(s) for s in subjects]
+X_combined = np.vstack(all_X)
+
+# Normalize across subjects
+norm_params = estimate_normalization_params(X_combined, method="zscore")
+X_norm = apply_normalization(X_combined, norm_params)
+
+# Train with higher regularization
+clf = NimbusLDA(mu_scale=7.0)  # Higher than single-subject
+clf.fit(X_norm, y_combined)
+
+# Calibrate for new subject
+clf.partial_fit(X_new_subject[:20], y_new[:20])
+```
+
+### Ensemble Methods
+
+Combine multiple models for improved robustness:
+
+```python
+from nimbus_pysdk import NimbusLDA, NimbusGMM
+import numpy as np
+
+# Train multiple models
+clf_lda = NimbusLDA()
+clf_lda.fit(X_train, y_train)
+
+clf_gmm = NimbusGMM()
+clf_gmm.fit(X_train, y_train)
+
+# Ensemble prediction (weighted average)
+probs_lda = clf_lda.predict_proba(X_test)
+probs_gmm = clf_gmm.predict_proba(X_test)
+
+ensemble_probs = 0.6 * probs_lda + 0.4 * probs_gmm
+ensemble_predictions = ensemble_probs.argmax(axis=1)
+```
+
+### Confidence Calibration
+
+Ensure predicted probabilities match actual accuracy:
+
+```python
+from sklearn.calibration import CalibratedClassifierCV
+from nimbus_pysdk import NimbusLDA, compute_calibration_metrics
+
+# Train and calibrate
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
+
+clf_calibrated = CalibratedClassifierCV(clf, method='isotonic', cv='prefit')
+clf_calibrated.fit(X_val, y_val)
+
+# Check calibration improvement
+calib_metrics = compute_calibration_metrics(preds, confidences, y_test)
+print(f"ECE: {calib_metrics.ece:.3f}")
+```
+
+---
+
+## Model Limitations
+
+<Warning>
+**General Limitations:**
+
+- **Static models**: No built-in temporal dynamics (use preprocessing for temporal features)
+- **Supervised only**: Require labeled training data
+- **Fixed structure**: Cannot modify factor graph structure at runtime
+
+**Model-Specific:**
+- **RxLDA**: Assumes Gaussian distributions with shared covariance, linear decision boundaries
+- **RxGMM**: Assumes Gaussian distributions, higher overfitting risk with limited data
+- **RxPolya**: May require more training data than LDA/GMM for complex tasks
+</Warning>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Model Overfitting" icon="triangle-exclamation">
+    **Symptoms**: High training accuracy, low test accuracy
+    
+    **Solutions**:
+    - Increase `mu_scale` (stronger regularization)
+    - Use cross-validation for hyperparameter tuning
+    - Collect more training data
+    - Apply ensemble methods
+  </Accordion>
+  
+  <Accordion title="Poor Cross-Subject Generalization" icon="users">
+    **Symptoms**: Good within-subject, poor across-subject performance
+    
+    **Solutions**:
+    - Train on multi-subject data
+    - Increase regularization (`mu_scale`)
+    - Normalize features consistently
+    - Use subject-specific calibration
+  </Accordion>
+  
+  <Accordion title="Class Imbalance" icon="scale-unbalanced">
+    **Symptoms**: Model biased toward majority class
+    
+    **Solutions**:
+    - Use class weighting
+    - Apply SMOTE or other resampling
+    - Adjust decision threshold
+    - Use stratified cross-validation
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Bayesian LDA (RxLDA)" icon="brain" href="/models/rxlda">
+    Fast, shared covariance classifier
+  </Card>
+  <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
+    Flexible, class-specific covariances
+  </Card>
+  <Card title="Bayesian Softmax (RxPolya)" icon="brain" href="/models/rxpolya">
+    Multinomial logistic regression
+  </Card>
+  <Card title="Basic Examples" icon="play" href="/examples/basic-examples">
+    Complete Python & Julia code
+  </Card>
+  <Card title="Advanced Applications" icon="rocket" href="/examples/advanced-applications">
+    Calibration, adaptation, hybrid systems
+  </Card>
+  <Card title="Python SDK" icon="python" href="/python-sdk/introduction">
+    sklearn-compatible classifiers
+  </Card>
+</CardGroup>
+
+---
+
+<Note>
+**Development Philosophy**: NimbusSDK provides **battle-tested, production-ready models** (Bayesian LDA, Bayesian GMM, Bayesian Softmax) that are proven effective for BCI applications. These models cover the majority of BCI use cases with fast inference, uncertainty quantification, and online learning.
+</Note>

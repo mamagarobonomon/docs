@@ -64,9 +64,7 @@
         "models/rxlda",
         "models/rxgmm",
         "models/rxpolya",
-        "model-specification",
-        "model-specification/bci-examples",
-        "model-specification/advanced-techniques"
+        "model-specification"
       ]
     },
     {
