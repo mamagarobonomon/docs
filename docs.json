@@ -87,7 +87,6 @@
           "examples/basic-examples",
           "examples/advanced-applications",
           "examples/industry-use-cases",
-          "examples/code-samples",
           "development",
           "development/preprocessing-integration"
         ]
