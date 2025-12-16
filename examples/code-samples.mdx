@@ -6,15 +6,121 @@ icon: "code"
 
 # Code Samples
 
-Complete, production-ready Julia code examples for BCI inference with NimbusSDK.jl. Each example includes full implementation, error handling, and best practices.
+Complete, production-ready code examples for BCI inference with Nimbus. Each example includes full implementation, error handling, and best practices.
 
 <Note>
-NimbusSDK provides three Bayesian models: **Bayesian LDA (RxLDA)**, **Bayesian GMM (RxGMM)**, and **Bayesian MPR (RxPolya)**. Examples below use RxLDA, but you can substitute any model type based on your application needs.
+**Choose Your SDK:**
+- **Python SDK**: See [Python SDK Quickstart](/python-sdk/quickstart) for Python examples
+- **Julia SDK**: Examples below use Julia with RxLDA, RxGMM, and RxPolya models
+
+Both SDKs provide the same Bayesian models with uncertainty quantification.
 </Note>
 
 ## Basic Motor Imagery Inference
 
-Complete example for 4-class Motor Imagery classification using Bayesian LDA (RxLDA).
+Complete example for 4-class Motor Imagery classification.
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+from nimbus_pysdk.compat import extract_csp_features
+import mne
+import numpy as np
+
+# Load and preprocess EEG data
+raw = mne.io.read_raw_gdf("motor_imagery.gdf", preload=True)
+raw.filter(8, 30)  # Mu + Beta bands
+events = mne.find_events(raw)
+epochs = mne.Epochs(raw, events, tmin=0, tmax=4, preload=True)
+
+# Extract CSP features
+csp_features, csp = extract_csp_features(epochs, n_components=8)
+labels = epochs.events[:, 2]
+
+# Train classifier
+clf = NimbusLDA(mu_scale=3.0)
+clf.fit(csp_features, labels)
+
+# Evaluate
+from sklearn.model_selection import cross_val_score
+scores = cross_val_score(clf, csp_features, labels, cv=5)
+print(f"Accuracy: {scores.mean():.2%} (+/- {scores.std():.2%})")
+
+# Calculate ITR
+from nimbus_pysdk import calculate_itr
+itr = calculate_itr(accuracy=scores.mean(), n_classes=4, trial_duration=4.0)
+print(f"ITR: {itr:.1f} bits/minute")
+```
+  </Tab>
+  <Tab title="Julia">
+```julia
+using NimbusSDK
+using Statistics
+
+# Step 1: Setup (one-time)
+println("Installing core...")
+NimbusSDK.install_core("nbci_live_your_api_key_here")
+println("✓ Core installation successful")
+
+# Step 2: Load model
+println("\nLoading model...")
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+println("✓ Model loaded: $(model.metadata.name)")
+println("  - Features: $(get_n_features(model))")
+println("  - Classes: $(get_n_classes(model))")
+
+# Step 3: Prepare data (features already preprocessed!)
+println("\nPreparing data...")
+n_features = 16
+n_samples = 250  # 1 second at 250 Hz
+n_trials = 20
+
+# In practice, load your preprocessed CSP features
+features = randn(n_features, n_samples, n_trials)
+labels = rand(1:4, n_trials)
+
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = n_features,
+    n_classes = 4,
+    chunk_size = nothing
+)
+
+data = BCIData(features, metadata, labels)
+println("✓ Data prepared: $n_trials trials")
+
+# Step 4: Run inference
+println("\nRunning batch inference...")
+results = predict_batch(model, data; iterations=10)
+
+# Step 5: Analyze results
+println("\nResults:")
+for (i, (pred, conf)) in enumerate(zip(results.predictions, results.confidences))
+    println("  Trial $i: Class $pred (confidence: $(round(conf, digits=3)))")
+end
+
+println("\nOverall Performance:")
+accuracy = sum(results.predictions .== labels) / length(labels)
+println("  Accuracy: $(round(accuracy * 100, digits=1))%")
+println("  Mean confidence: $(round(mean(results.confidences), digits=3))")
+
+# Calculate ITR
+itr = calculate_ITR(accuracy, 4, 4.0)
+println("  ITR: $(round(itr, digits=1)) bits/minute")
+
+# Quality assessment
+quality = assess_trial_quality(results)
+println("  Quality score: $(round(quality.overall_score, digits=3))")
+
+if !quality.confidence_acceptable
+    println("⚠️  Warning: Low confidence trials detected")
+end
+```
+  </Tab>
+</Tabs>
 
 ```julia
 using NimbusSDK
@@ -84,7 +190,61 @@ end
 
 ## Training Custom Model
 
-Example of training a Bayesian LDA (RxLDA) model on your own labeled data.
+Example of training a Bayesian LDA model on your own labeled data.
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA, estimate_normalization_params, apply_normalization
+from sklearn.model_selection import train_test_split
+import numpy as np
+
+# Load your preprocessed features and labels
+X = load_your_features()  # (n_trials, n_features)
+y = load_your_labels()    # (n_trials,)
+
+# Split data
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, stratify=y, random_state=42
+)
+
+# Normalize features (critical for cross-session performance)
+norm_params = estimate_normalization_params(X_train, method="zscore")
+X_train_norm = apply_normalization(X_train, norm_params)
+X_test_norm = apply_normalization(X_test, norm_params)
+
+# Train classifier
+clf = NimbusLDA(mu_scale=3.0, class_prior_alpha=1.0)
+clf.fit(X_train_norm, y_train)
+
+# Evaluate
+train_score = clf.score(X_train_norm, y_train)
+test_score = clf.score(X_test_norm, y_test)
+
+print(f"Train accuracy: {train_score:.2%}")
+print(f"Test accuracy: {test_score:.2%}")
+
+# Save model and normalization params
+import joblib
+joblib.dump({'model': clf, 'norm_params': norm_params}, 'bci_model.pkl')
+```
+  </Tab>
+  <Tab title="Julia">
+```julia
+using NimbusSDK
+
+println("="^60)
+println("Training Custom RxLDA Model")
+println("="^60)
+
+# Step 1: Setup (one-time)
+NimbusSDK.install_core("your-api-key")
+
+# Step 2: Prepare training data
+println("\n1. Loading training data...")
+```
+  </Tab>
+</Tabs>
 
 ```julia
 using NimbusSDK

@@ -6,12 +6,16 @@ icon: 'book-open'
 
 # Nimbus API
 
-The Nimbus API provides backend services for the NimbusSDK.jl ecosystem, including:
+The Nimbus API provides backend services for the Julia SDK (NimbusSDK.jl), including:
 
-- **Authentication**: API key validation and licensing
-- **Model Registry**: Access to pre-trained models
+- **Authentication**: API key validation and licensing (Julia SDK only)
+- **Model Registry**: Access to pre-trained models (Julia SDK only)
 - **Analytics**: Usage tracking and performance metrics
 - **Quota Management**: License-based usage limits
+
+<Note>
+**Python SDK Users**: The Python SDK (`nimbus-bci`) does **not** require API keys or API access. All processing is local. See the [Python SDK documentation](/python-sdk/introduction) for details.
+</Note>
 
 ## API Base URL
 
@@ -41,7 +45,17 @@ All API requests require authentication via API key. Include your API key in req
 | **Commercial** | 500,000 inferences | Priority support, custom models | Production applications |
 | **Enterprise** | Unlimited | Dedicated support, on-premise | Large-scale deployments |
 
-## Quick Start
+## SDK Comparison
+
+| Feature | Python SDK | Julia SDK |
+|---------|------------|-----------|
+| **API Key Required** | ❌ No | ✅ Yes |
+| **API Access** | Not needed | Required for installation |
+| **Authentication** | None | Via API key |
+| **Model Registry** | Not available | Pre-trained models |
+| **Licensing** | Proprietary (free eval) | Commercial tiers |
+
+## Quick Start (Julia SDK)
 
 ```julia
 using NimbusSDK
@@ -54,6 +68,8 @@ NimbusSDK.install_core("nbci_live_your_key_here")
 # - Model downloads
 # - Usage logging (optional)
 ```
+
+**Python SDK**: No API setup needed. Install with `pip install nimbus-bci` and start using immediately.
 
 ## Endpoints Overview
 
@@ -70,16 +86,16 @@ Detailed documentation for each endpoint is available in the following pages.
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Authentication" icon="key" href="/api-reference/authentication">
-    API key validation and management
-  </Card>
-  <Card title="Model Registry" icon="database" href="/api-reference/inference-endpoints">
-    List and download pre-trained models
+  <Card title="Python SDK" icon="python" href="/python-sdk/introduction">
+    No API key needed - get started immediately
   </Card>
   <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
-    Complete Julia SDK reference
+    Complete Julia SDK reference (requires API key)
   </Card>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Get started with NimbusSDK
+  <Card title="Authentication" icon="key" href="/api-reference/authentication">
+    API key validation and management (Julia SDK)
+  </Card>
+  <Card title="Model Registry" icon="database" href="/api-reference/inference-endpoints">
+    Pre-trained models (Julia SDK)
   </Card>
 </CardGroup>

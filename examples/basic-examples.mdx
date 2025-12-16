@@ -6,10 +6,14 @@ icon: "play"
 
 # Basic BCI Examples
 
-This section provides fundamental examples of using NimbusSDK for brain-computer interface applications. All examples use the actual Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian MPR (RxPolya) models with real Julia SDK code.
+This section provides fundamental examples of using Nimbus for brain-computer interface applications. Examples are shown in both Python and Julia.
 
 <Note>
-For detailed model information, see [Bayesian LDA (RxLDA)](/models/rxlda), [Bayesian GMM (RxGMM)](/models/rxgmm), and [Bayesian MPR (RxPolya)](/models/rxpolya) documentation.
+**Choose Your SDK:**
+- **Python SDK**: sklearn-compatible API with MNE integration → [Python Quickstart](/python-sdk/quickstart)
+- **Julia SDK**: RxInfer.jl-based with pre-trained models → [Julia Quickstart](/quickstart)
+
+For detailed model information, see [Bayesian LDA](/models/rxlda), [Bayesian GMM](/models/rxgmm), and [Bayesian Softmax/MPR](/models/rxpolya).
 </Note>
 
 ## Motor Imagery Classification
@@ -19,6 +23,69 @@ Motor imagery BCI allows users to control devices by imagining movements. This i
 ### Basic 2-Class Motor Imagery
 
 Classify left vs right hand motor imagery:
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+from nimbus_pysdk.compat import extract_csp_features
+import mne
+
+# Load EEG data
+raw = mne.io.read_raw_gdf("motor_imagery.gdf", preload=True)
+raw.filter(8, 30)  # Mu + Beta bands
+
+# Create epochs
+events = mne.find_events(raw)
+event_id = {'left_hand': 1, 'right_hand': 2}
+epochs = mne.Epochs(raw, events, event_id, tmin=0, tmax=4, preload=True)
+
+# Extract CSP features
+csp_features, csp = extract_csp_features(epochs, n_components=8)
+labels = epochs.events[:, 2]
+
+# Train classifier
+clf = NimbusLDA()
+clf.fit(csp_features, labels)
+
+# Evaluate
+from sklearn.model_selection import cross_val_score
+scores = cross_val_score(clf, csp_features, labels, cv=5)
+print(f"Accuracy: {scores.mean():.2%} (+/- {scores.std():.2%})")
+```
+  </Tab>
+  <Tab title="Julia">
+```julia
+using NimbusSDK
+
+# 1. Setup (one-time)
+NimbusSDK.install_core("your-api-key")
+
+# 2. Load pre-trained 2-class model
+model = load_model(RxLDAModel, "motor_imagery_2class_v1")
+
+# 3. Prepare your preprocessed CSP features
+# Features must be CSP-transformed EEG (8-30 Hz bandpass)
+# Shape: (n_features × n_samples × n_trials)
+csp_features = load_your_csp_features()  # (8, 250, 100) - 8 CSP features, 1s trials, 100 trials
+labels = [1, 2, 1, 2, ...]  # 1 = left hand, 2 = right hand
+
+metadata = BCIMetadata(
+    sampling_rate = 250.0,
+    paradigm = :motor_imagery,
+    feature_type = :csp,
+    n_features = 8,
+    n_classes = 2,
+    chunk_size = nothing
+)
+
+data = BCIData(csp_features, metadata, labels)
+
+# 4. Run batch inference
+results = predict_batch(model, data; iterations=10)
+```
+  </Tab>
+</Tabs>
 
 ```julia
 using NimbusSDK

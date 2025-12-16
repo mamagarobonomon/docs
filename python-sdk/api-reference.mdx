@@ -1,0 +1,711 @@
+---
+title: "API Reference"
+description: "Complete API documentation for nimbus-bci Python SDK"
+icon: "book"
+---
+
+# Python SDK API Reference
+
+Complete reference for the nimbus-bci Python library.
+
+## Classifiers
+
+### NimbusLDA
+
+Bayesian Linear Discriminant Analysis with shared covariance.
+
+```python
+from nimbus_pysdk import NimbusLDA
+
+clf = NimbusLDA(
+    mu_loc=0.0,
+    mu_scale=3.0,
+    wishart_df=None,
+    class_prior_alpha=1.0
+)
+```
+
+**Parameters:**
+- `mu_loc` (float, default=0.0): Prior mean location for class means
+- `mu_scale` (float, default=3.0): Prior scale for class means (> 0)
+- `wishart_df` (float or None, default=None): Wishart degrees of freedom. If None, set to `n_features + 2`
+- `class_prior_alpha` (float, default=1.0): Dirichlet smoothing for class priors (≥ 0)
+
+**Methods:**
+- `fit(X, y)`: Fit the model
+- `predict(X)`: Predict class labels
+- `predict_proba(X)`: Predict class probabilities
+- `partial_fit(X, y, classes=None)`: Incremental learning
+- `score(X, y)`: Return accuracy score
+
+**Attributes:**
+- `classes_`: Unique class labels
+- `n_classes_`: Number of classes
+- `n_features_in_`: Number of features
+- `model_`: Underlying Nimbus model
+
+**Example:**
+
+```python
+from nimbus_pysdk import NimbusLDA
+import numpy as np
+
+# Create and fit
+clf = NimbusLDA(mu_scale=5.0)
+clf.fit(X_train, y_train)
+
+# Predict
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)
+
+# Online learning
+clf.partial_fit(X_new, y_new)
+```
+
+### NimbusGMM
+
+Bayesian Gaussian Mixture Model with class-specific covariances.
+
+```python
+from nimbus_pysdk import NimbusGMM
+
+clf = NimbusGMM(
+    mu_loc=0.0,
+    mu_scale=3.0,
+    wishart_df=None,
+    class_prior_alpha=1.0
+)
+```
+
+**Parameters:**
+- Same as NimbusLDA
+
+**Methods:**
+- Same as NimbusLDA
+
+**Example:**
+
+```python
+from nimbus_pysdk import NimbusGMM
+
+# Better for overlapping distributions (e.g., P300)
+clf = NimbusGMM()
+clf.fit(X_train, y_train)
+probs = clf.predict_proba(X_test)
+```
+
+### NimbusSoftmax
+
+Bayesian Multinomial Logistic Regression (Polya-Gamma VI).
+
+```python
+from nimbus_pysdk import NimbusSoftmax
+
+clf = NimbusSoftmax(
+    w_loc=0.0,
+    w_scale=1.0,
+    class_prior_alpha=1.0
+)
+```
+
+**Parameters:**
+- `w_loc` (float, default=0.0): Prior mean for weights
+- `w_scale` (float, default=1.0): Prior scale for weights
+- `class_prior_alpha` (float, default=1.0): Dirichlet smoothing
+
+**Methods:**
+- Same as NimbusLDA
+
+**Example:**
+
+```python
+from nimbus_pysdk import NimbusSoftmax
+
+# For non-Gaussian decision boundaries
+clf = NimbusSoftmax()
+clf.fit(X_train, y_train)
+predictions = clf.predict(X_test)
+```
+
+## Data Structures
+
+### BCIData
+
+Container for BCI features, metadata, and labels.
+
+```python
+from nimbus_pysdk.data import BCIData
+
+data = BCIData(
+    features,      # (n_features, n_samples, n_trials)
+    metadata,      # BCIMetadata instance
+    labels=None    # Optional labels
+)
+```
+
+**Parameters:**
+- `features` (np.ndarray): Feature array of shape `(n_features, n_samples, n_trials)`
+- `metadata` (BCIMetadata): Metadata describing the data
+- `labels` (np.ndarray, optional): Trial labels
+
+**Attributes:**
+- `features`: Feature array
+- `metadata`: Metadata object
+- `labels`: Labels (if provided)
+- `n_trials`: Number of trials
+- `n_features`: Number of features
+- `n_samples`: Number of samples per trial
+
+### BCIMetadata
+
+Metadata for BCI experiments.
+
+```python
+from nimbus_pysdk.data import BCIMetadata
+
+metadata = BCIMetadata(
+    sampling_rate=250.0,
+    paradigm="motor_imagery",
+    feature_type="csp",
+    n_features=16,
+    n_classes=4,
+    chunk_size=None,
+    temporal_aggregation=None
+)
+```
+
+**Parameters:**
+- `sampling_rate` (float): Sampling rate in Hz
+- `paradigm` (str): BCI paradigm ("motor_imagery", "p300", "ssvep")
+- `feature_type` (str): Feature type ("csp", "bandpower", "erp")
+- `n_features` (int): Number of features
+- `n_classes` (int): Number of classes
+- `chunk_size` (int, optional): Chunk size for streaming
+- `temporal_aggregation` (str, optional): Aggregation method ("mean", "logvar", "rms")
+
+## Inference
+
+### predict_batch()
+
+Batch inference with comprehensive diagnostics.
+
+```python
+from nimbus_pysdk import predict_batch
+
+result = predict_batch(
+    model,           # Trained model
+    data,            # BCIData instance
+    return_probs=True,
+    return_entropy=True,
+    return_diagnostics=True
+)
+```
+
+**Parameters:**
+- `model` (NimbusModel): Trained Nimbus model
+- `data` (BCIData): Data to predict on
+- `return_probs` (bool, default=True): Return probabilities
+- `return_entropy` (bool, default=True): Return entropy
+- `return_diagnostics` (bool, default=True): Return diagnostics
+
+**Returns:**
+- `BatchResult`: Result object with predictions, probabilities, entropy, and diagnostics
+
+**Example:**
+
+```python
+from nimbus_pysdk import predict_batch, NimbusLDA
+from nimbus_pysdk.data import BCIData, BCIMetadata
+
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
+
+metadata = BCIMetadata(
+    sampling_rate=250.0,
+    paradigm="motor_imagery",
+    feature_type="csp",
+    n_features=16,
+    n_classes=4
+)
+data = BCIData(features, metadata)
+
+result = predict_batch(clf.model_, data)
+print(f"Accuracy: {(result.predictions == labels).mean():.2%}")
+print(f"Mean entropy: {result.mean_entropy:.2f} bits")
+```
+
+### StreamingSession
+
+Real-time chunk-by-chunk processing.
+
+```python
+from nimbus_pysdk import StreamingSession
+
+session = StreamingSession(
+    model,      # Trained model
+    metadata    # BCIMetadata with chunk_size
+)
+```
+
+**Methods:**
+- `process_chunk(chunk)`: Process one chunk, returns ChunkResult
+- `finalize_trial(method="weighted_vote")`: Finalize trial, returns StreamingResult
+- `reset()`: Reset session for new trial
+
+**Example:**
+
+```python
+from nimbus_pysdk import NimbusLDA, StreamingSession
+from nimbus_pysdk.data import BCIMetadata
+
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
+
+metadata = BCIMetadata(
+    sampling_rate=250.0,
+    paradigm="motor_imagery",
+    feature_type="csp",
+    n_features=16,
+    n_classes=4,
+    chunk_size=125,  # 500ms chunks
+    temporal_aggregation="logvar"
+)
+
+session = StreamingSession(clf.model_, metadata)
+
+# Process chunks
+for chunk in stream:
+    result = session.process_chunk(chunk)
+    print(f"Chunk: class {result.prediction} ({result.confidence:.2%})")
+
+# Finalize
+final = session.finalize_trial(method="weighted_vote")
+print(f"Final: class {final.prediction}")
+```
+
+### ChunkResult
+
+Result from processing a single chunk.
+
+**Attributes:**
+- `prediction` (int): Predicted class
+- `probabilities` (np.ndarray): Class probabilities
+- `confidence` (float): Confidence (max probability)
+- `entropy` (float): Entropy in bits
+
+### StreamingResult
+
+Result from finalizing a trial.
+
+**Attributes:**
+- `prediction` (int): Final predicted class
+- `probabilities` (np.ndarray): Aggregated probabilities
+- `confidence` (float): Final confidence
+- `entropy` (float): Final entropy
+- `chunk_predictions` (list): Predictions from each chunk
+- `aggregation_method` (str): Method used for aggregation
+
+### BatchResult
+
+Result from batch inference.
+
+**Attributes:**
+- `predictions` (np.ndarray): Predicted classes
+- `probabilities` (np.ndarray): Class probabilities
+- `entropy` (np.ndarray): Entropy per trial
+- `mean_entropy` (float): Mean entropy
+- `balance` (float): Class balance
+- `latency_ms` (float): Inference latency
+- `calibration` (CalibrationMetrics): Calibration metrics
+
+## Metrics
+
+### compute_entropy()
+
+Compute Shannon entropy from probabilities.
+
+```python
+from nimbus_pysdk import compute_entropy
+
+entropy = compute_entropy(probabilities)  # bits
+```
+
+**Parameters:**
+- `probabilities` (np.ndarray): Probability distributions
+
+**Returns:**
+- `np.ndarray`: Entropy in bits
+
+### compute_calibration_metrics()
+
+Compute Expected Calibration Error (ECE) and Maximum Calibration Error (MCE).
+
+```python
+from nimbus_pysdk import compute_calibration_metrics
+
+metrics = compute_calibration_metrics(
+    predictions,
+    confidences,
+    labels,
+    n_bins=10
+)
+```
+
+**Parameters:**
+- `predictions` (np.ndarray): Predicted classes
+- `confidences` (np.ndarray): Confidence scores
+- `labels` (np.ndarray): True labels
+- `n_bins` (int, default=10): Number of bins
+
+**Returns:**
+- `CalibrationMetrics`: Object with `ece` and `mce` attributes
+
+### calculate_itr()
+
+Calculate Information Transfer Rate.
+
+```python
+from nimbus_pysdk import calculate_itr
+
+itr = calculate_itr(
+    accuracy=0.85,
+    n_classes=4,
+    trial_duration=4.0
+)
+```
+
+**Parameters:**
+- `accuracy` (float): Classification accuracy (0-1)
+- `n_classes` (int): Number of classes
+- `trial_duration` (float): Trial duration in seconds
+
+**Returns:**
+- `float`: ITR in bits/minute
+
+### assess_trial_quality()
+
+Assess quality of predictions.
+
+```python
+from nimbus_pysdk import assess_trial_quality
+
+quality = assess_trial_quality(
+    probabilities,
+    entropy,
+    confidence_threshold=0.7
+)
+```
+
+**Parameters:**
+- `probabilities` (np.ndarray): Class probabilities
+- `entropy` (np.ndarray): Entropy values
+- `confidence_threshold` (float, default=0.7): Threshold for quality
+
+**Returns:**
+- `TrialQuality`: Object with quality metrics
+
+### should_reject_trial()
+
+Determine if trial should be rejected based on confidence.
+
+```python
+from nimbus_pysdk import should_reject_trial
+
+reject = should_reject_trial(confidence, threshold=0.7)
+```
+
+**Parameters:**
+- `confidence` (float): Confidence score
+- `threshold` (float, default=0.7): Rejection threshold
+
+**Returns:**
+- `bool`: True if trial should be rejected
+
+## Utilities
+
+### estimate_normalization_params()
+
+Estimate normalization parameters from data.
+
+```python
+from nimbus_pysdk import estimate_normalization_params
+
+params = estimate_normalization_params(
+    X,
+    method="zscore",  # or "minmax", "robust"
+    axis=0
+)
+```
+
+**Parameters:**
+- `X` (np.ndarray): Data array
+- `method` (str): Normalization method
+- `axis` (int): Axis to normalize along
+
+**Returns:**
+- `NormalizationParams`: Parameters for normalization
+
+### apply_normalization()
+
+Apply normalization to data.
+
+```python
+from nimbus_pysdk import apply_normalization
+
+X_normalized = apply_normalization(X, params)
+```
+
+**Parameters:**
+- `X` (np.ndarray): Data to normalize
+- `params` (NormalizationParams): Normalization parameters
+
+**Returns:**
+- `np.ndarray`: Normalized data
+
+### diagnose_preprocessing()
+
+Diagnose preprocessing quality.
+
+```python
+from nimbus_pysdk import diagnose_preprocessing
+
+report = diagnose_preprocessing(
+    features,
+    labels,
+    sampling_rate=250.0
+)
+```
+
+**Parameters:**
+- `features` (np.ndarray): Feature array
+- `labels` (np.ndarray): Labels
+- `sampling_rate` (float): Sampling rate
+
+**Returns:**
+- `PreprocessingReport`: Diagnostic report
+
+### compute_fisher_score()
+
+Compute Fisher score for feature discriminability.
+
+```python
+from nimbus_pysdk import compute_fisher_score
+
+scores = compute_fisher_score(X, y)
+```
+
+**Parameters:**
+- `X` (np.ndarray): Features
+- `y` (np.ndarray): Labels
+
+**Returns:**
+- `np.ndarray`: Fisher scores per feature
+
+### rank_features_by_discriminability()
+
+Rank features by discriminability.
+
+```python
+from nimbus_pysdk import rank_features_by_discriminability
+
+ranking = rank_features_by_discriminability(X, y)
+```
+
+**Parameters:**
+- `X` (np.ndarray): Features
+- `y` (np.ndarray): Labels
+
+**Returns:**
+- `np.ndarray`: Feature indices sorted by discriminability
+
+## MNE Integration
+
+### from_mne_epochs()
+
+Convert MNE Epochs to BCIData.
+
+```python
+from nimbus_pysdk.compat import from_mne_epochs
+
+data = from_mne_epochs(
+    epochs,
+    paradigm="motor_imagery",
+    feature_type="raw"
+)
+```
+
+**Parameters:**
+- `epochs` (mne.Epochs): MNE Epochs object
+- `paradigm` (str): BCI paradigm
+- `feature_type` (str): Feature type
+
+**Returns:**
+- `BCIData`: Converted data
+
+### extract_csp_features()
+
+Extract CSP features from MNE Epochs.
+
+```python
+from nimbus_pysdk.compat import extract_csp_features
+
+features, csp = extract_csp_features(
+    epochs,
+    n_components=8,
+    log=True
+)
+```
+
+**Parameters:**
+- `epochs` (mne.Epochs): MNE Epochs object
+- `n_components` (int): Number of CSP components
+- `log` (bool): Apply log transform
+
+**Returns:**
+- `features` (np.ndarray): CSP features
+- `csp` (mne.decoding.CSP): Fitted CSP object
+
+### extract_bandpower_features()
+
+Extract bandpower features from MNE Epochs.
+
+```python
+from nimbus_pysdk.compat import extract_bandpower_features
+
+features = extract_bandpower_features(
+    epochs,
+    bands={"mu": (8, 12), "beta": (13, 30)},
+    method="welch"
+)
+```
+
+**Parameters:**
+- `epochs` (mne.Epochs): MNE Epochs object
+- `bands` (dict): Frequency bands
+- `method` (str): Method ("welch" or "multitaper")
+
+**Returns:**
+- `np.ndarray`: Bandpower features
+
+### create_bci_pipeline()
+
+Create complete BCI pipeline with MNE and nimbus-bci.
+
+```python
+from nimbus_pysdk.compat import create_bci_pipeline
+
+pipeline = create_bci_pipeline(
+    classifier="lda",
+    n_csp_components=8,
+    bands=(8, 30)
+)
+```
+
+**Parameters:**
+- `classifier` (str): Classifier type ("lda", "gmm", "softmax")
+- `n_csp_components` (int): Number of CSP components
+- `bands` (tuple): Frequency band (low, high)
+
+**Returns:**
+- `sklearn.pipeline.Pipeline`: Complete pipeline
+
+## Functional API (Backward Compatible)
+
+### LDA Functions
+
+```python
+from nimbus_pysdk import (
+    nimbus_lda_fit,
+    nimbus_lda_predict,
+    nimbus_lda_predict_proba,
+    nimbus_lda_update
+)
+
+# Fit
+model = nimbus_lda_fit(X, y, n_classes=4, label_base=0)
+
+# Predict
+probs = nimbus_lda_predict_proba(model, X_test)
+preds = nimbus_lda_predict(model, X_test)
+
+# Update
+model = nimbus_lda_update(model, X_new, y_new)
+```
+
+### GMM Functions
+
+```python
+from nimbus_pysdk import (
+    nimbus_gmm_fit,
+    nimbus_gmm_predict,
+    nimbus_gmm_predict_proba,
+    nimbus_gmm_update
+)
+
+# Same API as LDA functions
+model = nimbus_gmm_fit(X, y, n_classes=4, label_base=0)
+probs = nimbus_gmm_predict_proba(model, X_test)
+```
+
+### Softmax Functions
+
+```python
+from nimbus_pysdk import (
+    nimbus_softmax_fit,
+    nimbus_softmax_predict,
+    nimbus_softmax_predict_proba,
+    nimbus_softmax_update
+)
+
+# Same API as LDA functions
+model = nimbus_softmax_fit(X, y, n_classes=4, label_base=0)
+probs = nimbus_softmax_predict_proba(model, X_test)
+```
+
+### Model I/O
+
+```python
+from nimbus_pysdk import nimbus_save, nimbus_load
+
+# Save model
+nimbus_save(model, "model.npz")
+
+# Load model
+model = nimbus_load("model.npz")
+```
+
+## Type Hints
+
+All functions and classes include type hints for better IDE support:
+
+```python
+from nimbus_pysdk import NimbusLDA
+import numpy as np
+from numpy.typing import NDArray
+
+def train_classifier(
+    X: NDArray[np.float64],
+    y: NDArray[np.int64]
+) -> NimbusLDA:
+    clf = NimbusLDA()
+    clf.fit(X, y)
+    return clf
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="sklearn Integration" icon="code" href="/python-sdk/sklearn-integration">
+    Advanced sklearn patterns and best practices
+  </Card>
+  <Card title="Streaming Inference" icon="wave-square" href="/python-sdk/streaming-inference">
+    Real-time BCI with chunk processing
+  </Card>
+  <Card title="MNE Integration" icon="brain" href="/python-sdk/mne-integration">
+    Complete EEG preprocessing pipeline
+  </Card>
+  <Card title="Examples" icon="braces" href="/examples/code-samples">
+    Working code examples
+  </Card>
+</CardGroup>
+

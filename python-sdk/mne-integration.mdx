@@ -1,0 +1,629 @@
+---
+title: "MNE-Python Integration"
+description: "Use nimbus-bci with MNE-Python for complete EEG preprocessing and classification"
+icon: "brain"
+---
+
+# MNE-Python Integration
+
+The nimbus-bci library integrates seamlessly with MNE-Python, the leading Python package for EEG/MEG analysis. This allows you to build complete BCI pipelines from raw EEG to classification.
+
+## Overview
+
+MNE-Python handles:
+- Loading EEG data from various formats
+- Preprocessing (filtering, artifact removal)
+- Epoching and event extraction
+- Feature extraction (CSP, bandpower)
+
+nimbus-bci handles:
+- Bayesian classification
+- Uncertainty quantification
+- Online learning
+- Real-time inference
+
+## Installation
+
+Install both packages:
+
+```bash
+pip install nimbus-bci[mne]
+```
+
+This installs:
+- `nimbus-bci` - Bayesian classifiers
+- `mne` ≥ 1.6 - EEG preprocessing
+- `scipy` ≥ 1.12 - Signal processing
+
+## Basic Workflow
+
+### 1. Load and Preprocess with MNE
+
+```python
+import mne
+
+# Load raw EEG data
+raw = mne.io.read_raw_gdf("motor_imagery.gdf", preload=True)
+
+# Filter to relevant frequency bands
+raw.filter(8, 30)  # Mu + Beta bands for motor imagery
+
+# Find events
+events = mne.find_events(raw)
+
+# Create epochs
+epochs = mne.Epochs(
+    raw,
+    events,
+    event_id={'left_hand': 1, 'right_hand': 2},
+    tmin=0,
+    tmax=4,
+    baseline=None,
+    preload=True
+)
+```
+
+### 2. Extract Features
+
+```python
+from nimbus_pysdk.compat import extract_csp_features
+
+# Extract CSP features
+csp_features, csp = extract_csp_features(epochs, n_components=8)
+
+# csp_features shape: (n_epochs, n_components)
+# csp: fitted CSP object for later use
+```
+
+### 3. Train Classifier
+
+```python
+from nimbus_pysdk import NimbusLDA
+
+# Get labels
+labels = epochs.events[:, 2]
+
+# Train classifier
+clf = NimbusLDA()
+clf.fit(csp_features, labels)
+
+# Evaluate
+from sklearn.model_selection import cross_val_score
+scores = cross_val_score(clf, csp_features, labels, cv=5)
+print(f"Accuracy: {scores.mean():.2%} (+/- {scores.std():.2%})")
+```
+
+## Complete Motor Imagery Pipeline
+
+```python
+import mne
+from nimbus_pysdk import NimbusLDA
+from nimbus_pysdk.compat import extract_csp_features
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+# 1. Load data
+raw = mne.io.read_raw_gdf("motor_imagery.gdf", preload=True)
+
+# 2. Preprocessing
+raw.filter(8, 30)  # Mu + Beta bands
+raw.set_eeg_reference('average')  # Average reference
+
+# 3. Artifact removal (optional)
+raw.set_annotations(mne.preprocessing.annotate_muscle_zscore(raw))
+
+# 4. Epoching
+events = mne.find_events(raw)
+event_id = {'left_hand': 1, 'right_hand': 2, 'feet': 3, 'tongue': 4}
+epochs = mne.Epochs(
+    raw, events, event_id,
+    tmin=0, tmax=4,
+    baseline=None,
+    preload=True
+)
+
+# 5. Feature extraction
+csp_features, csp = extract_csp_features(epochs, n_components=8, log=True)
+labels = epochs.events[:, 2]
+
+# 6. Train/test split
+X_train, X_test, y_train, y_test = train_test_split(
+    csp_features, labels, test_size=0.2, stratify=labels, random_state=42
+)
+
+# 7. Create pipeline
+pipe = make_pipeline(
+    StandardScaler(),
+    NimbusLDA(mu_scale=3.0)
+)
+
+# 8. Train
+pipe.fit(X_train, y_train)
+
+# 9. Evaluate
+train_score = pipe.score(X_train, y_train)
+test_score = pipe.score(X_test, y_test)
+
+print(f"Train accuracy: {train_score:.2%}")
+print(f"Test accuracy: {test_score:.2%}")
+```
+
+## CSP Feature Extraction
+
+### Basic CSP
+
+```python
+from nimbus_pysdk.compat import extract_csp_features
+
+# Extract CSP features
+features, csp = extract_csp_features(
+    epochs,
+    n_components=8,  # Number of CSP components
+    log=True         # Apply log transform
+)
+```
+
+### Custom CSP Parameters
+
+```python
+from mne.decoding import CSP
+
+# Create custom CSP
+csp = CSP(
+    n_components=8,
+    reg='ledoit_wolf',  # Regularization
+    log=True,
+    norm_trace=False
+)
+
+# Fit and transform
+X = epochs.get_data()
+y = epochs.events[:, 2]
+csp_features = csp.fit_transform(X, y)
+```
+
+### Multi-Class CSP
+
+For more than 2 classes:
+
+```python
+from nimbus_pysdk.compat import extract_csp_features
+
+# Works automatically for multi-class
+features, csp = extract_csp_features(
+    epochs,  # 4-class motor imagery
+    n_components=8
+)
+
+# Train multi-class classifier
+from nimbus_pysdk import NimbusLDA
+clf = NimbusLDA()
+clf.fit(features, epochs.events[:, 2])
+```
+
+## Bandpower Features
+
+### Extract Bandpower
+
+```python
+from nimbus_pysdk.compat import extract_bandpower_features
+
+# Define frequency bands
+bands = {
+    'delta': (1, 4),
+    'theta': (4, 8),
+    'alpha': (8, 13),
+    'beta': (13, 30),
+    'gamma': (30, 45)
+}
+
+# Extract bandpower features
+features = extract_bandpower_features(
+    epochs,
+    bands=bands,
+    method='welch'  # or 'multitaper'
+)
+
+# Train classifier
+from nimbus_pysdk import NimbusGMM
+clf = NimbusGMM()
+clf.fit(features, epochs.events[:, 2])
+```
+
+### Welch vs Multitaper
+
+```python
+# Welch method (faster)
+features_welch = extract_bandpower_features(
+    epochs, bands, method='welch'
+)
+
+# Multitaper method (more accurate)
+features_multitaper = extract_bandpower_features(
+    epochs, bands, method='multitaper'
+)
+```
+
+## P300 ERP Features
+
+### Extract ERP Amplitudes
+
+```python
+import mne
+from nimbus_pysdk import NimbusGMM
+import numpy as np
+
+# Load P300 data
+raw = mne.io.read_raw_fif("p300_oddball.fif", preload=True)
+raw.filter(0.1, 30)
+
+# Epoch around stimuli
+events = mne.find_events(raw)
+epochs = mne.Epochs(
+    raw, events,
+    event_id={'target': 1, 'non_target': 2},
+    tmin=-0.2, tmax=0.8,
+    baseline=(-0.2, 0),
+    preload=True
+)
+
+# Extract ERP features (mean amplitude in time windows)
+def extract_erp_features(epochs):
+    data = epochs.get_data()  # (n_epochs, n_channels, n_times)
+    
+    # Define time windows of interest
+    p300_window = (0.3, 0.5)  # 300-500ms
+    times = epochs.times
+    
+    # Find time indices
+    idx = np.where((times >= p300_window[0]) & (times <= p300_window[1]))[0]
+    
+    # Mean amplitude in window
+    features = data[:, :, idx].mean(axis=2)  # (n_epochs, n_channels)
+    
+    return features
+
+erp_features = extract_erp_features(epochs)
+
+# Train classifier
+clf = NimbusGMM()
+clf.fit(erp_features, epochs.events[:, 2])
+```
+
+## Convert Between Formats
+
+### MNE Epochs to BCIData
+
+```python
+from nimbus_pysdk.compat import from_mne_epochs
+
+# Convert MNE Epochs to BCIData
+data = from_mne_epochs(
+    epochs,
+    paradigm="motor_imagery",
+    feature_type="raw"  # or "csp", "bandpower"
+)
+
+# Use with batch inference
+from nimbus_pysdk import predict_batch
+result = predict_batch(clf.model_, data)
+```
+
+### BCIData to MNE Epochs
+
+```python
+from nimbus_pysdk.compat import to_mne_epochs
+
+# Convert BCIData back to MNE Epochs
+epochs_reconstructed = to_mne_epochs(
+    bci_data,
+    info=original_epochs.info
+)
+```
+
+## Complete BCI Pipeline
+
+Create end-to-end pipeline:
+
+```python
+from nimbus_pysdk.compat import create_bci_pipeline
+
+# Create complete pipeline
+pipeline = create_bci_pipeline(
+    classifier="lda",      # or "gmm", "softmax"
+    n_csp_components=8,
+    bands=(8, 30)          # Frequency band
+)
+
+# Load and preprocess with MNE
+raw = mne.io.read_raw_gdf("data.gdf", preload=True)
+raw.filter(8, 30)
+events = mne.find_events(raw)
+epochs = mne.Epochs(raw, events, tmin=0, tmax=4, preload=True)
+
+# Extract features
+X = epochs.get_data()
+y = epochs.events[:, 2]
+
+# Train pipeline
+pipeline.fit(X, y)
+
+# Predict
+predictions = pipeline.predict(X)
+```
+
+## Real-Time BCI with MNE
+
+### Online Processing
+
+```python
+import mne
+from nimbus_pysdk import NimbusLDA, StreamingSession
+from nimbus_pysdk.data import BCIMetadata
+from nimbus_pysdk.compat import extract_csp_features
+
+# 1. Calibration phase
+print("=== Calibration ===")
+raw = mne.io.read_raw_gdf("calibration.gdf", preload=True)
+raw.filter(8, 30)
+events = mne.find_events(raw)
+epochs = mne.Epochs(raw, events, tmin=0, tmax=4, preload=True)
+
+# Train CSP and classifier
+csp_features, csp = extract_csp_features(epochs, n_components=8)
+clf = NimbusLDA()
+clf.fit(csp_features, epochs.events[:, 2])
+
+# 2. Online phase
+print("=== Online ===")
+
+# Setup streaming
+metadata = BCIMetadata(
+    sampling_rate=250.0,
+    paradigm="motor_imagery",
+    feature_type="csp",
+    n_features=8,
+    n_classes=4,
+    chunk_size=125,
+    temporal_aggregation="logvar"
+)
+
+session = StreamingSession(clf.model_, metadata)
+
+# Process real-time data
+from mne.io import RawArray
+
+while True:
+    # Acquire raw EEG chunk (your acquisition code)
+    raw_chunk = acquire_eeg_chunk(duration=0.5)  # 500ms
+    
+    # Create MNE RawArray for preprocessing
+    info = mne.create_info(
+        ch_names=['C3', 'Cz', 'C4'],  # Your channels
+        sfreq=250.0,
+        ch_types='eeg'
+    )
+    raw_mne = RawArray(raw_chunk, info)
+    
+    # Apply same preprocessing
+    raw_mne.filter(8, 30)
+    
+    # Apply CSP transform
+    csp_chunk = csp.transform(raw_mne.get_data().T[np.newaxis, :, :])[0]
+    
+    # Process chunk
+    result = session.process_chunk(csp_chunk.T)
+    print(f"Prediction: {result.prediction} ({result.confidence:.2%})")
+```
+
+## Cross-Session Transfer
+
+Handle different sessions with normalization:
+
+```python
+import mne
+from nimbus_pysdk import NimbusLDA
+from nimbus_pysdk import estimate_normalization_params, apply_normalization
+from nimbus_pysdk.compat import extract_csp_features
+
+# Session 1 (training)
+raw1 = mne.io.read_raw_gdf("session1.gdf", preload=True)
+raw1.filter(8, 30)
+epochs1 = mne.Epochs(raw1, mne.find_events(raw1), tmin=0, tmax=4, preload=True)
+features1, csp = extract_csp_features(epochs1, n_components=8)
+
+# Estimate normalization from session 1
+norm_params = estimate_normalization_params(features1, method="zscore")
+features1_norm = apply_normalization(features1, norm_params)
+
+# Train on normalized features
+clf = NimbusLDA()
+clf.fit(features1_norm, epochs1.events[:, 2])
+
+# Session 2 (testing)
+raw2 = mne.io.read_raw_gdf("session2.gdf", preload=True)
+raw2.filter(8, 30)
+epochs2 = mne.Epochs(raw2, mne.find_events(raw2), tmin=0, tmax=4, preload=True)
+
+# Apply same CSP
+X2 = epochs2.get_data()
+features2 = csp.transform(X2)
+
+# Apply same normalization
+features2_norm = apply_normalization(features2, norm_params)
+
+# Predict
+predictions = clf.predict(features2_norm)
+accuracy = (predictions == epochs2.events[:, 2]).mean()
+print(f"Cross-session accuracy: {accuracy:.2%}")
+```
+
+## Advanced Preprocessing
+
+### ICA for Artifact Removal
+
+```python
+import mne
+from nimbus_pysdk import NimbusLDA
+from nimbus_pysdk.compat import extract_csp_features
+
+# Load data
+raw = mne.io.read_raw_gdf("data.gdf", preload=True)
+raw.filter(1, 40)
+
+# Run ICA
+ica = mne.preprocessing.ICA(n_components=15, random_state=42)
+ica.fit(raw)
+
+# Find and remove eye blinks
+eog_indices, eog_scores = ica.find_bads_eog(raw)
+ica.exclude = eog_indices
+
+# Apply ICA
+raw_clean = ica.apply(raw.copy())
+
+# Continue with clean data
+raw_clean.filter(8, 30)
+epochs = mne.Epochs(raw_clean, mne.find_events(raw_clean), tmin=0, tmax=4, preload=True)
+features, csp = extract_csp_features(epochs)
+
+clf = NimbusLDA()
+clf.fit(features, epochs.events[:, 2])
+```
+
+### Automated Artifact Rejection
+
+```python
+import mne
+
+# Load and filter
+raw = mne.io.read_raw_gdf("data.gdf", preload=True)
+raw.filter(8, 30)
+
+# Epoch
+events = mne.find_events(raw)
+epochs = mne.Epochs(raw, events, tmin=0, tmax=4, preload=True)
+
+# Automated rejection
+reject_criteria = dict(
+    eeg=100e-6  # 100 µV
+)
+
+epochs.drop_bad(reject=reject_criteria)
+
+print(f"Kept {len(epochs)} / {len(events)} epochs")
+
+# Continue with clean epochs
+from nimbus_pysdk.compat import extract_csp_features
+features, csp = extract_csp_features(epochs)
+```
+
+## Visualization
+
+### Plot CSP Patterns
+
+```python
+import mne
+from nimbus_pysdk.compat import extract_csp_features
+import matplotlib.pyplot as plt
+
+# Extract CSP
+features, csp = extract_csp_features(epochs, n_components=8)
+
+# Plot CSP patterns
+csp.plot_patterns(epochs.info, show=True)
+
+# Plot CSP filters
+csp.plot_filters(epochs.info, show=True)
+```
+
+### Plot Classification Results
+
+```python
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
+
+# Get predictions
+predictions = clf.predict(features)
+labels = epochs.events[:, 2]
+
+# Confusion matrix
+cm = confusion_matrix(labels, predictions)
+disp = ConfusionMatrixDisplay(cm, display_labels=['Left', 'Right', 'Feet', 'Tongue'])
+disp.plot()
+plt.show()
+```
+
+## Best Practices
+
+### 1. Consistent Preprocessing
+
+Apply same preprocessing to all data:
+
+```python
+def preprocess_raw(raw):
+    """Standard preprocessing pipeline."""
+    raw = raw.copy()
+    raw.filter(8, 30)
+    raw.set_eeg_reference('average')
+    return raw
+
+# Use for all sessions
+raw_train = preprocess_raw(mne.io.read_raw_gdf("train.gdf", preload=True))
+raw_test = preprocess_raw(mne.io.read_raw_gdf("test.gdf", preload=True))
+```
+
+### 2. Save Preprocessing Objects
+
+Save CSP and normalization for later use:
+
+```python
+import joblib
+
+# Save CSP transformer
+joblib.dump(csp, 'csp_transformer.pkl')
+
+# Save normalization params
+joblib.dump(norm_params, 'norm_params.pkl')
+
+# Load later
+csp = joblib.load('csp_transformer.pkl')
+norm_params = joblib.load('norm_params.pkl')
+```
+
+### 3. Validate Data Quality
+
+Check data quality before training:
+
+```python
+from nimbus_pysdk import diagnose_preprocessing
+
+# Diagnose features
+report = diagnose_preprocessing(
+    features,
+    labels,
+    sampling_rate=250.0
+)
+
+print(f"Quality score: {report.quality_score}")
+print(f"Issues: {report.issues}")
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Streaming Inference" icon="wave-square" href="/python-sdk/streaming-inference">
+    Real-time BCI with chunk processing
+  </Card>
+  <Card title="API Reference" icon="book" href="/python-sdk/api-reference">
+    Complete API documentation
+  </Card>
+  <Card title="sklearn Integration" icon="code" href="/python-sdk/sklearn-integration">
+    Advanced sklearn patterns
+  </Card>
+  <Card title="Examples" icon="braces" href="/examples/code-samples">
+    Working code examples
+  </Card>
+</CardGroup>
+

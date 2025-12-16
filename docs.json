@@ -40,6 +40,18 @@
         ]
       },
       {
+        "group": "Python SDK",
+        "pages": [
+          "python-sdk/introduction",
+          "python-sdk/installation",
+          "python-sdk/quickstart",
+          "python-sdk/api-reference",
+          "python-sdk/sklearn-integration",
+          "python-sdk/streaming-inference",
+          "python-sdk/mne-integration"
+        ]
+      },
+      {
         "group": "Core concepts",
         "pages": [
           "core-concepts/probabilistic-ai",

@@ -99,6 +99,156 @@ check_installation() -> Bool
 
 **Returns:** `true` if core is installed and operational
 
+<Note>
+**Note**: `check_installation()` is provided by the NimbusSDK wrapper package. For direct NimbusSDKCore usage, check authentication status using `NimbusSDKCore.AUTH_STATE[]`.
+</Note>
+
+## Authentication
+
+<Note>
+**For most users**: Authentication is handled automatically by `NimbusSDK.install_core()`. The functions below are for advanced users working directly with NimbusSDKCore.
+</Note>
+
+### authenticate()
+
+Authenticate with NimbusSDKCore using an API key. This function validates the key remotely and caches credentials locally.
+
+```julia
+authenticate(api_key::String; offline_mode::Bool=false) -> AuthSession
+```
+
+**Parameters:**
+- `api_key::String` - Your NimbusSDK API key (format: `nbci_live_...` or `nbci_test_...`)
+- `offline_mode::Bool` - If `true`, skip remote validation and use cached credentials (default: `false`)
+
+**Returns:** `AuthSession` object containing authentication state
+
+**Example:**
+```julia
+using NimbusSDKCore
+
+# Authenticate online (validates with API)
+session = NimbusSDKCore.authenticate("nbci_live_your_key_here")
+
+# Authenticate offline (uses cached credentials)
+session = NimbusSDKCore.authenticate("nbci_live_your_key_here"; offline_mode=true)
+```
+
+### invalidate_session()
+
+Clear the current authentication session and cached credentials.
+
+```julia
+invalidate_session() -> Nothing
+```
+
+**Example:**
+```julia
+using NimbusSDKCore
+
+# Clear authentication
+NimbusSDKCore.invalidate_session()
+```
+
+### AuthSession
+
+Authentication session object containing license information and API state.
+
+```julia
+struct AuthSession
+    api_key::String
+    user_id::String
+    license_type::Symbol  # :trial, :research, :commercial, :enterprise
+    expires_at::DateTime
+    features_enabled::Vector{Symbol}  # [:batch_inference, :streaming, :training, ...]
+    usage_quota::Union{Int, Nothing}  # Remaining quota (nothing = unlimited)
+    usage_quota_max::Union{Int, Nothing}  # Maximum quota
+    refresh_token::Union{String, Nothing}  # Refresh token for renewing access
+end
+```
+
+### Key Management Functions
+
+#### save_api_key()
+
+Save an API key to local storage for later use.
+
+```julia
+save_api_key(api_key::String) -> Nothing
+```
+
+#### get_stored_api_key()
+
+Retrieve a previously saved API key.
+
+```julia
+get_stored_api_key() -> Union{String, Nothing}
+```
+
+**Returns:** API key string or `nothing` if no key is stored
+
+#### delete_stored_api_key()
+
+Delete a stored API key from local storage.
+
+```julia
+delete_stored_api_key() -> Nothing
+```
+
+#### authenticate_from_storage()
+
+Authenticate using a previously saved API key.
+
+```julia
+authenticate_from_storage() -> AuthSession
+```
+
+**Returns:** `AuthSession` if authentication successful
+
+**Throws:** Error if no stored key or authentication fails
+
+### Quota Management
+
+#### refresh_quota()
+
+Refresh API quota information from the server.
+
+```julia
+refresh_quota() -> AuthSession
+```
+
+**Returns:** Updated `AuthSession` with refreshed quota information
+
+#### check_quota_and_refresh()
+
+Check quota status and refresh if needed.
+
+```julia
+check_quota_and_refresh() -> Bool
+```
+
+**Returns:** `true` if quota is available, `false` if exhausted
+
+#### get_quota_status()
+
+Get current quota status without refreshing.
+
+```julia
+get_quota_status() -> NamedTuple
+```
+
+**Returns:** Named tuple with `remaining::Int`, `monthly_limit::Int`, `usage_percentage::Float64`
+
+**Example:**
+```julia
+using NimbusSDKCore
+
+# Check quota
+status = get_quota_status()
+println("Quota remaining: $(status.remaining) / $(status.monthly_limit)")
+println("Usage: $(round(status.usage_percentage, digits=1))%")
+```
+
 ## Models
 
 NimbusSDK provides three Bayesian inference models:
@@ -112,10 +262,16 @@ NimbusSDK provides three Bayesian inference models:
 Linear Discriminant Analysis with shared precision matrix. Fast inference with good performance for well-separated classes.
 
 **Fields:**
-- `means::Vector{Vector{Float64}}` - Class means [m1, m2, ..., mk]
-- `precisions::Vector{Matrix{Float64}}` - Class precision matrices
-- `global_precision::Matrix{Float64}` - Shared precision matrix
+- `mean_posteriors::Vector` - Full posterior distributions for class means (MvNormal objects, one per class)
+- `precision_posterior` - Full posterior distribution for shared precision matrix (Wishart object, shared across all classes)
+- `priors::Vector{Float64}` - Empirical class priors from training data (must sum to 1.0)
 - `metadata::ModelMetadata` - Model metadata
+- `dof_offset::Int` - Degrees of freedom offset used during training (default: 2)
+- `mean_prior_precision::Float64` - Mean prior precision strength used during training (default: 0.01)
+
+<Note>
+**Accessing model parameters**: To get point estimates from posterior distributions, use `mean(model.mean_posteriors[k])` for class means and `mean(model.precision_posterior)` for the precision matrix. The SDK stores full posterior distributions (not just point estimates) for proper Bayesian inference.
+</Note>
 
 ### RxGMMModel
 
@@ -126,9 +282,16 @@ Linear Discriminant Analysis with shared precision matrix. Fast inference with g
 Gaussian Mixture Model with class-specific covariance matrices. More flexible, handles overlapping distributions.
 
 **Fields:**
-- `means::Vector{Vector{Float64}}` - Class means [m1, m2, ..., mk]
-- `precisions::Vector` - Vector of precision matrices or Wishart distributions
+- `mean_posteriors::Vector` - Full posterior distributions for class means (MvNormal objects, one per class)
+- `precision_posteriors::Vector` - Full posterior distributions for precision matrices (Wishart objects, one per class)
+- `priors::Vector{Float64}` - Empirical class priors from training data (must sum to 1.0)
 - `metadata::ModelMetadata` - Model metadata
+- `dof_offset::Int` - Degrees of freedom offset used during training (default: 2)
+- `mean_prior_precision::Float64` - Mean prior precision strength used during training (default: 0.01)
+
+<Note>
+**Accessing model parameters**: To get point estimates from posterior distributions, use `mean(model.mean_posteriors[k])` for class means and `mean(model.precision_posteriors[k])` for class-specific precision matrices. The SDK stores full posterior distributions (not just point estimates) for proper Bayesian inference.
+</Note>
 
 ### RxPolyaModel
 
@@ -679,6 +842,143 @@ metadata = BCIMetadata(
 )
 ```
 
+### Model Utility Functions
+
+#### get_n_features()
+
+Get the number of features expected by a model.
+
+```julia
+get_n_features(model::BCIModel) -> Int
+```
+
+**Parameters:**
+- `model` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
+
+**Returns:** Number of features expected by the model
+
+**Example:**
+```julia
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+n_features = get_n_features(model)  # e.g., 16
+```
+
+#### get_n_classes()
+
+Get the number of classes a model can classify.
+
+```julia
+get_n_classes(model::BCIModel) -> Int
+```
+
+**Parameters:**
+- `model` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
+
+**Returns:** Number of classes the model can classify
+
+**Example:**
+```julia
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+n_classes = get_n_classes(model)  # e.g., 4
+```
+
+#### get_paradigm()
+
+Get the target paradigm for a model.
+
+```julia
+get_paradigm(model::BCIModel) -> Union{Symbol, Nothing}
+```
+
+**Parameters:**
+- `model` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
+
+**Returns:** Paradigm symbol (`:motor_imagery`, `:p300`, etc.) or `nothing` if paradigm-agnostic
+
+**Example:**
+```julia
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+paradigm = get_paradigm(model)  # :motor_imagery
+```
+
+#### list_available_models()
+
+List available models from the Nimbus model registry based on your license.
+
+```julia
+list_available_models(; paradigm=nothing, model_type=nothing) -> Vector{Dict}
+```
+
+**Parameters:**
+- `paradigm` - Optional filter by BCI paradigm (`:motor_imagery`, `:p300`, `:ssvep`)
+- `model_type` - Optional filter by model type (`:RxLDA`, `:RxGMM`, `:RxPolya`)
+
+**Returns:** Vector of model information dictionaries with keys: `name`, `version`, `type`, `paradigm`, `n_features`, `n_classes`, `requires_license`
+
+**Example:**
+```julia
+using NimbusSDKCore
+
+# List all available models
+all_models = list_available_models()
+
+# Filter by paradigm
+mi_models = list_available_models(paradigm=:motor_imagery)
+
+# Filter by model type
+lda_models = list_available_models(model_type=:RxLDA)
+
+# Print model information
+for model in all_models
+    println("$(model.name): $(model.type) - $(model.paradigm)")
+end
+```
+
+#### get_model_info()
+
+Get detailed information about a specific model from the registry.
+
+```julia
+get_model_info(model_name::String) -> Union{Dict, Nothing}
+```
+
+**Parameters:**
+- `model_name::String` - Name of the model to look up
+
+**Returns:** Model information dictionary or `nothing` if not found
+
+**Example:**
+```julia
+info = get_model_info("motor_imagery_4class_v1")
+if !isnothing(info)
+    println("Model: $(info.name)")
+    println("Features: $(info.n_features)")
+    println("Classes: $(info.n_classes)")
+end
+```
+
+#### check_model_license_compatibility()
+
+Check if your current license allows access to a specific model.
+
+```julia
+check_model_license_compatibility(model_name::String) -> Bool
+```
+
+**Parameters:**
+- `model_name::String` - Name of the model to check
+
+**Returns:** `true` if your license allows access, `false` otherwise
+
+**Example:**
+```julia
+if check_model_license_compatibility("motor_imagery_4class_v1")
+    model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+else
+    @warn "Your license does not allow access to this model"
+end
+```
+
 ## Data Validation
 
 ### validate_data()
@@ -722,6 +1022,32 @@ validate_chunk(chunk::Matrix{Float64}, metadata::BCIMetadata) -> Bool
 
 **Description:**
 Validates chunk dimensions and data quality for streaming inference.
+
+### check_model_compatibility()
+
+Check if a model is compatible with your data.
+
+```julia
+check_model_compatibility(model::BCIModel, data::BCIData) -> Bool
+```
+
+**Parameters:**
+- `model` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
+- `data::BCIData` - Data to check compatibility with
+
+**Returns:** `true` if model and data are compatible
+
+**Example:**
+```julia
+model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+data = BCIData(features, metadata, labels)
+
+if check_model_compatibility(model, data)
+    results = predict_batch(model, data)
+else
+    @error "Model and data are incompatible"
+end
+```
 
 ## Feature Normalization
 
@@ -929,7 +1255,7 @@ end
 
 ### OnlinePerformanceTracker
 
-Track performance metrics in real-time.
+Track performance metrics in real-time with a sliding window.
 
 ```julia
 struct OnlinePerformanceTracker
@@ -941,22 +1267,216 @@ struct OnlinePerformanceTracker
 end
 
 OnlinePerformanceTracker(window_size::Int = 100) -> tracker
-
-update_and_report!(tracker, prediction, true_label, confidence) -> metrics
-get_metrics(tracker, n_classes, trial_duration) -> BCIPerformanceMetrics
 ```
+
+**Parameters:**
+- `window_size::Int` - Number of recent trials to include in metrics (default: 100)
 
 **Example:**
 ```julia
 tracker = OnlinePerformanceTracker(window_size=50)
 
-for (pred, true_lbl, conf) in results
+for (pred, true_lbl, conf) in zip(results.predictions, data.labels, results.confidences)
     metrics = update_and_report!(tracker, pred, true_lbl, conf)
     println("Running accuracy: $(round(metrics.accuracy * 100, digits=1))%")
 end
 
 full_metrics = get_metrics(tracker, n_classes=4, trial_duration=4.0)
 println("ITR: $(full_metrics.information_transfer_rate) bits/min")
+```
+
+#### update_and_report!()
+
+Update the tracker with a new prediction and return current metrics.
+
+```julia
+update_and_report!(
+    tracker::OnlinePerformanceTracker,
+    prediction::Int,
+    true_label::Int,
+    confidence::Float64
+) -> BCIPerformanceMetrics
+```
+
+**Parameters:**
+- `tracker::OnlinePerformanceTracker` - Tracker to update
+- `prediction::Int` - Predicted class label
+- `true_label::Int` - True class label
+- `confidence::Float64` - Prediction confidence
+
+**Returns:** `BCIPerformanceMetrics` computed over the sliding window
+
+#### get_metrics()
+
+Get comprehensive performance metrics from the tracker.
+
+```julia
+get_metrics(
+    tracker::OnlinePerformanceTracker,
+    n_classes::Int,
+    trial_duration::Float64
+) -> BCIPerformanceMetrics
+```
+
+**Parameters:**
+- `tracker::OnlinePerformanceTracker` - Tracker to query
+- `n_classes::Int` - Number of classes
+- `trial_duration::Float64` - Trial duration in seconds
+
+**Returns:** `BCIPerformanceMetrics` with all computed metrics
+
+### Calibration Metrics
+
+#### compute_balance()
+
+Compute class distribution balance (how evenly distributed classes are).
+
+```julia
+compute_balance(predictions::Vector{Int}, n_classes::Int) -> Float64
+```
+
+**Parameters:**
+- `predictions::Vector{Int}` - Predicted class labels
+- `n_classes::Int` - Number of classes
+
+**Returns:** Balance score (0.0 = completely imbalanced, 1.0 = perfectly balanced)
+
+**Example:**
+```julia
+balance = compute_balance(results.predictions, 4)
+println("Class balance: $(round(balance, digits=3))")
+```
+
+#### compute_calibration_metrics()
+
+Compute confidence calibration metrics (ECE/MCE).
+
+```julia
+compute_calibration_metrics(
+    confidences::Vector{Float64},
+    predictions::Vector{Int},
+    true_labels::Vector{Int};
+    n_bins::Int = 10
+) -> CalibrationMetrics
+```
+
+**Parameters:**
+- `confidences::Vector{Float64}` - Prediction confidences
+- `predictions::Vector{Int}` - Predicted class labels
+- `true_labels::Vector{Int}` - True class labels
+- `n_bins::Int` - Number of bins for calibration (default: 10)
+
+**Returns:** `CalibrationMetrics` struct with `ece`, `mce`, `n_bins`
+
+**Example:**
+```julia
+cal_metrics = compute_calibration_metrics(
+    results.confidences,
+    results.predictions,
+    data.labels
+)
+println("ECE: $(round(cal_metrics.ece, digits=3))")
+println("MCE: $(round(cal_metrics.mce, digits=3))")
+```
+
+#### CalibrationMetrics
+
+Container for calibration metrics.
+
+```julia
+struct CalibrationMetrics
+    ece::Float64      # Expected Calibration Error (0-1, lower is better)
+    mce::Float64      # Maximum Calibration Error (0-1, lower is better)
+    n_bins::Int       # Number of bins used
+end
+```
+
+### Enhanced Diagnostic Functions
+
+#### compute_entropy()
+
+Compute Shannon entropy for a single probability distribution.
+
+```julia
+compute_entropy(probabilities::Vector{Float64}) -> Float64
+```
+
+**Parameters:**
+- `probabilities::Vector{Float64}` - Probability distribution (must sum to 1.0)
+
+**Returns:** Entropy in bits (0 = certain, log₂(n_classes) = maximum uncertainty)
+
+**Example:**
+```julia
+# Compute entropy for a single trial
+entropy = compute_entropy(results.posteriors[1, :])
+println("Trial entropy: $(round(entropy, digits=3)) bits")
+```
+
+#### compute_mean_entropy()
+
+Compute mean entropy across multiple probability distributions.
+
+```julia
+compute_mean_entropy(posteriors::Matrix{Float64}) -> Float64
+```
+
+**Parameters:**
+- `posteriors::Matrix{Float64}` - Posterior distributions (n_trials × n_classes)
+
+**Returns:** Mean entropy in bits
+
+**Example:**
+```julia
+mean_entropy = compute_mean_entropy(results.posteriors)
+println("Mean entropy: $(round(mean_entropy, digits=3)) bits")
+```
+
+#### compute_mahalanobis_distances()
+
+Compute Mahalanobis distances from each trial to each class center.
+
+```julia
+compute_mahalanobis_distances(
+    model::BCIModel,
+    features::Array{Float64, 3}
+) -> Matrix{Float64}
+```
+
+**Parameters:**
+- `model` - `RxLDAModel` or `RxGMMModel` (RxPolya returns zeros)
+- `features::Array{Float64, 3}` - Feature array (n_features × n_samples × n_trials)
+
+**Returns:** Distance matrix (n_trials × n_classes)
+
+**Example:**
+```julia
+distances = compute_mahalanobis_distances(model, data.features)
+println("Distances shape: $(size(distances))")
+```
+
+#### compute_outlier_scores()
+
+Compute outlier scores (minimum distance to any class) for each trial.
+
+```julia
+compute_outlier_scores(
+    model::BCIModel,
+    features::Array{Float64, 3}
+) -> Vector{Float64}
+```
+
+**Parameters:**
+- `model` - `RxLDAModel` or `RxGMMModel`
+- `features::Array{Float64, 3}` - Feature array (n_features × n_samples × n_trials)
+
+**Returns:** Outlier scores (higher = more outlier-like)
+
+**Example:**
+```julia
+outlier_scores = compute_outlier_scores(model, data.features)
+outliers = findall(outlier_scores .> 5.0)
+println("Outlier trials: $outliers")
 ```
 
 ## Error Handling
@@ -989,19 +1509,10 @@ end
 Check if a model is compatible with your data:
 
 ```julia
-is_compatible(model, metadata::BCIMetadata) -> Bool
-check_model_compatibility(model, data::BCIData) -> Bool
+check_model_compatibility(model::BCIModel, data::BCIData) -> Bool
 ```
 
-### Data Validation
-
-Validate data before inference:
-
-```julia
-validate_data(data::BCIData) -> (Bool, Vector{String})
-```
-
-Returns validation status and any error messages.
+**Note:** See the [Data Validation](#check_model_compatibility) section for details on `check_model_compatibility()`.
 
 ## Next Steps
 

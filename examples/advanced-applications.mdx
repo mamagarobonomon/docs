@@ -6,13 +6,94 @@ icon: "rocket"
 
 # Advanced BCI Applications
 
-This section demonstrates sophisticated applications of NimbusSDK for complex BCI scenarios. All examples use the actual Bayesian LDA (RxLDA) and Bayesian GMM (RxGMM) models with real Julia SDK code.
+This section demonstrates sophisticated applications of Nimbus for complex BCI scenarios. Examples shown in both Python and Julia.
+
+<Note>
+**Python SDK**: See [Streaming Inference](/python-sdk/streaming-inference) and [sklearn Integration](/python-sdk/sklearn-integration) for Python-specific advanced patterns.
+</Note>
 
 ## Cross-Subject Model Training
 
 Train models that generalize across multiple subjects.
 
 ### Multi-Subject Training Dataset
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+from nimbus_pysdk import estimate_normalization_params, apply_normalization
+import numpy as np
+
+# Collect data from multiple subjects
+subjects = ["S001", "S002", "S003", "S004", "S005"]
+all_features = []
+all_labels = []
+
+for subject_id in subjects:
+    print(f"Loading subject {subject_id}...")
+    subj_features, subj_labels = load_subject_data(subject_id)
+    all_features.append(subj_features)
+    all_labels.append(subj_labels)
+
+# Concatenate all subject data
+X = np.vstack(all_features)
+y = np.concatenate(all_labels)
+
+print(f"\nCombined dataset:")
+print(f"  Total trials: {X.shape[0]}")
+print(f"  Features: {X.shape[1]}")
+print(f"  Subjects: {len(subjects)}")
+
+# Normalize across all subjects
+norm_params = estimate_normalization_params(X, method="zscore")
+X_norm = apply_normalization(X, norm_params)
+
+# Train cross-subject model
+clf = NimbusLDA(mu_scale=5.0)  # Higher regularization for cross-subject
+clf.fit(X_norm, y)
+
+print(f"Cross-subject model trained")
+```
+  </Tab>
+  <Tab title="Julia">
+```julia
+using NimbusSDK
+
+NimbusSDK.install_core("your-api-key")
+
+# Collect data from multiple subjects
+subjects = ["S001", "S002", "S003", "S004", "S005"]
+all_features = []
+all_labels = []
+
+for subject_id in subjects
+    println("Loading subject $subject_id...")
+    subj_features, subj_labels = load_subject_data(subject_id)
+    push!(all_features, subj_features)
+    push!(all_labels, subj_labels)
+end
+
+# Concatenate all subject data
+combined_features = cat(all_features..., dims=3)
+combined_labels = vcat(all_labels...)
+
+println("\nCombined dataset:")
+println("  Total trials: $(size(combined_features, 3))")
+println("  Features: $(size(combined_features, 1))")
+println("  Subjects: $(length(subjects))")
+
+# Train cross-subject model
+train_data = BCIData(
+    combined_features,
+    BCIMetadata(
+        sampling_rate = 250.0,
+        paradigm = :motor_imagery,
+        feature_type = :csp,
+        n_features = 16,
+```
+  </Tab>
+</Tabs>
 
 ```julia
 using NimbusSDK

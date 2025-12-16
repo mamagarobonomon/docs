@@ -1,0 +1,463 @@
+---
+title: "Python SDK Quickstart"
+description: "Build your first BCI classifier with nimbus-bci in 5 minutes"
+icon: "rocket"
+---
+
+# Python SDK Quickstart
+
+Get started with nimbus-bci and build your first Bayesian BCI classifier in just a few minutes.
+
+## Prerequisites
+
+Before you begin:
+
+- **Python ≥ 3.10** installed
+- **Basic understanding** of EEG data and BCI concepts
+- **Preprocessed features** (CSP, bandpower, etc.) - see [preprocessing requirements](/inference-configuration/preprocessing-requirements)
+
+<Tip>
+nimbus-bci expects **preprocessed features**, not raw EEG data. Use MNE-Python or similar tools for preprocessing.
+</Tip>
+
+## Step 1: Install
+
+Install nimbus-bci from PyPI:
+
+```bash
+pip install nimbus-bci
+```
+
+For MNE-Python integration:
+
+```bash
+pip install nimbus-bci[mne]
+```
+
+## Step 2: Basic Classification
+
+Create your first Bayesian classifier:
+
+```python
+from nimbus_pysdk import NimbusLDA
+import numpy as np
+
+# Generate sample data (in practice, use your preprocessed EEG features)
+np.random.seed(42)
+n_samples, n_features = 100, 16
+X_train = np.random.randn(n_samples, n_features)
+y_train = np.random.randint(0, 4, n_samples)  # 4-class problem
+
+# Create and fit classifier
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
+
+# Predict on new data
+X_test = np.random.randn(20, n_features)
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)
+
+print(f"Predictions: {predictions}")
+print(f"Probabilities shape: {probabilities.shape}")  # (20, 4)
+```
+
+## Step 3: sklearn Pipeline Integration
+
+Use nimbus-bci with sklearn pipelines:
+
+```python
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import cross_val_score
+from nimbus_pysdk import NimbusLDA
+
+# Create pipeline with preprocessing
+pipe = make_pipeline(
+    StandardScaler(),
+    NimbusLDA(mu_scale=3.0)
+)
+
+# Fit pipeline
+pipe.fit(X_train, y_train)
+
+# Predict
+predictions = pipe.predict(X_test)
+
+# Cross-validation
+scores = cross_val_score(pipe, X_train, y_train, cv=5)
+print(f"CV Accuracy: {scores.mean():.2%} (+/- {scores.std():.2%})")
+```
+
+## Step 4: Hyperparameter Tuning
+
+Optimize classifier parameters with GridSearchCV:
+
+```python
+from sklearn.model_selection import GridSearchCV
+from nimbus_pysdk import NimbusLDA
+
+# Define parameter grid
+param_grid = {
+    'mu_scale': [1.0, 3.0, 5.0],
+    'class_prior_alpha': [0.5, 1.0, 2.0]
+}
+
+# Grid search
+grid = GridSearchCV(
+    NimbusLDA(),
+    param_grid,
+    cv=5,
+    scoring='accuracy',
+    n_jobs=-1
+)
+grid.fit(X_train, y_train)
+
+print(f"Best parameters: {grid.best_params_}")
+print(f"Best CV score: {grid.best_score_:.2%}")
+
+# Use best model
+best_clf = grid.best_estimator_
+```
+
+## Step 5: Online Learning
+
+Update models incrementally with new data:
+
+```python
+from nimbus_pysdk import NimbusLDA
+
+# Initial training
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
+
+# Later: update with new data (no retraining from scratch)
+X_new = np.random.randn(10, n_features)
+y_new = np.random.randint(0, 4, 10)
+clf.partial_fit(X_new, y_new)
+
+print("Model updated with new data")
+```
+
+## Step 6: Batch Inference with Diagnostics
+
+Use batch inference for comprehensive diagnostics:
+
+```python
+from nimbus_pysdk import predict_batch, NimbusLDA
+from nimbus_pysdk.data import BCIData, BCIMetadata
+
+# Train model
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
+
+# Prepare data for batch inference
+metadata = BCIMetadata(
+    sampling_rate=250.0,
+    paradigm="motor_imagery",
+    feature_type="csp",
+    n_features=16,
+    n_classes=4
+)
+
+# X_test should be shape (n_features, n_samples, n_trials) for BCIData
+# For this example, reshape: (n_trials, n_features) -> (n_features, 1, n_trials)
+X_test_reshaped = X_test.T[:, np.newaxis, :]
+data = BCIData(X_test_reshaped, metadata)
+
+# Run batch inference
+result = predict_batch(clf.model_, data)
+
+print(f"Predictions: {result.predictions}")
+print(f"Mean entropy: {result.mean_entropy:.2f} bits")
+print(f"Balance: {result.balance:.2%}")
+print(f"Latency: {result.latency_ms:.1f}ms")
+```
+
+## Step 7: Streaming Inference
+
+Process data in real-time chunks:
+
+```python
+from nimbus_pysdk import NimbusLDA, StreamingSession
+from nimbus_pysdk.data import BCIMetadata
+
+# Train model
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
+
+# Setup streaming session
+metadata = BCIMetadata(
+    sampling_rate=250.0,
+    paradigm="motor_imagery",
+    feature_type="csp",
+    n_features=16,
+    n_classes=4,
+    chunk_size=125,  # 500ms chunks at 250 Hz
+    temporal_aggregation="logvar"
+)
+
+session = StreamingSession(clf.model_, metadata)
+
+# Simulate streaming data (in practice, from real-time EEG)
+n_chunks = 4
+for i in range(n_chunks):
+    # Each chunk: (n_features, chunk_size)
+    chunk = np.random.randn(16, 125)
+    result = session.process_chunk(chunk)
+    print(f"Chunk {i+1}: class {result.prediction} (conf: {result.confidence:.2%})")
+
+# Finalize trial with aggregation
+final = session.finalize_trial(method="weighted_vote")
+print(f"\nFinal prediction: class {final.prediction}")
+print(f"Entropy: {final.entropy:.2f} bits")
+```
+
+## Available Classifiers
+
+Try different Bayesian models:
+
+```python
+from nimbus_pysdk import NimbusLDA, NimbusGMM, NimbusSoftmax
+
+# Bayesian LDA (shared covariance)
+clf_lda = NimbusLDA()
+clf_lda.fit(X_train, y_train)
+
+# Bayesian GMM (class-specific covariances)
+clf_gmm = NimbusGMM()
+clf_gmm.fit(X_train, y_train)
+
+# Bayesian Softmax (Polya-Gamma VI)
+clf_softmax = NimbusSoftmax()
+clf_softmax.fit(X_train, y_train)
+
+# Compare performance
+for name, clf in [("LDA", clf_lda), ("GMM", clf_gmm), ("Softmax", clf_softmax)]:
+    score = clf.score(X_test, y_test)
+    print(f"{name}: {score:.2%}")
+```
+
+## MNE-Python Integration
+
+Use nimbus-bci with MNE-Python for complete EEG pipeline:
+
+```python
+import mne
+from nimbus_pysdk import NimbusLDA
+from nimbus_pysdk.compat import extract_csp_features
+
+# Load EEG data with MNE
+raw = mne.io.read_raw_gdf("motor_imagery.gdf", preload=True)
+events = mne.find_events(raw)
+epochs = mne.Epochs(raw, events, tmin=0, tmax=4, baseline=None, preload=True)
+
+# Filter to mu+beta bands
+epochs.filter(8, 30)
+
+# Extract CSP features
+csp_features, csp = extract_csp_features(epochs, n_components=8)
+
+# Train classifier
+clf = NimbusLDA()
+clf.fit(csp_features, epochs.events[:, 2])
+
+# Evaluate
+from sklearn.model_selection import cross_val_score
+scores = cross_val_score(clf, csp_features, epochs.events[:, 2], cv=5)
+print(f"Accuracy: {scores.mean():.2%} (+/- {scores.std():.2%})")
+```
+
+## Metrics and Diagnostics
+
+Compute BCI-specific metrics:
+
+```python
+from nimbus_pysdk import (
+    compute_entropy,
+    compute_calibration_metrics,
+    calculate_itr,
+    assess_trial_quality
+)
+
+# Get predictions
+probs = clf.predict_proba(X_test)
+preds = clf.predict(X_test)
+
+# Entropy (uncertainty)
+entropy = compute_entropy(probs)
+print(f"Mean entropy: {entropy.mean():.2f} bits")
+
+# Calibration metrics
+calib = compute_calibration_metrics(preds, probs.max(axis=1), y_test)
+print(f"ECE: {calib.ece:.3f}, MCE: {calib.mce:.3f}")
+
+# Information Transfer Rate
+accuracy = (preds == y_test).mean()
+itr = calculate_itr(accuracy=accuracy, n_classes=4, trial_duration=4.0)
+print(f"ITR: {itr:.1f} bits/min")
+
+# Quality assessment
+quality = assess_trial_quality(probs, entropy)
+print(f"Quality: {quality.overall_quality}")
+```
+
+## Feature Normalization
+
+Critical for cross-session BCI performance:
+
+```python
+from nimbus_pysdk import estimate_normalization_params, apply_normalization
+
+# Estimate normalization from training data
+norm_params = estimate_normalization_params(X_train, method="zscore")
+
+# Apply to all data
+X_train_norm = apply_normalization(X_train, norm_params)
+X_test_norm = apply_normalization(X_test, norm_params)
+
+# Train on normalized data
+clf = NimbusLDA()
+clf.fit(X_train_norm, y_train)
+
+# Predict on normalized test data
+predictions = clf.predict(X_test_norm)
+```
+
+<Warning>
+Always use the same normalization parameters for training and testing data. Estimate from training set, then apply to test set.
+</Warning>
+
+## Save and Load Models
+
+Save trained models for later use:
+
+```python
+from nimbus_pysdk import nimbus_save, nimbus_load
+
+# Train model
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
+
+# Save model
+nimbus_save(clf.model_, "my_bci_model.npz")
+
+# Load model later
+loaded_model = nimbus_load("my_bci_model.npz")
+
+# Use loaded model
+from nimbus_pysdk.models.nimbus_lda import nimbus_lda_predict
+predictions = nimbus_lda_predict(loaded_model, X_test)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="book" href="/python-sdk/api-reference">
+    Complete API documentation with all functions and classes
+  </Card>
+  <Card title="sklearn Integration" icon="code" href="/python-sdk/sklearn-integration">
+    Advanced sklearn pipeline patterns and best practices
+  </Card>
+  <Card title="Streaming Inference" icon="wave-square" href="/python-sdk/streaming-inference">
+    Real-time BCI with chunk-by-chunk processing
+  </Card>
+  <Card title="MNE Integration" icon="brain" href="/python-sdk/mne-integration">
+    Complete EEG preprocessing with MNE-Python
+  </Card>
+</CardGroup>
+
+## Common Patterns
+
+### Motor Imagery BCI
+
+```python
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from nimbus_pysdk import NimbusLDA
+
+# Complete pipeline
+pipe = make_pipeline(
+    StandardScaler(),
+    NimbusLDA(mu_scale=3.0)
+)
+
+# Train on CSP features
+pipe.fit(csp_features, labels)
+
+# Real-time prediction
+prediction = pipe.predict(new_trial.reshape(1, -1))[0]
+```
+
+### P300 Speller
+
+```python
+from nimbus_pysdk import NimbusGMM
+
+# GMM works better for P300 (overlapping distributions)
+clf = NimbusGMM()
+clf.fit(erp_features, labels)  # 0=non-target, 1=target
+
+# Predict with confidence
+probs = clf.predict_proba(new_epochs)
+high_confidence = probs[:, 1] > 0.8  # Target probability > 80%
+```
+
+### Adaptive BCI
+
+```python
+from nimbus_pysdk import NimbusLDA
+
+# Initial training
+clf = NimbusLDA()
+clf.fit(X_calibration, y_calibration)
+
+# During use: adapt to user
+for trial in online_session:
+    prediction = clf.predict(trial.features)
+    
+    # Get feedback (e.g., from user or task)
+    true_label = get_feedback()
+    
+    # Update model
+    clf.partial_fit(trial.features.reshape(1, -1), [true_label])
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Shape Mismatch Errors" icon="triangle-exclamation">
+    Ensure your data has the correct shape:
+    - For `fit()` and `predict()`: `(n_samples, n_features)`
+    - For `BCIData`: `(n_features, n_samples, n_trials)`
+    
+    Use `reshape()` or transpose as needed.
+  </Accordion>
+  
+  <Accordion title="Poor Performance" icon="chart-line">
+    Try these improvements:
+    - Normalize features with `estimate_normalization_params()`
+    - Tune hyperparameters with `GridSearchCV`
+    - Use appropriate model (LDA for MI, GMM for P300)
+    - Check preprocessing quality with `diagnose_preprocessing()`
+  </Accordion>
+  
+  <Accordion title="Slow Inference" icon="clock">
+    For faster inference:
+    - Use batch prediction instead of single samples
+    - Ensure JAX is using CPU/GPU efficiently
+    - Consider using NimbusLDA (fastest) if appropriate
+  </Accordion>
+</AccordionGroup>
+
+## Support
+
+Need help?
+
+- **Email**: hello@nimbusbci.com
+- **GitHub**: [github.com/nimbusbci/nimbuspysdk](https://github.com/nimbusbci/nimbuspysdk)
+- **Documentation**: Browse our comprehensive guides
+
+---
+
+Congratulations! You've learned the basics of nimbus-bci. Explore the [API Reference](/python-sdk/api-reference) for more advanced features.
+

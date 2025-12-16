@@ -4,15 +4,19 @@ description: "Bayesian Linear Discriminant Analysis with uncertainty quantificat
 icon: "brain"
 ---
 
-# Bayesian LDA (RxLDA) - Bayesian Linear Discriminant Analysis
+# Bayesian LDA - Bayesian Linear Discriminant Analysis
 
-**API Name**: `RxLDAModel`  
+**Python**: `NimbusLDA` | **Julia**: `RxLDAModel`  
 **Mathematical Model**: Pooled Gaussian Classifier (PGC)
 
-Bayesian LDA (also known as RxLDA in the codebase) is a Bayesian classification model with uncertainty quantification, implemented using RxInfer.jl's reactive message passing framework. It uses a **shared precision matrix** across all classes, making it fast and efficient for BCI classification.
+Bayesian LDA is a Bayesian classification model with uncertainty quantification. It uses a **shared precision matrix** across all classes, making it fast and efficient for BCI classification.
 
 <Note>
-**Bayesian LDA (RxLDA) is currently implemented** in NimbusSDK.jl and ready for use in production BCI applications. LDA is widely recognized in the BCI community, and "Bayesian" signals our uncertainty quantification capabilities.
+**Available in Both SDKs:**
+- **Python SDK**: `NimbusLDA` class (sklearn-compatible)
+- **Julia SDK**: `RxLDAModel` (RxInfer.jl-based)
+
+Both implementations provide the same Bayesian inference with uncertainty quantification.
 </Note>
 
 ## Overview
@@ -25,6 +29,43 @@ Bayesian LDA extends traditional Linear Discriminant Analysis with full Bayesian
 - ✅ **Fast inference** (&lt;20ms per trial)
 - ✅ **Training and calibration** support
 - ✅ **Batch and streaming** inference modes
+
+## Quick Start
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+import numpy as np
+
+# Create and fit classifier
+clf = NimbusLDA(mu_scale=3.0)
+clf.fit(X_train, y_train)
+
+# Predict with uncertainty
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)
+
+# Online learning
+clf.partial_fit(X_new, y_new)
+```
+  </Tab>
+  <Tab title="Julia">
+```julia
+using NimbusSDK
+
+# Train model
+model = train_model(
+    RxLDAModel,
+    train_data;
+    iterations=50
+)
+
+# Predict
+results = predict_batch(model, test_data)
+```
+  </Tab>
+</Tabs>
 
 ### When to Use Bayesian LDA
 
@@ -539,14 +580,20 @@ Accuracy is highly subject-dependent. Subject-specific calibration typically imp
 ### View Model Parameters
 
 ```julia
-# Model structure
+# Extract point estimates from posterior distributions
+using Distributions
+
+# Class means (extract from posterior distributions)
 println("Class means:")
-for (k, mean) in enumerate(model.means)
-    println("  Class $k: ", mean)
+for (k, mean_posterior) in enumerate(model.mean_posteriors)
+    mean_point = mean(mean_posterior)  # Extract point estimate
+    println("  Class $k: ", mean_point)
 end
 
+# Shared precision matrix (extract from posterior distribution)
 println("\nShared precision matrix (first 3x3):")
-println(model.global_precision[1:3, 1:3])
+precision_point = mean(model.precision_posterior)  # Extract point estimate
+println(precision_point[1:3, 1:3])
 
 # Model metadata
 println("\nMetadata:")
@@ -554,7 +601,17 @@ println("  Name: ", model.metadata.name)
 println("  Paradigm: ", model.metadata.paradigm)
 println("  Features: ", model.metadata.n_features)
 println("  Classes: ", model.metadata.n_classes)
+
+# Class priors
+println("\nClass priors:")
+for (k, prior) in enumerate(model.priors)
+    println("  Class $k: ", prior)
+end
 ```
+
+<Note>
+**Accessing model parameters**: The SDK stores full posterior distributions (not just point estimates) for proper Bayesian inference. To get point estimates, use `mean(posterior)` to extract the mean of the posterior distribution. For precision matrices, use `mean(precision_posterior)` to get the expected precision matrix.
+</Note>
 
 ### Compare Models
 

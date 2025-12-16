@@ -4,30 +4,68 @@ description: "Bayesian Multinomial Probit Regression with uncertainty quantifica
 icon: "brain"
 ---
 
-# Bayesian MPR (RxPolya)
+# Bayesian Softmax / MPR
 
-**Primary Name**: Bayesian MPR (Bayesian Multinomial Probit Regression)  
-**API Name**: `RxPolyaModel`  
-**Mathematical Model**: Bayesian Multinomial Probit Regression
+**Python**: `NimbusSoftmax` | **Julia**: `RxPolyaModel`  
+**Mathematical Model**: Bayesian Multinomial Logistic Regression
 
-Bayesian MPR is a Bayesian multinomial classification model with uncertainty quantification, implemented using RxInfer.jl's reactive message passing framework. It uses **continuous transitions** to map features to a (K-1)-dimensional latent space and **MultinomialPolya likelihood** for probabilistic classification, making it ideal for complex multinomial tasks.
+Bayesian Softmax (Python) / Bayesian MPR (Julia) is a Bayesian multinomial classification model with uncertainty quantification. It uses **continuous transitions** to map features to a latent space for probabilistic classification, making it ideal for complex multinomial tasks.
 
 <Note>
-**Bayesian MPR is currently implemented** in NimbusSDK.jl (API name: `RxPolyaModel`) and ready for use in production BCI applications. This model provides full Bayesian uncertainty quantification over multinomial distributions, offering advanced capabilities beyond traditional Gaussian classifiers.
+**Available in Both SDKs:**
+- **Python SDK**: `NimbusSoftmax` - Polya-Gamma variational inference
+- **Julia SDK**: `RxPolyaModel` - Multinomial Probit Regression with RxInfer.jl
+
+Both provide Bayesian multinomial classification with uncertainty quantification.
 </Note>
 
 ## Overview
 
-Bayesian MPR implements Bayesian Multinomial Probit Regression, providing a powerful alternative to traditional Gaussian classifiers:
+Bayesian Softmax/MPR provides a powerful alternative to traditional Gaussian classifiers:
 
 - ✅ **Full Bayesian inference** with posterior probability distributions
 - ✅ **Uncertainty quantification** for each prediction
 - ✅ **Continuous transition mapping** from features to latent space
-- ✅ **MultinomialPolya likelihood** for natural multinomial classification
-- ✅ **(K-1) dimensional latent representation** with sum-to-one constraint
+- ✅ **Flexible decision boundaries** (non-Gaussian)
 - ✅ **Fast inference** (~15-25ms per trial)
 - ✅ **Training and calibration** support
 - ✅ **Batch and streaming** inference modes
+
+## Quick Start
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusSoftmax
+import numpy as np
+
+# Create and fit classifier
+clf = NimbusSoftmax(w_scale=1.0)
+clf.fit(X_train, y_train)
+
+# Predict with uncertainty
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)
+
+# Good for non-Gaussian decision boundaries
+```
+  </Tab>
+  <Tab title="Julia">
+```julia
+using NimbusSDK
+
+# Train model
+model = train_model(
+    RxPolyaModel,
+    train_data;
+    iterations=50
+)
+
+# Predict
+results = predict_batch(model, test_data)
+```
+  </Tab>
+</Tabs>
 
 ### When to Use Bayesian MPR
 

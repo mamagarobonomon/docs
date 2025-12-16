@@ -1,0 +1,205 @@
+---
+title: "Python SDK Introduction"
+description: "Overview of nimbus-bci Python library for Bayesian BCI classification"
+icon: "python"
+---
+
+# Python SDK Introduction
+
+The **nimbus-bci** Python library provides sklearn-compatible Bayesian classifiers for Brain-Computer Interface applications. Built on JAX and NumPyro, it delivers fast probabilistic inference with full uncertainty quantification, streaming support, and rich diagnostics.
+
+## Overview
+
+`nimbus-bci` is a production-ready Python package available on PyPI that brings Bayesian inference to BCI applications with a familiar sklearn-compatible API.
+
+```bash
+pip install nimbus-bci
+```
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="sklearn Compatible" icon="code">
+    Drop-in replacement for sklearn classifiers. Works with pipelines, cross-validation, and GridSearchCV.
+  </Card>
+  <Card title="Streaming Inference" icon="wave-square">
+    Real-time chunk-by-chunk processing for online BCI applications with weighted aggregation.
+  </Card>
+  <Card title="MNE Integration" icon="brain">
+    Seamless integration with MNE-Python for EEG preprocessing and feature extraction.
+  </Card>
+  <Card title="Rich Diagnostics" icon="chart-line">
+    Entropy, calibration metrics (ECE/MCE), ITR calculation, and quality assessment.
+  </Card>
+  <Card title="Online Learning" icon="graduation-cap">
+    Update models incrementally with `partial_fit()` without retraining from scratch.
+  </Card>
+  <Card title="Fully Local" icon="lock">
+    No API keys required. All processing happens on your machine for maximum privacy.
+  </Card>
+</CardGroup>
+
+## Quick Example
+
+```python
+from nimbus_pysdk import NimbusLDA
+import numpy as np
+
+# Create and fit classifier
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
+
+# Predict with uncertainty
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)
+
+# Works with sklearn pipelines
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+pipe = make_pipeline(StandardScaler(), NimbusLDA())
+pipe.fit(X_train, y_train)
+```
+
+## Available Classifiers
+
+The Python SDK provides three Bayesian classifiers:
+
+| Classifier | Description | Best For |
+|------------|-------------|----------|
+| **NimbusLDA** | Bayesian LDA with shared covariance | Fast, well-separated classes (motor imagery) |
+| **NimbusGMM** | Bayesian GMM with class-specific covariances | Complex distributions (P300) |
+| **NimbusSoftmax** | Bayesian logistic regression (Polya-Gamma VI) | Non-Gaussian decision boundaries |
+
+All classifiers provide:
+- Full posterior distributions
+- Uncertainty quantification
+- Online learning via `partial_fit()`
+- sklearn-compatible API
+
+## Python vs Julia SDK
+
+Both SDKs implement the same Bayesian models but with different design philosophies:
+
+| Feature | Python SDK | Julia SDK |
+|---------|------------|-----------|
+| **Installation** | `pip install nimbus-bci` | `Pkg.add("NimbusSDK")` + API key |
+| **API Style** | sklearn-compatible classes | Functional + types |
+| **Integration** | sklearn pipelines, MNE-Python | RxInfer.jl ecosystem |
+| **Performance** | Fast (JAX/NumPyro) | Fastest (native Julia) |
+| **API Key** | Not required | Required |
+| **Use Case** | Production ML pipelines | Research, custom models |
+| **License** | Proprietary (free evaluation) | Commercial tiers |
+
+### When to Use Python SDK
+
+Choose the Python SDK if you:
+- ✅ Work primarily in Python
+- ✅ Use sklearn pipelines and MNE-Python
+- ✅ Want immediate installation without API keys
+- ✅ Need sklearn-compatible API for easy integration
+- ✅ Prefer fully local processing
+
+### When to Use Julia SDK
+
+Choose the Julia SDK if you:
+- ✅ Need maximum performance (native Julia)
+- ✅ Want to build custom Bayesian models
+- ✅ Work with RxInfer.jl ecosystem
+- ✅ Need pre-trained model distribution
+- ✅ Require enterprise support
+
+## Architecture
+
+```
+EEG Data → MNE-Python → nimbus-bci → Your Application
+           (Preprocessing)  (Classification)  (Control/Analysis)
+```
+
+**Key Design Principles:**
+- **Local Processing**: All computation happens on your machine
+- **Privacy First**: Your EEG data never leaves your computer
+- **sklearn Compatible**: Works with existing ML workflows
+- **Fast Inference**: JAX-compiled for performance
+- **Uncertainty Aware**: Full Bayesian posterior distributions
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Motor Imagery BCI" icon="hand">
+    Control devices with imagined movements using CSP features and NimbusLDA
+  </Card>
+  <Card title="P300 Speller" icon="keyboard">
+    Communication interfaces using ERP features and NimbusGMM
+  </Card>
+  <Card title="Real-time Neurofeedback" icon="activity">
+    Streaming inference for live brain state monitoring
+  </Card>
+  <Card title="Research Pipelines" icon="flask-conical">
+    sklearn-compatible API for reproducible BCI research
+  </Card>
+</CardGroup>
+
+## What's Included
+
+The `nimbus-bci` package provides:
+
+**Classifiers:**
+- `NimbusLDA` - Bayesian Linear Discriminant Analysis
+- `NimbusGMM` - Bayesian Gaussian Mixture Model
+- `NimbusSoftmax` - Bayesian Multinomial Logistic Regression
+
+**Data Structures:**
+- `BCIData` - Container for features, metadata, labels
+- `BCIMetadata` - Metadata for BCI experiments
+
+**Inference:**
+- `predict_batch()` - Batch inference with diagnostics
+- `StreamingSession` - Real-time chunk processing
+
+**Metrics:**
+- `compute_entropy()` - Prediction uncertainty
+- `compute_calibration_metrics()` - ECE/MCE
+- `calculate_itr()` - Information Transfer Rate
+- `assess_trial_quality()` - Quality checks
+
+**Utilities:**
+- `estimate_normalization_params()` - Feature normalization
+- `diagnose_preprocessing()` - Preprocessing diagnostics
+- `compute_fisher_score()` - Feature discriminability
+
+**MNE Integration:**
+- `from_mne_epochs()` - Convert MNE Epochs to BCIData
+- `extract_csp_features()` - CSP feature extraction
+- `extract_bandpower_features()` - Bandpower features
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/python-sdk/installation">
+    Install nimbus-bci and verify your setup
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/python-sdk/quickstart">
+    Build your first BCI classifier in 5 minutes
+  </Card>
+  <Card title="API Reference" icon="book" href="/python-sdk/api-reference">
+    Complete API documentation with examples
+  </Card>
+  <Card title="MNE Integration" icon="brain" href="/python-sdk/mne-integration">
+    Use nimbus-bci with MNE-Python
+  </Card>
+</CardGroup>
+
+## Support
+
+Need help? We're here for you:
+
+- **Email**: hello@nimbusbci.com
+- **Documentation**: Browse our comprehensive guides
+- **GitHub**: [github.com/nimbusbci/nimbuspysdk](https://github.com/nimbusbci/nimbuspysdk)
+- **Examples**: Check out working code samples in the package
+
+---
+
+Ready to get started? Head to the [Installation Guide](/python-sdk/installation) to install nimbus-bci.
+

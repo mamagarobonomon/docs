@@ -1,12 +1,16 @@
 ---
 title: "Nimbus BCI Engine"
-description: "Bayesian inference for Brain-Computer Interfaces using RxInfer.jl reactive message passing"
+description: "Bayesian inference for Brain-Computer Interfaces in Python and Julia"
 icon: "brain"
 ---
 
-_Production-ready Bayesian BCI inference with Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian MPR (RxPolya) models_
+_Production-ready Bayesian BCI inference with Bayesian LDA, Bayesian GMM, and Bayesian Softmax models_
 
-NimbusSDK.jl provides fast, probabilistic inference for Brain-Computer Interface applications. Built on **RxInfer.jl**, the SDK delivers sub-20ms inference latency with full uncertainty quantification through **Bayesian LDA (RxLDA)**, **Bayesian GMM (RxGMM)**, and **Bayesian MPR (RxPolya)** implementations.
+Nimbus provides fast, probabilistic inference for Brain-Computer Interface applications in **Python** and **Julia**. The SDKs deliver sub-20ms inference latency with full uncertainty quantification through **Bayesian LDA**, **Bayesian GMM**, and **Bayesian Softmax/MPR** implementations.
+
+**Choose your SDK:**
+- 🐍 **Python SDK** (`nimbus-bci`): sklearn-compatible classifiers with MNE-Python integration
+- ⚡ **Julia SDK** (`NimbusSDK.jl`): Built on RxInfer.jl for maximum performance
 
 ## Why Nimbus BCI
 
@@ -25,14 +29,24 @@ Brain-Computer Interfaces face unique challenges: noisy neural signals, inherent
 - ✅ **Explainable**: White-box probabilistic models for medical compliance
 - ✅ **Production-Ready**: Batch and streaming modes, quality assessment, performance tracking
 
-<Card
-  title="Get started with Nimbus"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Build your first BCI application in 10 minutes with Julia and NimbusSDK.jl
-</Card>
+<CardGroup cols={2}>
+  <Card
+    title="Python SDK Quickstart"
+    icon="python"
+    href="/python-sdk/quickstart"
+    horizontal
+  >
+    Get started with nimbus-bci in Python
+  </Card>
+  <Card
+    title="Julia SDK Quickstart"
+    icon="code"
+    href="/quickstart"
+    horizontal
+  >
+    Get started with NimbusSDK.jl in Julia
+  </Card>
+</CardGroup>
 
 ## Core Features
 
@@ -69,29 +83,29 @@ Brain-Computer Interfaces face unique challenges: noisy neural signals, inherent
 
 ## Implemented Models
 
-NimbusSDK.jl currently provides three production-ready Bayesian models:
+Both SDKs provide three production-ready Bayesian models:
 
 <CardGroup cols={3}>
   <Card
-    title="Bayesian LDA (RxLDA)"
+    title="Bayesian LDA"
     icon="brain"
     href="/models/rxlda"
   >
-    **Bayesian Linear Discriminant Analysis** with shared covariance. Fast (10-15ms), efficient, ideal for well-separated classes like motor imagery. API name: `RxLDAModel`.
+    **Bayesian Linear Discriminant Analysis** with shared covariance. Fast (10-15ms), efficient, ideal for well-separated classes like motor imagery. Python: `NimbusLDA`, Julia: `RxLDAModel`.
   </Card>
   <Card
-    title="Bayesian GMM (RxGMM)"
+    title="Bayesian GMM"
     icon="brain"
     href="/models/rxgmm"
   >
-    **Bayesian Gaussian Mixture Model** with class-specific covariances. More flexible (15-25ms), better for overlapping distributions like P300. API name: `RxGMMModel`.
+    **Bayesian Gaussian Mixture Model** with class-specific covariances. More flexible (15-25ms), better for overlapping distributions like P300. Python: `NimbusGMM`, Julia: `RxGMMModel`.
   </Card>
   <Card
-    title="Bayesian MPR (RxPolya)"
+    title="Bayesian Softmax/MPR"
     icon="brain"
     href="/models/rxpolya"
   >
-    **Bayesian Multinomial Probit Regression** with continuous transitions. Most flexible (15-25ms), ideal for complex multinomial classification tasks. API name: `RxPolyaModel`.
+    **Bayesian Multinomial Logistic Regression** with continuous transitions. Most flexible (15-25ms), ideal for complex multinomial classification tasks. Python: `NimbusSoftmax`, Julia: `RxPolyaModel`.
   </Card>
 </CardGroup>
 
@@ -131,6 +145,32 @@ NimbusSDK.jl currently provides three production-ready Bayesian models:
 
 ## Quick Example
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+import numpy as np
+
+# 1. Create and fit classifier
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
+
+# 2. Predict with uncertainty
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)
+
+# 3. Works with sklearn pipelines
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+pipe = make_pipeline(StandardScaler(), NimbusLDA())
+pipe.fit(X_train, y_train)
+
+# 4. Online learning
+clf.partial_fit(X_new, y_new)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -151,6 +191,8 @@ println("Accuracy: $(sum(results.predictions .== labels) / length(labels))")
 println("Mean confidence: $(mean(results.confidences))")
 println("ITR: $(calculate_ITR(accuracy, 4, 4.0)) bits/minute")
 ```
+  </Tab>
+</Tabs>
 
 ## Use Cases
 
@@ -188,23 +230,43 @@ println("ITR: $(calculate_ITR(accuracy, 4, 4.0)) bits/minute")
 ## SDK Architecture
 
 ```
-EEG Hardware → Preprocessing → NimbusSDK.jl → Application
-   (LSL/BrainFlow)  (MNE/EEGLAB)    (Local)      (Your Code)
+EEG Hardware → Preprocessing → Nimbus SDK → Application
+   (LSL/BrainFlow)  (MNE/EEGLAB)  (Python/Julia)  (Your Code)
 ```
 
 **Key Design:**
-- **Local Inference**: No API calls during inference - all processing on your machine
+- **Local Inference**: All processing on your machine (Python SDK is fully local)
 - **Privacy**: Your EEG data never leaves your computer
 - **Speed**: No network latency, consistent &lt;20ms performance
-- **Offline Capable**: Works without internet after initial setup
+- **Offline Capable**: Python SDK works completely offline
 
-**API Role:**
+**Julia SDK API Role:**
 - Authentication and licensing
 - Pre-trained model distribution
 - Optional analytics logging
 
 ## Getting Started
 
+<Tabs>
+  <Tab title="Python">
+<Steps>
+  <Step title="Install Python SDK">
+    ```bash
+    pip install nimbus-bci
+    ```
+  </Step>
+  <Step title="Preprocess EEG">
+    Use MNE-Python to extract features (CSP, bandpower, ERP)
+  </Step>
+  <Step title="Train & Predict">
+    Use sklearn-compatible API to train models and make predictions
+  </Step>
+  <Step title="Deploy">
+    Integrate with sklearn pipelines, streaming inference, or real-time applications
+  </Step>
+</Steps>
+  </Tab>
+  <Tab title="Julia">
 <Steps>
   <Step title="Install Julia SDK">
     ```julia
@@ -226,23 +288,25 @@ EEG Hardware → Preprocessing → NimbusSDK.jl → Application
     Load model, process features, get predictions with confidence scores
   </Step>
 </Steps>
+  </Tab>
+</Tabs>
 
 ## Documentation
 
 <CardGroup cols={3}>
   <Card
-    title="Quickstart"
-    icon="rocket"
-    href="/quickstart"
+    title="Python SDK"
+    icon="python"
+    href="/python-sdk/introduction"
   >
-    10-minute guide to your first BCI application
+    sklearn-compatible Bayesian classifiers
   </Card>
   <Card
-    title="Julia SDK Reference"
+    title="Julia SDK"
     icon="code"
     href="/api-reference/julia-sdk"
   >
-    Complete API documentation
+    RxInfer.jl-based inference engine
   </Card>
   <Card
     title="Model Training"
@@ -263,7 +327,7 @@ EEG Hardware → Preprocessing → NimbusSDK.jl → Application
     icon="braces"
     href="/examples/code-samples"
   >
-    Working Julia code examples
+    Working Python and Julia examples
   </Card>
   <Card
     title="API Reference"
@@ -288,20 +352,29 @@ All measurements on standard CPU (no GPU required).
 
 ## Technology Stack
 
+**Python SDK:**
+- **Core**: Python 3.10+, NumPy, JAX, NumPyro
+- **Integration**: scikit-learn pipelines, MNE-Python
+- **Models**: NimbusLDA, NimbusGMM, NimbusSoftmax (Polya-Gamma VI)
+
+**Julia SDK:**
 - **Core**: Julia 1.9+
-- **Inference Engine**: [RxInfer.jl](https://rxinfer.com/) - Reactive message passing for Bayesian inference
-- **Models**: RxLDA (shared covariance), RxGMM (class-specific covariances), Bayesian MPR (multinomial probit regression)
-- **Preprocessing**: MNE-Python, EEGLAB, BrainFlow (external)
-- **API**: TypeScript/Vercel serverless (authentication, model registry)
+- **Inference Engine**: [RxInfer.jl](https://rxinfer.com/) - Reactive message passing
+- **Models**: RxLDAModel, RxGMMModel, RxPolyaModel
+
+**Common:**
+- **Preprocessing**: MNE-Python, EEGLAB, BrainFlow
+- **API**: TypeScript/Vercel serverless (Julia SDK authentication)
 
 ## Roadmap
 
 **Currently Implemented:**
-- ✅ Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian MPR (RxPolya) models
+- ✅ **Python SDK** (`nimbus-bci`) with sklearn compatibility and MNE integration
+- ✅ **Julia SDK** (`NimbusSDK.jl`) with RxInfer.jl reactive message passing
+- ✅ Bayesian LDA, Bayesian GMM, and Bayesian Softmax/MPR models
 - ✅ Batch and streaming inference
 - ✅ Training and calibration
 - ✅ Quality assessment and ITR calculation
-- ✅ API authentication and model registry
 
 **Coming Soon:**
 - 🚧 Autoregressive (AR) models for rhythm analysis
@@ -345,8 +418,9 @@ All measurements on standard CPU (no GPU required).
 
 ## License
 
-NimbusSDK.jl is commercial software with tiered licensing:
+**Python SDK** (`nimbus-bci`): Proprietary license with free evaluation and academic tiers. See [Python SDK Installation](/python-sdk/installation) for details.
 
+**Julia SDK** (`NimbusSDK.jl`): Commercial software with tiered licensing:
 - **Free**: 10K monthly inferences, basic models
 - **Research**: 50K monthly inferences, all features  
 - **Commercial**: 500K monthly inferences, priority support

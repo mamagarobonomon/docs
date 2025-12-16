@@ -4,27 +4,67 @@ description: "Bayesian Gaussian Mixture Model with class-specific covariances us
 icon: "brain"
 ---
 
-# Bayesian GMM (RxGMM) - Bayesian Gaussian Mixture Model
+# Bayesian GMM - Bayesian Gaussian Mixture Model
 
-**API Name**: `RxGMMModel`  
+**Python**: `NimbusGMM` | **Julia**: `RxGMMModel`  
 **Mathematical Model**: Heteroscedastic Gaussian Classifier (HGC)
 
-Bayesian GMM (also known as RxGMM in the codebase) is a Bayesian classification model with **class-specific covariance matrices**, making it more flexible than Bayesian LDA for modeling complex class distributions. Implemented using RxInfer.jl's reactive message passing.
+Bayesian GMM is a Bayesian classification model with **class-specific covariance matrices**, making it more flexible than Bayesian LDA for modeling complex class distributions.
 
 <Note>
-**Bayesian GMM (RxGMM) is currently implemented** in NimbusSDK.jl and ready for production BCI applications. GMM is widely recognized in machine learning, and "Bayesian" signals our uncertainty quantification and posterior probability outputs.
+**Available in Both SDKs:**
+- **Python SDK**: `NimbusGMM` class (sklearn-compatible)
+- **Julia SDK**: `RxGMMModel` (RxInfer.jl-based)
+
+Both implementations provide class-specific covariances for flexible modeling.
 </Note>
 
 ## Overview
 
 Bayesian GMM extends beyond traditional Gaussian classifiers by allowing each class to have its own covariance structure:
 
-- ✅ **Class-specific covariances** (unlike RxLDA's shared covariance)
+- ✅ **Class-specific covariances** (unlike Bayesian LDA's shared covariance)
 - ✅ **More flexible modeling** of heterogeneous distributions
 - ✅ **Posterior probability distributions** with uncertainty quantification
 - ✅ **Fast inference** (~15-25ms per trial)
 - ✅ **Training and calibration** support
 - ✅ **Batch and streaming** inference modes
+
+## Quick Start
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusGMM
+import numpy as np
+
+# Create and fit classifier
+clf = NimbusGMM(mu_scale=3.0)
+clf.fit(X_train, y_train)
+
+# Predict with uncertainty
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)
+
+# Better for P300 and overlapping distributions
+```
+  </Tab>
+  <Tab title="Julia">
+```julia
+using NimbusSDK
+
+# Train model
+model = train_model(
+    RxGMMModel,
+    train_data;
+    iterations=50
+)
+
+# Predict
+results = predict_batch(model, test_data)
+```
+  </Tab>
+</Tabs>
 
 ### When to Use Bayesian GMM
 
@@ -506,35 +546,53 @@ Bayesian GMM typically provides 2-5% higher accuracy than Bayesian LDA when clas
 ### View Model Parameters
 
 ```julia
-# Class means
+# Extract point estimates from posterior distributions
+using Distributions
+
+# Class means (extract from posterior distributions)
 println("Class means:")
-for (k, mean) in enumerate(model.means)
-    println("  Class $k: ", mean)
+for (k, mean_posterior) in enumerate(model.mean_posteriors)
+    mean_point = mean(mean_posterior)  # Extract point estimate
+    println("  Class $k: ", mean_point)
 end
 
-# Class-specific precisions
+# Class-specific precisions (extract from posterior distributions)
 println("\nClass-specific precision matrices:")
-for (k, prec) in enumerate(model.precisions)
+for (k, precision_posterior) in enumerate(model.precision_posteriors)
+    prec_point = mean(precision_posterior)  # Extract point estimate
     println("  Class $k (first 3x3):")
-    println(prec[1:3, 1:3])
+    println(prec_point[1:3, 1:3])
 end
 
 # Compare covariances across classes
 println("\nCovariance structure comparison:")
-for k in 1:length(model.precisions)
-    cov_k = inv(model.precisions[k])
+for k in 1:length(model.precision_posteriors)
+    prec_point = mean(model.precision_posteriors[k])
+    cov_k = inv(prec_point)  # Convert precision to covariance
     println("  Class $k variance (diagonal): ", diag(cov_k))
 end
+
+# Class priors
+println("\nClass priors:")
+for (k, prior) in enumerate(model.priors)
+    println("  Class $k: ", prior)
+end
 ```
+
+<Note>
+**Accessing model parameters**: The SDK stores full posterior distributions (not just point estimates) for proper Bayesian inference. To get point estimates, use `mean(posterior)` to extract the mean of the posterior distribution. For precision matrices, use `mean(precision_posterior)` to get the expected precision matrix.
+</Note>
 
 ### Visualize Class Differences
 
 ```julia
 using Plots
+using Distributions
 
 # Compare class covariances
-for k in 1:length(model.precisions)
-    cov_k = inv(model.precisions[k])
+for k in 1:length(model.precision_posteriors)
+    prec_point = mean(model.precision_posteriors[k])  # Extract point estimate
+    cov_k = inv(prec_point)  # Convert precision to covariance
     heatmap(cov_k, title="Class $k Covariance", colorbar=true)
 end
 ```
