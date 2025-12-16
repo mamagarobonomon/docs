@@ -458,75 +458,6 @@ p300_results = run_bci_experiment(:p300, 10)
   **Publication**: Transparent probabilistic models for peer review  
 </Card>
 
-## Productivity & Focus Tools
-
-### Attention Monitoring for Productivity
-
-**Challenge**: Monitor user attention and mental workload during demanding tasks.
-
-**Solution**: Continuous motor imagery classification as a proxy for attention state (simplified approach).
-
-**Note**: This is a **simplified demonstration**. True attention monitoring requires specialized models and features (e.g., theta/alpha band ratios, ERP analysis) not currently implemented in NimbusSDK. This example shows how RxLDA could be adapted for such applications in future work.
-
-```julia
-using NimbusSDK
-
-# Simplified attention tracker (demonstration)
-function monitor_attention_demo()
-    # Load any trained model for demonstration
-    model = load_model(RxLDAModel, "motor_imagery_4class_v1")
-    
-    metadata = BCIMetadata(
-        sampling_rate = 250.0,
-        paradigm = :motor_imagery,
-        n_features = 16,
-        n_classes = 4,
-        chunk_size = 250
-    )
-    
-    session = init_streaming(model, metadata)
-    
-    println("Attention monitoring active...")
-    println("(Note: Simplified demo - production systems require specialized attention models)")
-    
-    attention_scores = Float64[]
-    
-    for minute in 1:60  # Monitor for 1 hour
-        # Collect background EEG
-        chunk = acquire_passive_eeg()
-        
-        result = process_chunk(session, chunk)
-        
-        # Use confidence as proxy for attention (simplified)
-        attention_proxy = result.confidence
-        push!(attention_scores, attention_proxy)
-        
-        # Alert if attention drops
-        if attention_proxy < 0.5
-            println("⚠️  Minute $minute: Low attention detected - suggest break")
-        end
-        
-        # Recommend break every 25 minutes (Pomodoro)
-        if minute % 25 == 0
-            println("💡 Break time (25 minutes elapsed)")
-        end
-    end
-    
-    println("\nSession Summary:")
-    println("Mean attention: $(round(mean(attention_scores), digits=3))")
-end
-```
-
-<Warning>
-**Important**: This productivity example is **simplified for demonstration**. Real attention monitoring requires:
-- Specialized attention-detection models (not yet available in NimbusSDK)
-- Different feature extraction (theta/alpha ratios, ERP components)
-- Passive recording paradigms
-- Validation studies
-
-Consider this a **future direction** rather than a production-ready solution.
-</Warning>
-
 ## Market Impact & Adoption
 
 <CardGroup cols={2}>
@@ -606,8 +537,4 @@ For medical BCI applications, NimbusSDK provides:
 
 ---
 
-<Note>
-**Current Status**: NimbusSDK supports **RxLDA** and **RxGMM** models for motor imagery and P300 paradigms. Other BCI modalities (SSVEP, emotion recognition, attention monitoring) are planned for future releases.
-</Note>
-
-These industry applications demonstrate the real-world potential of NimbusSDK's probabilistic BCI models across healthcare, assistive technology, and research domains.
+These industry applications demonstrate the real-world potential of Nimbus BCI's probabilistic models across healthcare, assistive technology, and research domains. Both Python and Julia SDKs provide production-ready Bayesian classifiers (Bayesian LDA, Bayesian GMM, Bayesian Softmax/MPR) for motor imagery, P300, and SSVEP paradigms.

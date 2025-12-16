@@ -47,8 +47,7 @@
           "api-reference/introduction",
           "api-reference/authentication",
           "api-reference/inference-endpoints",
-          "api-reference/streaming-api",
-          "api-reference/webhook-integration"
+          "api-reference/streaming-api"
         ]
       },
       {
