@@ -1,398 +1,181 @@
 ---
 title: "Advanced Modeling Techniques"
-description: "Future directions for sophisticated probabilistic BCI models"
+description: "Advanced usage patterns for Nimbus BCI models"
 icon: "sparkles"
 ---
 
 # Advanced Modeling Techniques
 
-<Warning>
-**Note**: This page describes **future directions** and **conceptual approaches** for advanced BCI modeling. Most techniques described here are **not yet implemented** in NimbusSDK.
+This page covers advanced usage patterns and techniques for getting the most out of Nimbus BCI models.
 
-**Current SDK**: Provides **RxLDA** and **RxGMM** models for classification tasks.
+## Available Models
 
-**Future Releases**: May include advanced techniques based on user demand and research validation.
-</Warning>
-
-## Current Capabilities vs. Future Work
-
-<CardGroup cols={2}>
-  <Card title="✅ Currently Available" icon="check-circle">
-    - **RxLDA**: Linear discriminant analysis
-    - **RxGMM**: Gaussian mixture models
-    - **Model Training**: Supervised learning
-    - **Model Calibration**: Subject adaptation
-    - **Uncertainty Quantification**: Confidence scores
-    - **Streaming Inference**: Real-time processing
+<CardGroup cols={3}>
+  <Card title="Bayesian LDA" icon="brain">
+    Shared covariance, fast inference, ideal for well-separated classes
   </Card>
-  
-  <Card title="⏳ Future Directions" icon="clock">
-    - **Multi-modal fusion** (EEG + EMG)
-    - **Temporal models** (HMM, Kalman)
-    - **Hierarchical models**
-    - **Transfer learning**
-    - **Custom factor graphs**
-    - **Online adaptation**
+  <Card title="Bayesian GMM" icon="brain">
+    Class-specific covariances, flexible modeling for complex distributions
+  </Card>
+  <Card title="Bayesian Softmax/MPR" icon="brain">
+    Multinomial logistic regression for non-Gaussian decision boundaries
   </Card>
 </CardGroup>
 
-## Multi-Modal Sensor Fusion (Future)
+## Advanced Capabilities
 
-### Concept: EEG + EMG Fusion
+### 1. Uncertainty Quantification
 
-Combining cortical activity (EEG) with muscle activity (EMG) could provide:
+All models provide full posterior distributions:
 
-**Potential Benefits:**
-- **Robustness**: Redundant information sources
-- **Complementary timing**: EEG precedes EMG by ~50-100ms
-- **Improved accuracy**: Leverage both cortical intent and peripheral execution
+**Python SDK:**
+```python
+from nimbus_pysdk import NimbusLDA, compute_entropy
 
-**Conceptual Model:**
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
 
-$$
-p(\text{intent} | \text{EEG}, \text{EMG}) \propto p(\text{EEG}|\text{intent}) \cdot p(\text{EMG}|\text{intent}) \cdot p(\text{intent})
-$$
+# Get probabilities and uncertainty
+probs = clf.predict_proba(X_test)
+entropy = compute_entropy(probs)
 
-**Status**: Not implemented - requires multi-modal data collection and validation
+# Reject low-confidence predictions
+high_conf_mask = probs.max(axis=1) > 0.8
+reliable_predictions = clf.predict(X_test)[high_conf_mask]
+```
 
-### Concept: EEG + fNIRS Integration
-
-Combining fast electrical (EEG) with slow hemodynamic (fNIRS) signals:
-
-**Potential Benefits:**
-- **Temporal resolution**: EEG provides millisecond precision
-- **Spatial resolution**: fNIRS provides better localization
-- **Artifact rejection**: Cross-validate signals
-
-**Status**: Research direction - not planned for near-term release
-
-## Temporal Dynamics (Future)
-
-### Hidden Markov Models (HMM)
-
-**Concept**: Model sequences of brain states over time
-
-$$
-p(s_1, \ldots, s_T, x_1, \ldots, x_T) = p(s_1) \prod_{t=2}^{T} p(s_t|s_{t-1}) \prod_{t=1}^{T} p(x_t|s_t)
-$$
-
-**Potential Applications:**
-- Continuous brain state tracking
-- Sequence classification (multi-step gestures)
-- State-dependent adaptive BCI
-
-**Why Not Implemented Yet:**
-- Requires temporal training data
-- More complex calibration
-- Higher computational cost
-- Needs validation for real-time BCI
-
-**Workaround**: Use RxLDA/RxGMM on temporally aggregated features (already common practice)
-
-### Kalman Filtering
-
-**Concept**: Continuous state estimation with linear dynamics
-
-$$
-s_t = A s_{t-1} + w_t \quad \text{(State evolution)}
-$$
-$$
-x_t = H s_t + v_t \quad \text{(Observations)}
-$$
-
-**Potential Applications:**
-- Smooth cursor control
-- Continuous movement decoding
-- Predictive control
-
-**Why Not Implemented Yet:**
-- BCI data often discrete (trials) rather than continuous
-- Linear assumptions may not hold for neural data
-- Requires careful system identification
-
-**Current Approach**: Streaming inference with chunk-based updates provides similar real-time capabilities
-
-## Hierarchical Models (Conceptual)
-
-### Multi-Level Modeling
-
-**Concept**: Model population, subject, and session levels
-
-$$
-\theta_{\text{population}} \rightarrow \theta_{\text{subject}} \rightarrow \theta_{\text{session}}
-$$
-
-**Potential Benefits:**
-- Transfer learning across subjects
-- Reduced calibration data
-- Population-level insights
-
-**Status**: Basic calibration (subject adaptation) available; full hierarchy not implemented
-
-### Example: Population Prior + Subject Adaptation
-
+**Julia SDK:**
 ```julia
-# Current SDK approach (simplified)
 using NimbusSDK
 
-# 1. Load population-level baseline model
-baseline_model = load_model(RxLDAModel, "motor_imagery_baseline_v1")
+model = train_model(RxLDAModel, train_data)
+results = predict_batch(model, test_data)
 
-# 2. Adapt to individual subject with small dataset
-subject_calib_data = collect_calibration(num_trials=20)
-personalized_model = calibrate_model(baseline_model, subject_calib_data)
+# Access uncertainty measures
+confidences = results.confidences
+entropy = results.entropy
 
-# 3. Use personalized model
-results = predict_batch(personalized_model, test_data)
+# Quality-based filtering
+high_quality = results.confidences .> 0.8
 ```
 
-**This provides a simplified form of hierarchical modeling** through transfer learning.
+### 2. Online Learning & Adaptation
 
-## Advanced Uncertainty Quantification (Partial)
+Update models incrementally without full retraining:
 
-### Current Capabilities
+**Python SDK:**
+```python
+from nimbus_pysdk import NimbusLDA
 
-NimbusSDK already provides:
+# Initial training
+clf = NimbusLDA()
+clf.fit(X_initial, y_initial)
 
+# Incremental updates
+for X_batch, y_batch in new_data_stream:
+    clf.partial_fit(X_batch, y_batch)
+```
+
+**Julia SDK:**
 ```julia
-results = predict_batch(model, data)
+# Initial training
+model = train_model(RxLDAModel, initial_data)
 
-# Full posterior distribution
-posterior = results.posteriors  # [n_classes × n_trials]
-
-# Confidence (max posterior probability)
-confidence = results.confidences  # [n_trials]
-
-# Entropy as uncertainty measure
-entropy = -sum(posterior .* log.(posterior .+ 1e-10), dims=1)
+# Update with new data
+updated_model = update_model(model, new_data)
 ```
 
-### Future Directions
+### 3. Streaming Inference
 
-<Card title="Advanced Uncertainty (Future)" icon="line-chart">
-  **Potential additions:**
-  - **Epistemic vs. aleatoric**: Separate model vs. data uncertainty
-  - **Predictive distributions**: Forecast future trials
-  - **Confidence calibration**: Ensure confidence scores are well-calibrated
-  - **Out-of-distribution detection**: Flag unusual inputs
-  
-  **Status**: Basic uncertainty available; advanced methods under research
-</Card>
+Real-time chunk-by-chunk processing:
 
-## Transfer Learning (Partial)
+**Python SDK:**
+```python
+from nimbus_pysdk import StreamingSession
+from nimbus_pysdk.data import BCIMetadata
 
-### Current: Model Calibration
+metadata = BCIMetadata(
+    sampling_rate=250.0,
+    paradigm="motor_imagery",
+    feature_type="csp",
+    n_features=16,
+    n_classes=4,
+    chunk_size=125,
+    temporal_aggregation="logvar"
+)
 
-NimbusSDK supports transfer learning via calibration:
+session = StreamingSession(clf.model_, metadata)
 
-```julia
-# Pre-trained model trained on many subjects
-baseline = load_model(RxLDAModel, "motor_imagery_baseline_v1")
+for chunk in eeg_stream:
+    result = session.process_chunk(chunk)
+    # Use result.prediction, result.confidence
 
-# Quick adaptation to new subject
-personalized = calibrate_model(baseline, subject_data; iterations=20)
+final = session.finalize_trial(method="weighted_vote")
 ```
 
-**This is a form of transfer learning**: Prior knowledge (baseline model) + subject-specific adaptation.
+### 4. Hyperparameter Tuning
 
-### Future: Advanced Transfer
+Optimize model performance:
 
-<Card title="Advanced Transfer Learning (Future)" icon="shuffle">
-  **Potential enhancements:**
-  - **Domain adaptation**: Transfer across paradigms
-  - **Few-shot learning**: Learn from very few examples
-  - **Meta-learning**: Learn to adapt quickly
-  - **Cross-session transfer**: Maintain performance over days/weeks
-  
-  **Status**: Basic transfer via calibration available; advanced methods planned
-</Card>
+**Python SDK with GridSearchCV:**
+```python
+from sklearn.model_selection import GridSearchCV
+from nimbus_pysdk import NimbusLDA
 
-## Custom Factor Graphs (Future)
+param_grid = {
+    'mu_scale': [1.0, 3.0, 5.0, 7.0],
+    'class_prior_alpha': [0.5, 1.0, 2.0]
+}
 
-### Concept
+grid = GridSearchCV(NimbusLDA(), param_grid, cv=5, n_jobs=-1)
+grid.fit(X_train, y_train)
 
-Allow users to define custom probabilistic models using RxInfer.jl:
-
-```julia
-# Hypothetical future API
-using RxInfer
-
-@model function custom_bci(y, x)
-    x ~ NormalMeanVariance(0.0, 1.0)
-    y ~ NormalMeanVariance(x, 0.1)
-end
-
-# Integrate with NimbusSDK (hypothetical)
-custom_model = NimbusModel(custom_bci)
-train_model(custom_model, training_data)
+print(f"Best params: {grid.best_params_}")
+best_model = grid.best_estimator_
 ```
 
-**Why Not Available Yet:**
-- Requires unified API between RxInfer.jl and NimbusSDK
-- Training/inference abstractions need generalization
-- Needs extensive testing and validation
+### 5. Cross-Subject Transfer
 
-**Workaround**: Advanced users can use RxInfer.jl directly, but without NimbusSDK's convenience functions
+Train on multiple subjects for better generalization:
 
-## Online Adaptation (Partial)
+**Python SDK:**
+```python
+from nimbus_pysdk import NimbusLDA, estimate_normalization_params, apply_normalization
+import numpy as np
 
-### Current: Offline Calibration
+# Collect data from multiple subjects
+all_X = []
+all_y = []
+for subject_id in subjects:
+    X_subj, y_subj = load_subject_data(subject_id)
+    all_X.append(X_subj)
+    all_y.append(y_subj)
 
-```julia
-# Collect all calibration data first
-calib_data = collect_all_trials()
+X_combined = np.vstack(all_X)
+y_combined = np.concatenate(all_y)
 
-# Then calibrate
-personalized = calibrate_model(baseline, calib_data)
+# Normalize across subjects
+norm_params = estimate_normalization_params(X_combined, method="zscore")
+X_norm = apply_normalization(X_combined, norm_params)
+
+# Train cross-subject model
+clf = NimbusLDA(mu_scale=5.0)  # Higher regularization
+clf.fit(X_norm, y_combined)
 ```
-
-### Future: Online Learning
-
-<Card title="Online Adaptation (Future)" icon="refresh">
-  **Concept**: Continuously update model during use
-  
-  ```julia
-  # Hypothetical future API
-  adaptive_session = start_adaptive_session(model, metadata)
-  
-  for chunk in eeg_stream
-      result = process_chunk_adaptive(adaptive_session, chunk)
-      
-      # Model automatically updates based on feedback
-      provide_feedback(adaptive_session, result, ground_truth)
-  end
-  ```
-  
-  **Challenges:**
-  - Risk of catastrophic forgetting
-  - Requires reliable feedback signal
-  - Stability vs. adaptivity tradeoff
-  
-  **Status**: Research prototype; not production-ready
-  </Card>
-  
-## Non-Gaussian Models (Future)
-
-### Current: Gaussian Assumptions
-
-Bayesian LDA (RxLDA) and Bayesian GMM (RxGMM) assume Gaussian feature distributions:
-
-$$
-p(x|c) = \mathcal{N}(x | \mu_c, \Sigma_c)
-$$
-
-**This works well for many BCI features** (CSP, bandpower, ERP amplitudes).
-
-### Future: Flexible Distributions
-
-<Card title="Non-Gaussian Models (Future)" icon="scatter-chart">
-  **Potential additions:**
-  - **Student-t distributions**: Robust to outliers
-  - **Mixture models**: Flexible multi-modal distributions
-  - **Non-parametric methods**: No distributional assumptions
-  
-  **Status**: RxGMM provides some flexibility; more options under consideration
-  </Card>
-  
-## Sparse Models (Conceptual)
-
-### Concept: Automatic Feature Selection
-
-Models that automatically select relevant features:
-
-$$
-p(x|\text{class}, \text{active features})
-$$
-
-**Potential Benefits:**
-- Reduced overfitting
-- Interpretability (which features matter?)
-- Reduced computation
-
-**Status**: Preprocessing feature selection recommended; sparse models not implemented
-
-## Practical Recommendations
-
-### For Current SDK Users
-
-<Tip>
-**Best Practices with RxLDA/RxGMM:**
-
-1. **Good feature extraction** is more important than complex models
-   - Use CSP for motor imagery
-   - Extract ERP amplitudes for P300
-   - Compute bandpower for frequency-based paradigms
-
-2. **Start simple**: RxLDA often sufficient
-   - Try RxLDA first
-   - Use RxGMM if classes overlap significantly
-
-3. **Calibrate**: Subject-specific adaptation improves accuracy
-   - Collect 20-50 calibration trials
-   - Use `calibrate_model()` for personalization
-
-4. **Monitor uncertainty**: Use confidence scores
-   - Reject low-confidence predictions
-   - Adapt thresholds based on application
-</Tip>
-
-### For Advanced Users
-
-If you need features not in NimbusSDK:
-
-1. **Use RxInfer.jl directly** for custom factor graphs
-2. **Preprocess thoughtfully** to create informative features
-3. **Consider hybrid approaches** (e.g., RxLDA for classification + post-hoc smoothing)
-4. **Contribute**: Open-source contributions welcome!
-
-## Research Collaborations
-
-<Card title="Partner With Us" icon="handshake">
-  **Interested in advanced BCI models?**
-  
-  We're actively researching:
-  - Multi-modal fusion
-  - Online adaptation
-  - Transfer learning
-  - Novel paradigms
-  
-  **Contact**: research@nimbusbci.com  
-  **GitHub**: github.com/nimbusbci
-</Card>
-
-## Implementation Timeline
-
-| Feature | Status | Estimated Timeline |
-|---------|--------|-------------------|
-| **RxLDA** | ✅ Available | Shipped |
-| **RxGMM** | ✅ Available | Shipped |
-| **Model Calibration** | ✅ Available | Shipped |
-| **Streaming Inference** | ✅ Available | Shipped |
-| **HMM Models** | ⏳ Planned | 2025 Q4 |
-| **Kalman Filters** | ⏳ Planned | 2026 Q1 |
-| **Online Adaptation** | 🔬 Research | TBD |
-| **Multi-Modal Fusion** | 🔬 Research | TBD |
-| **Custom Factor Graphs** | 💡 Proposed | TBD |
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Current Models" icon="brain" href="/model-specification/index">
-    Learn about Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian MPR (RxPolya)
+  <Card title="Python SDK" icon="code" href="/python-sdk/introduction">
+    sklearn-compatible Bayesian classifiers
   </Card>
-  <Card title="Working Examples" icon="code" href="/examples/code-samples">
-    See current SDK in action
+  <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
+    RxInfer.jl-based inference engine
   </Card>
-  <Card title="Training Guide" icon="graduation-cap" href="/inference-configuration/batch-processing">
-    Train models on your data
+  <Card title="Model Documentation" icon="brain" href="/models/rxlda">
+    Detailed model specifications
   </Card>
-  <Card title="API Reference" icon="book" href="/api-reference/julia-sdk">
-    Complete SDK documentation
+  <Card title="Examples" icon="braces" href="/examples/code-samples">
+    Working code examples
   </Card>
 </CardGroup>
-
----
-
-<Note>
-**Philosophy**: NimbusSDK prioritizes **proven, production-ready techniques** (Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), Bayesian MPR (RxPolya)) over experimental methods. Advanced features will be added incrementally as they mature and demonstrate clear benefits for real-world BCI applications.
-</Note>

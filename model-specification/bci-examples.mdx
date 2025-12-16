@@ -150,110 +150,66 @@ Where:
   **ITR**: 10-20 bits/minute (with 10 repetitions)  
 </Card>
 
-## Temporal Dynamics (Conceptual)
+## Online Learning (Available Now)
 
-### Hidden Markov Models (Future)
+Both Python and Julia SDKs support online learning for model adaptation:
 
-<Card title="Coming Soon" icon="clock">
-  **HMM for BCI** would model temporal sequences:
+### Python SDK
 
-  $$
-  p(s_t | s_{t-1}) \quad \text{(State transitions)}
-  $$
+```python
+from nimbus_pysdk import NimbusLDA
 
-  $$
-  p(x_t | s_t) \quad \text{(Observations)}
-  $$
-  
-  **Use cases:**
-  - Continuous tracking of brain states
-  - Sequence classification (e.g., gesture recognition)
-  - Adaptive BCI with state-dependent feedback
-  
-  **Status**: Not yet implemented in NimbusSDK
-</Card>
+# Initial training
+clf = NimbusLDA()
+clf.fit(X_train, y_train)
 
-### Kalman Filtering (Conceptual)
+# Online adaptation with new data
+clf.partial_fit(X_new, y_new)
+```
 
-<Card title="Future Work" icon="signal">
-  **Kalman filters** for continuous state estimation:
+### Julia SDK
 
-  $$
-  s_t = A s_{t-1} + w_t \quad \text{(State dynamics)}
-  $$
+```julia
+using NimbusSDK
 
-  $$
-  x_t = H s_t + v_t \quad \text{(Observations)}
-  $$
-  
-  **Use cases:**
-  - Smooth cursor control
-  - Continuous movement decoding
-  - Real-time adaptation
-  
-  **Status**: Planned for future release
-</Card>
+# Initial training
+model = train_model(RxLDAModel, train_data)
 
-## Multi-Modal Fusion (Conceptual)
+# Update with new data
+updated_model = update_model(model, new_data)
+```
 
-### EEG + EMG Integration (Future)
-
-Combining cortical (EEG) and peripheral (EMG) signals:
-
-$$
-p(\text{intent} | \text{EEG}, \text{EMG}) \propto p(\text{EEG}|\text{intent}) \cdot p(\text{EMG}|\text{intent}) \cdot p(\text{intent})
-$$
-
-**Potential benefits:**
-- Robustness to noise
-- Complementary information
-- Improved accuracy
-
-**Status**: Not yet implemented - future research direction
-
-## Adaptive Models (Conceptual)
-
-### Online Learning (Future)
-
-Continuously updating models during use:
-
-$$
-\theta_{t+1} = \theta_t + \eta \nabla_\theta \log p(x_t | \theta_t)
-$$
-
-**Potential benefits:**
-- Adapt to non-stationarity
+**Benefits:**
+- Adapt to changing brain states
 - Personalization over time
-- Reduced calibration burden
-
-**Status**: Basic calibration available; full online adaptation planned
+- No full retraining required
 
 ## Current SDK Capabilities
 
 <CardGroup cols={2}>
-  <Card title="✅ RxLDA Model" icon="check">
-    **Implemented**: Motor imagery, P300, any classification task
+  <Card title="✅ Bayesian LDA" icon="check">
+    Motor imagery, P300, any classification task
   </Card>
-  <Card title="✅ RxGMM Model" icon="check">
-    **Implemented**: Flexible classification with class-specific covariances
+  <Card title="✅ Bayesian GMM" icon="check">
+    Flexible classification with class-specific covariances
+  </Card>
+  <Card title="✅ Bayesian Softmax/MPR" icon="check">
+    Multinomial logistic regression for complex boundaries
   </Card>
   <Card title="✅ Model Training" icon="check">
-    **Implemented**: Supervised training on labeled data
+    Supervised training on labeled data
   </Card>
   <Card title="✅ Model Calibration" icon="check">
-    **Implemented**: Subject-specific adaptation
+    Subject-specific adaptation
   </Card>
-  <Card title="⏳ HMM Models" icon="clock">
-    **Planned**: Temporal sequence modeling
+  <Card title="✅ Online Learning" icon="check">
+    Incremental updates with partial_fit (Python) or update_model (Julia)
   </Card>
-  <Card title="⏳ Kalman Filters" icon="clock">
-    **Planned**: Continuous state tracking
+  <Card title="✅ Streaming Inference" icon="check">
+    Real-time chunk-by-chunk processing
   </Card>
-  <Card title="⏳ Multi-Modal" icon="clock">
-    **Future**: EEG + EMG fusion
-  </Card>
-  <Card title="⏳ Online Learning" icon="clock">
-    **Future**: Continuous adaptation
+  <Card title="✅ Quality Assessment" icon="check">
+    Entropy, calibration metrics, ITR calculation
   </Card>
 </CardGroup>
 

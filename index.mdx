@@ -366,22 +366,21 @@ All measurements on standard CPU (no GPU required).
 - **Preprocessing**: MNE-Python, EEGLAB, BrainFlow
 - **API**: TypeScript/Vercel serverless (Julia SDK authentication)
 
-## Roadmap
+## What's Included
 
-**Currently Implemented:**
-- ✅ **Python SDK** (`nimbus-bci`) with sklearn compatibility and MNE integration
-- ✅ **Julia SDK** (`NimbusSDK.jl`) with RxInfer.jl reactive message passing
-- ✅ Bayesian LDA, Bayesian GMM, and Bayesian Softmax/MPR models
+**Python SDK** (`nimbus-bci`):
+- ✅ sklearn-compatible classifiers: NimbusLDA, NimbusGMM, NimbusSoftmax
+- ✅ MNE-Python integration for EEG preprocessing
+- ✅ Streaming inference for real-time BCI
+- ✅ Online learning with `partial_fit()`
+- ✅ Comprehensive metrics and diagnostics
+
+**Julia SDK** (`NimbusSDK.jl`):
+- ✅ RxInfer.jl-based models: RxLDAModel, RxGMMModel, RxPolyaModel
+- ✅ Pre-trained model distribution
 - ✅ Batch and streaming inference
 - ✅ Training and calibration
 - ✅ Quality assessment and ITR calculation
-
-**Coming Soon:**
-- 🚧 Autoregressive (AR) models for rhythm analysis
-- 🚧 Hidden Markov Models (HMM) for state detection
-- 🚧 Kalman filtering for signal processing
-- 🚧 POMDP decision-making frameworks
-- 🚧 Multi-modal sensor fusion
 
 ## Support
 

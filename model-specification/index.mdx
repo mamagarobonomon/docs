@@ -252,17 +252,6 @@ entropy = -sum(posterior .* log.(posterior .+ 1e-10))
 5. **Linear decision boundaries** (RxLDA): May struggle with complex, nonlinear patterns
 </Warning>
 
-## Future Directions
-
-<Card title="Coming Soon" icon="rocket">
-  **Advanced Models (Planned):**
-  - **Hidden Markov Models (HMM)**: Temporal sequence modeling
-  - **Kalman Filters**: Continuous state tracking
-  - **Custom Factor Graphs**: User-defined probabilistic models
-  - **Hierarchical Models**: Multi-level Bayesian models
-  - **Transfer Learning**: Cross-subject model adaptation
-</Card>
-
 ## Custom Model Development
 
 ### Using RxInfer.jl Directly
@@ -288,7 +277,9 @@ result = infer(
 )
 ```
 
-**Note**: Custom RxInfer.jl models are **not** directly integrated with NimbusSDK's training/inference API. Future versions may support custom model integration.
+<Note>
+Custom RxInfer.jl models are independent of NimbusSDK's training/inference API. For production BCI applications, use the provided models (RxLDA, RxGMM, RxPolya).
+</Note>
 
 ## Model Comparison
 
@@ -322,5 +313,5 @@ result = infer(
 ---
 
 <Note>
-**Development Philosophy**: NimbusSDK prioritizes **battle-tested, production-ready models** (Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), Bayesian MPR (RxPolya)) over experimental architectures. Custom model specification may be added in future releases based on user demand.
+**Development Philosophy**: NimbusSDK provides **battle-tested, production-ready models** (Bayesian LDA, Bayesian GMM, Bayesian MPR) that are proven effective for BCI applications. These models cover the majority of BCI use cases.
 </Note>
