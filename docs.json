@@ -42,81 +42,83 @@
       "url": "api-reference"
     }
   ],
-  "navigation": [
-    {
-      "group": "Getting Started",
-      "pages": [
-        "index"
-      ]
-    },
-    {
-      "group": "Core Concepts",
-      "pages": [
-        "core-concepts/probabilistic-ai",
-        "core-concepts/real-time-processing",
-        "core-concepts/uncertainty-handling",
-        "core-concepts/message-passing"
-      ]
-    },
-    {
-      "group": "Models & Algorithms",
-      "pages": [
-        "models/rxlda",
-        "models/rxgmm",
-        "models/rxpolya",
-        "model-specification"
-      ]
-    },
-    {
-      "group": "Configuration & Setup",
-      "pages": [
-        "inference-configuration/preprocessing-requirements",
-        "inference-configuration/feature-normalization",
-        "inference-configuration/real-time-setup",
-        "inference-configuration/batch-processing",
-        "inference-configuration/streaming-inference",
-        "inference-configuration/error-handling"
-      ]
-    },
-    {
-      "group": "Examples",
-      "pages": [
-        "examples/basic-examples",
-        "examples/advanced-applications",
-        "examples/industry-use-cases"
-      ]
-    },
-    {
-      "group": "Development",
-      "pages": [
-        "development",
-        "development/preprocessing-integration"
-      ]
-    },
-    {
-      "group": "Python SDK",
-      "pages": [
-        "python-sdk/quickstart",
-        "python-sdk/introduction",
-        "python-sdk/installation",
-        "python-sdk/api-reference",
-        "python-sdk/sklearn-integration",
-        "python-sdk/streaming-inference",
-        "python-sdk/mne-integration"
-      ]
-    },
-    {
-      "group": "Julia SDK & Cloud API",
-      "pages": [
-        "quickstart",
-        "api-reference/julia-sdk",
-        "api-reference/introduction",
-        "api-reference/authentication",
-        "api-reference/inference-endpoints",
-        "api-reference/streaming-api"
-      ]
-    }
-  ],
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "index"
+        ]
+      },
+      {
+        "group": "Core Concepts",
+        "pages": [
+          "core-concepts/probabilistic-ai",
+          "core-concepts/real-time-processing",
+          "core-concepts/uncertainty-handling",
+          "core-concepts/message-passing"
+        ]
+      },
+      {
+        "group": "Models & Algorithms",
+        "pages": [
+          "models/rxlda",
+          "models/rxgmm",
+          "models/rxpolya",
+          "model-specification"
+        ]
+      },
+      {
+        "group": "Configuration & Setup",
+        "pages": [
+          "inference-configuration/preprocessing-requirements",
+          "inference-configuration/feature-normalization",
+          "inference-configuration/real-time-setup",
+          "inference-configuration/batch-processing",
+          "inference-configuration/streaming-inference",
+          "inference-configuration/error-handling"
+        ]
+      },
+      {
+        "group": "Examples",
+        "pages": [
+          "examples/basic-examples",
+          "examples/advanced-applications",
+          "examples/industry-use-cases"
+        ]
+      },
+      {
+        "group": "Development",
+        "pages": [
+          "development",
+          "development/preprocessing-integration"
+        ]
+      },
+      {
+        "group": "Python SDK",
+        "pages": [
+          "python-sdk/quickstart",
+          "python-sdk/introduction",
+          "python-sdk/installation",
+          "python-sdk/api-reference",
+          "python-sdk/sklearn-integration",
+          "python-sdk/streaming-inference",
+          "python-sdk/mne-integration"
+        ]
+      },
+      {
+        "group": "Julia SDK & Cloud API",
+        "pages": [
+          "quickstart",
+          "api-reference/julia-sdk",
+          "api-reference/introduction",
+          "api-reference/authentication",
+          "api-reference/inference-endpoints",
+          "api-reference/streaming-api"
+        ]
+      }
+    ]
+  },
   "anchors": [
     {
       "name": "Website",
