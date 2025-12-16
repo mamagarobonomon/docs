@@ -658,6 +658,30 @@ final_model = train_model(
 Normalize your features before training for 15-30% accuracy improvement across sessions.
 </Tip>
 
+<Tabs>
+  <Tab title="Python">
+```python
+from sklearn.preprocessing import StandardScaler
+import pickle
+
+# Estimate normalization from training data
+scaler = StandardScaler()
+X_train_norm = scaler.fit_transform(X_train)
+
+# Train with normalized features
+clf = NimbusGMM()
+clf.fit(X_train_norm, y_train)
+
+# Save model and scaler together
+with open("model_with_scaler.pkl", "wb") as f:
+    pickle.dump({'model': clf, 'scaler': scaler}, f)
+
+# Later: Apply same normalization to test data
+X_test_norm = scaler.transform(X_test)
+predictions = clf.predict(X_test_norm)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Estimate normalization from training data
 norm_params = estimate_normalization_params(train_features; method=:zscore)
@@ -673,6 +697,8 @@ model = train_model(RxGMMModel, train_data)
 # Later: Apply same params to test data
 test_norm = apply_normalization(test_features, norm_params)
 ```
+  </Tab>
+</Tabs>
 
 See the [Feature Normalization](/inference-configuration/feature-normalization) guide for complete details.
 
@@ -721,6 +747,35 @@ Bayesian GMM typically provides 2-5% higher accuracy than Bayesian LDA when clas
 
 ### View Model Parameters
 
+<Tabs>
+  <Tab title="Python">
+```python
+import numpy as np
+
+# Class means
+print("Class means:")
+for k, class_label in enumerate(clf.classes_):
+    print(f"  Class {class_label}: {clf.model_['means'][k]}")
+
+# Class-specific covariance matrices
+print("\nClass-specific covariance matrices:")
+for k, class_label in enumerate(clf.classes_):
+    print(f"  Class {class_label} (first 3x3):")
+    print(clf.model_['covariances'][k][:3, :3])
+
+# Compare covariances across classes
+print("\nCovariance structure comparison:")
+for k, class_label in enumerate(clf.classes_):
+    cov_k = clf.model_['covariances'][k]
+    print(f"  Class {class_label} variance (diagonal): {np.diag(cov_k)}")
+
+# Class priors
+print("\nClass priors:")
+for k, class_label in enumerate(clf.classes_):
+    print(f"  Class {class_label}: {clf.model_['priors'][k]:.3f}")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Extract point estimates from posterior distributions
 using Distributions
@@ -754,6 +809,8 @@ for (k, prior) in enumerate(model.priors)
     println("  Class $k: ", prior)
 end
 ```
+  </Tab>
+</Tabs>
 
 <Note>
 **Accessing model parameters**: The SDK stores full posterior distributions (not just point estimates) for proper Bayesian inference. To get point estimates, use `mean(posterior)` to extract the mean of the posterior distribution. For precision matrices, use `mean(precision_posterior)` to get the expected precision matrix.
