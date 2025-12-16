@@ -300,6 +300,32 @@ save_model(model, "my_p300_gmm.jld2")
 
 ### 3. Subject-Specific Calibration
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusGMM
+import pickle
+
+# Load baseline model
+with open("p300_baseline.pkl", "rb") as f:
+    base_clf = pickle.load(f)
+
+# Collect calibration trials (10-20 per class)
+X_calib, y_calib = collect_calibration_trials()
+
+# Personalize using online learning
+personalized_clf = NimbusGMM()
+personalized_clf.fit(X_baseline, y_baseline)
+
+for _ in range(10):
+    personalized_clf.partial_fit(X_calib, y_calib)
+
+# Save
+with open("subject_001_p300_calibrated.pkl", "wb") as f:
+    pickle.dump(personalized_clf, f)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Load base model
 base_model = load_model(RxGMMModel, "p300_baseline_v1")
@@ -316,6 +342,8 @@ personalized_model = calibrate_model(
 
 save_model(personalized_model, "subject_001_p300_calibrated.jld2")
 ```
+  </Tab>
+</Tabs>
 
 **Calibration Benefits:**
 - Requires only 10-20 trials per class
@@ -325,6 +353,26 @@ save_model(personalized_model, "subject_001_p300_calibrated.jld2")
 
 ### 4. Batch Inference
 
+<Tabs>
+  <Tab title="Python">
+```python
+import numpy as np
+
+# Run batch inference
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)
+confidences = np.max(probabilities, axis=1)
+
+# Analyze results
+print(f"Predictions: {predictions}")
+print(f"Mean confidence: {np.mean(confidences):.3f}")
+
+# Calculate metrics
+accuracy = np.mean(predictions == y_test)
+print(f"Accuracy: {accuracy * 100:.1f}%")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Prepare test data
 test_data = BCIData(test_features, metadata, test_labels)
@@ -340,9 +388,36 @@ println("Mean confidence: ", mean(results.confidences))
 accuracy = sum(results.predictions .== test_labels) / length(test_labels)
 println("Accuracy: $(round(accuracy * 100, digits=1))%")
 ```
+  </Tab>
+</Tabs>
 
 ### 5. Streaming Inference
 
+<Note>
+For detailed Python streaming examples, see [Python SDK Streaming Inference](/python-sdk/streaming-inference).
+</Note>
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import StreamingSession
+
+# Initialize streaming session
+session = StreamingSession(clf.model_, metadata_with_chunk_size)
+
+# Process chunks
+for chunk in eeg_feature_stream:
+    result = session.process_chunk(chunk)
+    print(f"Chunk: pred={result.prediction}, conf={result.confidence:.3f}")
+
+# Finalize trial
+final_result = session.finalize_trial()
+print(f"Final: pred={final_result.prediction}, conf={final_result.confidence:.3f}")
+
+session.reset()
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 # Initialize streaming session
 session = init_streaming(model, metadata_with_chunk_size)
@@ -357,6 +432,8 @@ end
 final_result = finalize_trial(session; method=:weighted_vote)
 println("Final: pred=$(final_result.prediction), conf=$(round(final_result.confidence, digits=3))")
 ```
+  </Tab>
+</Tabs>
 
 ## Hyperparameter Tuning (v0.2.0+)
 
@@ -377,6 +454,20 @@ Consider tuning when:
 
 Use lower regularization to let the data drive the model:
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusGMM
+
+# Lower regularization for clean data
+clf = NimbusGMM(
+    mu_scale=1.0,      # Weaker prior
+    sigma_scale=0.1    # Less covariance regularization
+)
+clf.fit(X_train, y_train)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 model = train_model(
     RxGMMModel,
@@ -386,6 +477,8 @@ model = train_model(
     mean_prior_precision = 0.001       # Weaker prior, trust data more
 )
 ```
+  </Tab>
+</Tabs>
 
 **Use when:**
 - SNR > 5 dB
@@ -397,6 +490,20 @@ model = train_model(
 
 Use higher regularization for stability (especially important for GMM with class-specific covariances):
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusGMM
+
+# Higher regularization for noisy data
+clf = NimbusGMM(
+    mu_scale=5.0,      # Stronger prior
+    sigma_scale=10.0   # More covariance regularization
+)
+clf.fit(X_train, y_train)
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 model = train_model(
     RxGMMModel,
@@ -406,6 +513,8 @@ model = train_model(
     mean_prior_precision = 0.05        # Stronger prior
 )
 ```
+  </Tab>
+</Tabs>
 
 **Use when:**
 - SNR < 2 dB
