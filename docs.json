@@ -22,21 +22,11 @@
   "navigation": {
     "groups": [
       {
-        "group": "Getting started",
+        "group": "Getting Started",
         "pages": [
           "index",
+          "python-sdk/quickstart",
           "quickstart"
-        ]
-      },
-      {
-        "group": "API documentation",
-        "pages": [
-          "api-reference/introduction",
-          "api-reference/authentication",
-          "api-reference/inference-endpoints",
-          "api-reference/streaming-api",
-          "api-reference/webhook-integration",
-          "api-reference/julia-sdk"
         ]
       },
       {
@@ -44,7 +34,6 @@
         "pages": [
           "python-sdk/introduction",
           "python-sdk/installation",
-          "python-sdk/quickstart",
           "python-sdk/api-reference",
           "python-sdk/sklearn-integration",
           "python-sdk/streaming-inference",
@@ -52,7 +41,40 @@
         ]
       },
       {
-        "group": "Core concepts",
+        "group": "Julia SDK & API",
+        "pages": [
+          "api-reference/julia-sdk",
+          "api-reference/introduction",
+          "api-reference/authentication",
+          "api-reference/inference-endpoints",
+          "api-reference/streaming-api",
+          "api-reference/webhook-integration"
+        ]
+      },
+      {
+        "group": "Models & Algorithms",
+        "pages": [
+          "models/rxlda",
+          "models/rxgmm",
+          "models/rxpolya",
+          "model-specification/index",
+          "model-specification/bci-examples",
+          "model-specification/advanced-techniques"
+        ]
+      },
+      {
+        "group": "Configuration & Setup",
+        "pages": [
+          "inference-configuration/preprocessing-requirements",
+          "inference-configuration/feature-normalization",
+          "inference-configuration/real-time-setup",
+          "inference-configuration/batch-processing",
+          "inference-configuration/streaming-inference",
+          "inference-configuration/error-handling"
+        ]
+      },
+      {
+        "group": "Core Concepts",
         "pages": [
           "core-concepts/probabilistic-ai",
           "core-concepts/real-time-processing",
@@ -61,44 +83,12 @@
         ]
       },
       {
-        "group": "Model specification",
-        "pages": [
-          "model-specification/index",
-          "model-specification/bci-examples",
-          "model-specification/advanced-techniques"
-        ]
-      },
-      {
-        "group": "Inference configuration",
-        "pages": [
-          "inference-configuration/real-time-setup",
-          "inference-configuration/batch-processing",
-          "inference-configuration/streaming-inference",
-          "inference-configuration/preprocessing-requirements",
-          "inference-configuration/feature-normalization",
-          "inference-configuration/error-handling"
-        ]
-      },
-      {
-        "group": "BCI Models",
-        "pages": [
-          "models/rxlda",
-          "models/rxgmm",
-          "models/rxpolya"
-        ]
-      },
-      {
-        "group": "Examples & tutorials",
+        "group": "Examples & Development",
         "pages": [
           "examples/basic-examples",
           "examples/advanced-applications",
           "examples/industry-use-cases",
-          "examples/code-samples"
-        ]
-      },
-      {
-        "group": "Development",
-        "pages": [
+          "examples/code-samples",
           "development",
           "development/preprocessing-integration"
         ]
