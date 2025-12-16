@@ -339,6 +339,66 @@ println("="^60)
 
 Fine-tune a pre-trained model with a small subject-specific dataset.
 
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_pysdk import NimbusLDA
+import numpy as np
+import pickle
+
+print("Subject-Specific Calibration")
+
+# Step 1: Load baseline model
+print("\n1. Loading baseline model...")
+with open("motor_imagery_baseline.pkl", "rb") as f:
+    base_clf = pickle.load(f)
+print("✓ Baseline model loaded")
+
+# Step 2: Collect calibration data from new subject
+print("\n2. Collecting calibration data...")
+print("  (Collect 10-20 trials per class from subject)")
+
+X_calib = collect_calibration_trials()  # Your function
+y_calib = np.array([1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 1, 2, 3, 4, 2, 3, 1, 4, 3, 2])
+
+print(f"✓ Calibration data prepared: {len(y_calib)} trials")
+
+# Step 3: Fine-tune model using online learning
+print("\n3. Calibrating model...")
+print("  (Fine-tuning with subject-specific data)")
+
+personalized_clf = NimbusLDA()
+# Copy baseline parameters
+personalized_clf.fit(X_baseline, y_baseline)  # Start from baseline
+
+# Fine-tune on calibration data
+for _ in range(10):  # Multiple passes for adaptation
+    personalized_clf.partial_fit(X_calib, y_calib)
+
+print("✓ Model calibrated")
+
+# Step 4: Save personalized model
+save_path = "subject_001_calibrated.pkl"
+with open(save_path, "wb") as f:
+    pickle.dump(personalized_clf, f)
+print(f"✓ Saved: {save_path}")
+
+# Step 5: Compare performance
+print("\n4. Performance comparison...")
+
+# Test on same test data
+pred_baseline = base_clf.predict(X_test)
+pred_personalized = personalized_clf.predict(X_test)
+
+acc_baseline = np.mean(pred_baseline == y_test)
+acc_personalized = np.mean(pred_personalized == y_test)
+
+print(f"  Baseline accuracy: {acc_baseline * 100:.1f}%")
+print(f"  Personalized accuracy: {acc_personalized * 100:.1f}%")
+print(f"  Improvement: +{(acc_personalized - acc_baseline) * 100:.1f}%")
+```
+  </Tab>
+  <Tab title="Julia">
 ```julia
 using NimbusSDK
 
@@ -401,6 +461,8 @@ println("  Baseline accuracy: $(round(acc_baseline * 100, digits=1))%")
 println("  Personalized accuracy: $(round(acc_personalized * 100, digits=1))%")
 println("  Improvement: +$(round((acc_personalized - acc_baseline) * 100, digits=1))%")
 ```
+  </Tab>
+</Tabs>
 
 ## Hyperparameter Tuning (v0.2.0+)
 
