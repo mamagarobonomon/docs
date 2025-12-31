@@ -69,8 +69,8 @@ z_mean, z_cov = clf.get_latent_state()
 
 **Use [Bayesian LDA](/models/rxlda) or [Bayesian GMM](/models/rxgmm) instead if:**
 - Data is stationary (class distributions don't change over time)
-- Sessions are short (<10 minutes)
-- You need the absolute fastest inference (<15ms)
+- Sessions are short (&lt;10 minutes)
+- You need the absolute fastest inference (&lt;15ms)
 - Complexity of state management is not warranted
 
 ## Model Architecture
@@ -624,7 +624,7 @@ See [Preprocessing Requirements](/inference-configuration/preprocessing-requirem
 |-----------|---------|-------|
 | **Training** | 15-40 seconds | 100 iterations, 100 trials per class |
 | **Batch Inference** | 20-30ms per trial | Slightly slower than static models |
-| **propagate_state()** | <1ms | Fast time update |
+| **propagate_state()** | &lt;1ms | Fast time update |
 | **partial_fit()** | 5-15ms | Online EKF update |
 | **Streaming Chunk** | 20-30ms | Includes state propagation |
 
@@ -743,7 +743,7 @@ print(f"Process noise covariance:\n{Q}")
 ✅ **Cross-Session Transfer**: State persistence across days  
 ✅ **Uncertainty Quantification**: For both predictions and states  
 ✅ **Delayed Feedback Support**: Natural for BCI paradigms  
-✅ **Production-Ready**: Real-time capable with <30ms latency  
+✅ **Production-Ready**: Real-time capable with &lt;30ms latency  
 ✅ **sklearn-Compatible**: Works with pipelines and CV  
 
 ### Limitations
@@ -773,7 +773,7 @@ print(f"Process noise covariance:\n{Q}")
 Is your data non-stationary (drift over time)?
 ├─ Yes → How long are your sessions?
 │   ├─ >30 min → NimbusSTS (essential)
-│   └─ <30 min → Try NimbusSTS, compare with static models
+│   └─ &lt;30 min → Try NimbusSTS, compare with static models
 └─ No → Do classes have different covariances?
     ├─ Yes → NimbusGMM
     └─ No → NimbusLDA (fastest)
