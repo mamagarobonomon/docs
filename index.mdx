@@ -9,8 +9,15 @@ _Production-ready Bayesian BCI inference with Bayesian LDA, Bayesian GMM, Bayesi
 Nimbus provides fast, probabilistic inference for Brain-Computer Interface applications in **Python** and **Julia**. The SDKs deliver sub-30ms inference latency with full uncertainty quantification through **Bayesian LDA**, **Bayesian GMM**, **Bayesian Softmax/MPR**, and **Bayesian STS** implementations.
 
 **Choose your SDK:**
-- 🐍 **Python SDK** (`nimbus-bci`): sklearn-compatible classifiers with MNE-Python integration
-- ⚡ **Julia SDK** (`NimbusSDK.jl`): Built on RxInfer.jl for maximum performance
+
+<CardGroup cols={2}>
+  <Card title="Python SDK (nimbus-bci)" icon="python">
+    sklearn-compatible classifiers with MNE-Python integration
+  </Card>
+  <Card title="Julia SDK (NimbusSDK.jl)" icon="code">
+    Built on RxInfer.jl for maximum performance
+  </Card>
+</CardGroup>
 
 ## Why Nimbus BCI
 
@@ -109,7 +116,7 @@ The SDKs provide four production-ready Bayesian models:
   </Card>
   <Card
     title="Bayesian STS"
-    icon="wave-pulse"
+    icon="brain"
     href="/models/rxsts"
   >
     **Bayesian Structural Time Series** with Extended Kalman Filter. Adaptive (20-30ms), designed for non-stationary data with temporal drift, online learning. Python: `NimbusSTS`.
@@ -347,13 +354,13 @@ EEG Hardware → Preprocessing → Nimbus SDK → Application
 
 ## Performance
 
-| Metric | RxLDA | RxGMM | Bayesian MPR |
-|--------|-------|-------|--------------|
-| **Inference Latency** | 10-15ms | 15-25ms | 15-25ms |
-| **Training Time** | 10-30s | 15-40s | 15-40s |
-| **Calibration Time** | 5-15s | 8-20s | 8-20s |
-| **Memory Usage** | Low | Moderate | Moderate |
-| **Accuracy** | 70-90% (MI) | 80-95% (P300) | 70-85% (Complex) |
+| Metric | RxLDA | RxGMM | Bayesian MPR | RxSTS |
+|--------|-------|-------|--------------|-------|
+| **Inference Latency** | 10-15ms | 15-25ms | 15-25ms | 20-30ms |
+| **Training Time** | 10-30s | 15-40s | 15-40s | 15-40s |
+| **Calibration Time** | 5-15s | 8-20s | 8-20s | 8-20s |
+| **Memory Usage** | Low | Moderate | Moderate | Moderate |
+| **Accuracy** | 70-90% (MI) | 80-95% (P300) | 70-85% (Complex) | 75-90% (Adaptive) |
 
 All measurements on standard CPU (no GPU required).
 
