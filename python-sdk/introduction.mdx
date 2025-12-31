@@ -63,19 +63,22 @@ pipe.fit(X_train, y_train)
 
 ## Available Classifiers
 
-The Python SDK provides three Bayesian classifiers:
+The Python SDK provides four Bayesian classifiers:
 
 | Classifier | Description | Best For |
 |------------|-------------|----------|
 | **NimbusLDA** | Bayesian LDA with shared covariance | Fast, well-separated classes (motor imagery) |
 | **NimbusGMM** | Bayesian GMM with class-specific covariances | Complex distributions (P300) |
 | **NimbusSoftmax** | Bayesian logistic regression (Polya-Gamma VI) | Non-Gaussian decision boundaries |
+| **NimbusSTS** | Bayesian Structural Time Series (Extended Kalman Filter) | Non-stationary data, long sessions |
 
 All classifiers provide:
 - Full posterior distributions
 - Uncertainty quantification
 - Online learning via `partial_fit()`
 - sklearn-compatible API
+
+**Note**: NimbusSTS also includes state management methods (`propagate_state()`, `get_latent_state()`, `set_latent_state()`) for temporal adaptation.
 
 ## Python vs Julia SDK
 
