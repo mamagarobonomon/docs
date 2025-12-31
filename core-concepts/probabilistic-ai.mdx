@@ -45,7 +45,7 @@ Most current BCI systems use deterministic classification that always returns a 
 
 ### Bayesian Inference for BCI
 
-Both SDKs use Bayesian inference to model uncertainty explicitly with three production-ready models: Bayesian LDA, Bayesian GMM, and Bayesian Softmax/MPR.
+Both SDKs use Bayesian inference to model uncertainty explicitly with production-ready models: Bayesian LDA, Bayesian GMM, Bayesian Softmax/MPR, and Bayesian STS (Python SDK).
 
 <Tabs>
   <Tab title="Python">
@@ -246,7 +246,7 @@ NimbusSDK uses **RxInfer.jl** for efficient Bayesian inference through reactive 
 4. **Automatic inference** - RxInfer generates efficient inference algorithms automatically
 
 <Tip>
-The mathematical details are handled automatically by RxInfer. NimbusSDK provides the Bayesian LDA (RxLDA) and Bayesian GMM (RxGMM) models pre-configured for optimal BCI performance.
+The mathematical details are handled automatically by RxInfer. NimbusSDK provides Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian STS (NimbusSTS - Python only) models pre-configured for optimal BCI performance.
 </Tip>
 
 ### Performance Characteristics

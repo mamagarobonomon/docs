@@ -262,12 +262,13 @@ Compare different nimbus-bci classifiers:
 
 ```python
 from sklearn.model_selection import cross_val_score
-from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax
+from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax, NimbusSTS
 
 classifiers = {
     'LDA': NimbusLDA(),
     'GMM': NimbusGMM(),
-    'Softmax': NimbusSoftmax()
+    'Softmax': NimbusSoftmax(),
+    'STS': NimbusSTS()
 }
 
 results = {}
@@ -351,13 +352,14 @@ Combine multiple nimbus-bci classifiers:
 
 ```python
 from sklearn.ensemble import VotingClassifier
-from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax
+from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax, NimbusSTS
 
 ensemble = VotingClassifier(
     estimators=[
         ('lda', NimbusLDA()),
         ('gmm', NimbusGMM()),
-        ('softmax', NimbusSoftmax())
+        ('softmax', NimbusSoftmax()),
+        ('sts', NimbusSTS())
     ],
     voting='soft'  # Use probabilities
 )

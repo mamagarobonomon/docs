@@ -1091,9 +1091,9 @@ println("Specificity: $(round(specificity * 100, digits=1))%")
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax
+from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax, NimbusSTS
 
-# Train all three models
+# Train all models
 lda_clf = NimbusLDA()
 lda_clf.fit(X_train, y_train)
 
@@ -1103,11 +1103,15 @@ gmm_clf.fit(X_train, y_train)
 softmax_clf = NimbusSoftmax()
 softmax_clf.fit(X_train, y_train)
 
-# Evaluate all three
+sts_clf = NimbusSTS()
+sts_clf.fit(X_train, y_train)
+
+# Evaluate all models
 models = [
     ("NimbusLDA", lda_clf),
     ("NimbusGMM", gmm_clf),
-    ("NimbusSoftmax", softmax_clf)
+    ("NimbusSoftmax", softmax_clf),
+    ("NimbusSTS", sts_clf)
 ]
 
 for name, clf in models:
@@ -1128,8 +1132,9 @@ for name, clf in models:
   <Tab title="Julia">
 ```julia
 # Compare Bayesian MPR with other models
+# Note: NimbusSTS (Bayesian STS) is currently Python-only
 
-# Train all three models
+# Train all three Julia models
 rxlda_model = train_model(RxLDAModel, train_data)
 rxgmm_model = train_model(RxGMMModel, train_data)
 rxpolya_model = train_model(RxPolyaModel, train_data)
