@@ -260,7 +260,7 @@ print(f"Entropy: {final.entropy:.2f} bits")
 Try different Bayesian models:
 
 ```python
-from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax
+from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax, NimbusSTS
 
 # Bayesian LDA (shared covariance)
 clf_lda = NimbusLDA()
@@ -274,17 +274,88 @@ clf_gmm.fit(X_train, y_train)
 clf_softmax = NimbusSoftmax()
 clf_softmax.fit(X_train, y_train)
 
+# Bayesian STS (temporal state dynamics for non-stationary data)
+clf_sts = NimbusSTS(transition_cov=0.05)
+clf_sts.fit(X_train, y_train)
+
 # Compare performance
-for name, clf in [("LDA", clf_lda), ("GMM", clf_gmm), ("Softmax", clf_softmax)]:
+for name, clf in [("LDA", clf_lda), ("GMM", clf_gmm), 
+                   ("Softmax", clf_softmax), ("STS", clf_sts)]:
     score = clf.score(X_test, y_test)
     print(f"{name}: {score:.2%}")
 ```
 
-| Model | Best For | Speed | Flexibility |
-|-------|----------|-------|-------------|
-| **NimbusLDA** | Motor imagery, well-separated classes | Fastest (10-15ms) | Lower |
-| **NimbusGMM** | P300, overlapping distributions | Fast (15-25ms) | Higher |
-| **NimbusSoftmax** | Complex multinomial tasks | Fast (15-25ms) | Highest |
+| Model | Best For | Speed | Statefulness |
+|-------|----------|-------|--------------|
+| **NimbusLDA** | Motor imagery, well-separated classes | Fastest (10-15ms) | Stateless |
+| **NimbusGMM** | P300, overlapping distributions | Fast (15-25ms) | Stateless |
+| **NimbusSoftmax** | Complex multinomial tasks | Fast (15-25ms) | Stateless |
+| **NimbusSTS** | Non-stationary data, long sessions, adaptive BCI | Real-time (20-30ms) | Stateful |
+
+<Tip>
+**New: NimbusSTS** is designed for **non-stationary data** where class distributions drift over time (e.g., due to fatigue, electrode changes). Use it for:
+- Long BCI sessions (>30 minutes)
+- Cross-day experiments  
+- Adaptive systems with continuous learning
+- Online learning with delayed feedback
+
+See [Bayesian STS Model](/models/rxsts) for complete documentation.
+</Tip>
+
+## NimbusSTS: Adaptive BCI
+
+For non-stationary data with temporal drift:
+
+```python
+from nimbus_bci import NimbusSTS
+
+# Train with moderate drift tracking
+clf = NimbusSTS(
+    transition_cov=0.05,  # Controls drift adaptation speed
+    num_steps=100
+)
+clf.fit(X_train, y_train)
+
+# Stateful prediction with time propagation
+predictions = []
+for x_t in X_stream:  # Time-ordered samples
+    # Advance state one time step
+    clf.propagate_state()
+    
+    # Predict using current state
+    pred = clf.predict(x_t.reshape(1, -1))[0]
+    predictions.append(pred)
+
+# Online learning with delayed feedback (canonical BCI paradigm)
+for trial in online_session:
+    # 1. Advance time
+    clf.propagate_state()
+    
+    # 2. Predict
+    prediction = clf.predict(trial.features.reshape(1, -1))[0]
+    
+    # 3. User performs action
+    execute_action(prediction)
+    
+    # 4. Get feedback
+    true_label = wait_for_feedback()
+    
+    # 5. Update state
+    clf.partial_fit(trial.features.reshape(1, -1), [true_label])
+
+# State inspection and transfer
+z_mean, z_cov = clf.get_latent_state()
+print(f"Current state: {z_mean}")
+
+# Save state for next session
+import pickle
+with open("model_with_state.pkl", "wb") as f:
+    pickle.dump({'model': clf, 'state': (z_mean, z_cov)}, f)
+```
+
+<Info>
+**Key Difference**: Unlike static models (LDA, GMM, Softmax), NimbusSTS maintains a **latent state** that evolves over time, allowing it to adapt to non-stationary distributions. Use `propagate_state()` to explicitly advance time.
+</Info>
 
 ## MNE-Python Integration
 

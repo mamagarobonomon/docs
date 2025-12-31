@@ -495,6 +495,269 @@ for chunk in stream:
         monitor.report()
 ```
 
+## NimbusSTS Streaming (Stateful, Adaptive)
+
+NimbusSTS provides **unique streaming capabilities** for non-stationary data with automatic state propagation.
+
+### StreamingSessionSTS
+
+Unlike static models, NimbusSTS maintains a latent state that evolves over time. The `StreamingSessionSTS` class automatically handles state propagation between chunks.
+
+```python
+from nimbus_bci import NimbusSTS
+from nimbus_bci.inference import StreamingSessionSTS
+from nimbus_bci.data import BCIMetadata
+
+# Train adaptive model
+clf = NimbusSTS(
+    transition_cov=0.05,  # Moderate drift tracking
+    num_steps=100
+)
+clf.fit(X_train, y_train)
+
+# Setup streaming session
+metadata = BCIMetadata(
+    sampling_rate=250.0,
+    paradigm="motor_imagery",
+    feature_type="csp",
+    n_features=16,
+    n_classes=4,
+    chunk_size=125,
+    temporal_aggregation="logvar"
+)
+
+# StreamingSessionSTS automatically manages state
+session = StreamingSessionSTS(clf, metadata)
+
+# Process chunks - state propagates automatically
+for chunk in eeg_stream:
+    result = session.process_chunk(chunk)
+    print(f"Prediction: {result.prediction}, Confidence: {result.confidence:.2%}")
+
+# Finalize and reset
+final = session.finalize_trial()
+session.reset()
+```
+
+### Key Differences: STS vs Static Models
+
+| Feature | StreamingSessionSTS (NimbusSTS) | StreamingSession (LDA/GMM/Softmax) |
+|---------|----------------------------------|-------------------------------------|
+| **State Management** | ✅ Automatic state propagation | ❌ Stateless |
+| **Drift Adaptation** | ✅ Adapts to temporal changes | ❌ Fixed parameters |
+| **Chunk Correlation** | ✅ Considers temporal dependencies | ❌ Treats chunks independently |
+| **Use Case** | Long sessions, adaptive BCI | Short, stationary sessions |
+| **Latency** | ~20-30ms per chunk | ~10-25ms per chunk |
+
+### Online Learning with Streaming STS
+
+Combine streaming inference with online adaptation:
+
+```python
+from nimbus_bci import NimbusSTS
+from nimbus_bci.inference import StreamingSessionSTS
+from nimbus_bci.data import BCIMetadata
+
+# Train initial model
+clf = NimbusSTS(transition_cov=0.05, learning_rate=0.1)
+clf.fit(X_calibration, y_calibration)
+
+# Setup streaming
+metadata = BCIMetadata(
+    sampling_rate=250.0,
+    paradigm="motor_imagery",
+    feature_type="csp",
+    n_features=16,
+    n_classes=4,
+    chunk_size=125,
+    temporal_aggregation="logvar"
+)
+
+session = StreamingSessionSTS(clf, metadata)
+
+# Online session with delayed feedback
+for trial_data in online_trials:
+    # Process chunks for this trial
+    for chunk in trial_data.chunks:
+        result = session.process_chunk(chunk)
+        print(f"Chunk prediction: {result.prediction}")
+    
+    # Get final prediction
+    final = session.finalize_trial()
+    
+    # Execute BCI command
+    execute_command(final.prediction)
+    
+    # Wait for user feedback
+    true_label = wait_for_feedback()
+    
+    # Update model with feedback (adapts to user)
+    # Aggregate chunks back to trial level
+    trial_features = aggregate_chunks(trial_data.chunks)
+    clf.partial_fit(trial_features.reshape(1, -1), [true_label])
+    
+    # Reset session for next trial
+    session.reset()
+```
+
+### State Monitoring During Streaming
+
+Monitor how the latent state evolves:
+
+```python
+from nimbus_bci import NimbusSTS
+from nimbus_bci.inference import StreamingSessionSTS
+import matplotlib.pyplot as plt
+
+clf = NimbusSTS(transition_cov=0.05)
+clf.fit(X_train, y_train)
+
+session = StreamingSessionSTS(clf, metadata)
+
+# Track state evolution
+state_history = []
+uncertainty_history = []
+
+for trial_idx in range(n_trials):
+    for chunk in trial_chunks[trial_idx]:
+        result = session.process_chunk(chunk)
+        
+        # Get current state
+        z_mean, z_cov = clf.get_latent_state()
+        state_history.append(z_mean.copy())
+        uncertainty_history.append(np.trace(z_cov))
+    
+    session.finalize_trial()
+    session.reset()
+
+# Visualize state evolution
+state_history = np.array(state_history)
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 2, 1)
+plt.plot(state_history)
+plt.xlabel('Chunk')
+plt.ylabel('Latent State')
+plt.title('State Evolution Over Time')
+plt.grid(True)
+
+plt.subplot(1, 2, 2)
+plt.plot(uncertainty_history)
+plt.xlabel('Chunk')
+plt.ylabel('Uncertainty (trace of cov)')
+plt.title('State Uncertainty')
+plt.grid(True)
+
+plt.tight_layout()
+plt.show()
+```
+
+### When to Use StreamingSessionSTS
+
+**Use StreamingSessionSTS when:**
+- Sessions last >30 minutes (fatigue/drift effects)
+- You observe accuracy degradation over time
+- Electrode impedance changes during session
+- Need online adaptation with delayed feedback
+- Cross-day experiments with state transfer
+
+**Use StreamingSession (static models) when:**
+- Short sessions (<15 minutes)
+- Stable recording conditions
+- Need absolute minimum latency (<15ms)
+- Data is stationary
+
+### Complete Adaptive BCI Example
+
+```python
+from nimbus_bci import NimbusSTS
+from nimbus_bci.inference import StreamingSessionSTS
+from nimbus_bci.data import BCIMetadata
+import numpy as np
+
+# Initial calibration
+clf = NimbusSTS(
+    transition_cov=0.05,  # Moderate drift
+    learning_rate=0.1,
+    num_steps=100,
+    verbose=False
+)
+clf.fit(X_calibration, y_calibration)
+
+# Setup streaming
+metadata = BCIMetadata(
+    sampling_rate=250.0,
+    paradigm="motor_imagery",
+    feature_type="csp",
+    n_features=16,
+    n_classes=4,
+    chunk_size=125,
+    temporal_aggregation="logvar"
+)
+
+session = StreamingSessionSTS(clf, metadata)
+
+# Long session (e.g., 60 minutes)
+accuracy_window = []
+window_size = 20
+
+for trial_idx, trial in enumerate(long_session):
+    # Process trial chunks
+    for chunk in trial.chunks:
+        result = session.process_chunk(chunk)
+    
+    # Get final prediction
+    final = session.finalize_trial()
+    prediction = final.prediction
+    
+    # Execute command
+    bci_command = execute_action(prediction)
+    
+    # Get feedback after action completes
+    true_label = get_feedback(bci_command)
+    
+    # Track accuracy
+    correct = (prediction == true_label)
+    accuracy_window.append(correct)
+    if len(accuracy_window) > window_size:
+        accuracy_window.pop(0)
+    
+    recent_acc = np.mean(accuracy_window)
+    
+    # Update model (online learning)
+    trial_features = aggregate_trial(trial.chunks)
+    clf.partial_fit(trial_features.reshape(1, -1), [true_label])
+    
+    # Monitor performance
+    if (trial_idx + 1) % 10 == 0:
+        print(f"Trial {trial_idx + 1}: Recent accuracy = {recent_acc:.1%}")
+        
+        # Get state info
+        z_mean, z_cov = clf.get_latent_state()
+        uncertainty = np.trace(z_cov)
+        print(f"  State uncertainty: {uncertainty:.3f}")
+    
+    # Reset for next trial
+    session.reset()
+
+print("\nSession complete!")
+print(f"Final accuracy (last {window_size} trials): {recent_acc:.1%}")
+
+# Save adapted model for next session
+z_final, P_final = clf.get_latent_state()
+import pickle
+with open("adapted_model_day1.pkl", "wb") as f:
+    pickle.dump({
+        'model': clf,
+        'state': (z_final, P_final),
+        'metadata': metadata
+    }, f)
+```
+
+<Tip>
+**Pro Tip**: For long BCI sessions, monitor the state uncertainty. If it grows too large, consider a brief recalibration (5-10 trials) to re-anchor the model.
+</Tip>
+
 ## Best Practices
 
 ### 1. Always Reset Between Trials

@@ -956,33 +956,36 @@ end
 ❌ **Requires Multiple Trials**: Cannot train on single trial (minimum 2 observations)  
 ❌ **Less Interpretable**: Harder to interpret than generative models with explicit means
 
-## Comparison: Bayesian MPR vs RxLDA vs RxGMM
+## Comparison: Bayesian MPR vs RxLDA vs RxGMM vs RxSTS
 
-| Aspect | Bayesian MPR | RxLDA | RxGMM |
-|--------|---------|-------|-------|
-| **Mathematical Model** | Bayesian Multinomial Probit Regression | Pooled Gaussian Classifier (PGC) | Heteroscedastic Gaussian Classifier (HGC) |
-| **Representation** | (K-1) dimensional latent space | K class means with shared precision | K class means with class-specific precisions |
-| **Training Speed** | Moderate | Fastest | Moderate |
-| **Inference Speed** | 15-25ms | 10-15ms | 15-20ms |
-| **Flexibility** | Highest | Lowest | High |
-| **Best For** | Complex multinomial tasks | Well-separated classes | Overlapping classes with different covariances |
-| **Interpretability** | Low (discriminative) | High (generative with means) | High (generative with means) |
-| **Mahalanobis Distance** | ❌ No (no explicit means) | ✅ Yes | ✅ Yes |
-| **Entropy Metrics** | ✅ Yes | ✅ Yes | ✅ Yes |
-| **Free Energy** | ✅ Yes (training only) | ✅ Yes | ✅ Yes |
+| Aspect | Bayesian MPR | RxLDA | RxGMM | RxSTS |
+|--------|---------|-------|-------|-------|
+| **Mathematical Model** | Bayesian Multinomial Probit Regression | Pooled Gaussian Classifier (PGC) | Heteroscedastic Gaussian Classifier (HGC) | State-Space Model (EKF) |
+| **Representation** | (K-1) dimensional latent space | K class means with shared precision | K class means with class-specific precisions | Features + latent state dynamics |
+| **Temporal Modeling** | Static (stateless) | Static (stateless) | Static (stateless) | **Dynamic (stateful)** |
+| **Training Speed** | Moderate | Fastest | Moderate | Moderate |
+| **Inference Speed** | 15-25ms | 10-15ms | 15-20ms | 20-30ms |
+| **Flexibility** | Highest | Lowest | High | Adaptive |
+| **Best For** | Complex multinomial tasks | Well-separated classes | Overlapping classes with different covariances | **Non-stationary, long sessions** |
+| **Interpretability** | Low (discriminative) | High (generative with means) | High (generative with means) | Moderate (state evolution) |
+| **Mahalanobis Distance** | ❌ No (no explicit means) | ✅ Yes | ✅ Yes | ❌ N/A |
+| **Entropy Metrics** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| **Free Energy** | ✅ Yes (training only) | ✅ Yes | ✅ Yes | ✅ Yes |
 
 ### Decision Tree
 
 ```
-Do you need Mahalanobis-based outlier detection?
-├─ Yes → Use RxLDA or RxGMM
-└─ No → Are classes well-separated with Gaussian structure?
-    ├─ Yes → Use RxLDA (fastest)
-    └─ No → Do classes have different covariances?
-        ├─ Yes → Use RxGMM
-        └─ No → Are distributions complex/non-Gaussian?
-            ├─ Yes → Use Bayesian MPR
-            └─ No → Use RxLDA (simplest)
+Is your data non-stationary (temporal drift)?
+├─ Yes → Use RxSTS (handles temporal dynamics)
+└─ No → Do you need Mahalanobis-based outlier detection?
+    ├─ Yes → Use RxLDA or RxGMM
+    └─ No → Are classes well-separated with Gaussian structure?
+        ├─ Yes → Use RxLDA (fastest)
+        └─ No → Do classes have different covariances?
+            ├─ Yes → Use RxGMM
+            └─ No → Are distributions complex/non-Gaussian?
+                ├─ Yes → Use Bayesian MPR
+                └─ No → Use RxLDA (simplest)
 ```
 
 ## Practical Examples
@@ -1164,11 +1167,11 @@ end
   <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
     Flexible model with class-specific covariances
   </Card>
+  <Card title="Bayesian STS (RxSTS)" icon="wave-pulse" href="/models/rxsts">
+    Adaptive model for non-stationary data
+  </Card>
   <Card title="Training Guide" icon="graduation-cap" href="/examples/advanced-applications">
     Complete training tutorial
-  </Card>
-  <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
-    Full SDK reference
   </Card>
   <Card title="Code Examples" icon="braces" href="/examples/basic-examples">
     Working examples

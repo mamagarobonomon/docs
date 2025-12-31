@@ -4,9 +4,9 @@ description: "Bayesian inference for Brain-Computer Interfaces in Python and Jul
 icon: "brain"
 ---
 
-_Production-ready Bayesian BCI inference with Bayesian LDA, Bayesian GMM, and Bayesian Softmax models_
+_Production-ready Bayesian BCI inference with Bayesian LDA, Bayesian GMM, Bayesian Softmax, and Bayesian STS models_
 
-Nimbus provides fast, probabilistic inference for Brain-Computer Interface applications in **Python** and **Julia**. The SDKs deliver sub-20ms inference latency with full uncertainty quantification through **Bayesian LDA**, **Bayesian GMM**, and **Bayesian Softmax/MPR** implementations.
+Nimbus provides fast, probabilistic inference for Brain-Computer Interface applications in **Python** and **Julia**. The SDKs deliver sub-30ms inference latency with full uncertainty quantification through **Bayesian LDA**, **Bayesian GMM**, **Bayesian Softmax/MPR**, and **Bayesian STS** implementations.
 
 **Choose your SDK:**
 - 🐍 **Python SDK** (`nimbus-bci`): sklearn-compatible classifiers with MNE-Python integration
@@ -83,15 +83,15 @@ Brain-Computer Interfaces face unique challenges: noisy neural signals, inherent
 
 ## Implemented Models
 
-Both SDKs provide three production-ready Bayesian models:
+The SDKs provide four production-ready Bayesian models:
 
-<CardGroup cols={3}>
+<CardGroup cols={2}>
   <Card
     title="Bayesian LDA"
     icon="brain"
     href="/models/rxlda"
   >
-    **Bayesian Linear Discriminant Analysis** with shared covariance. Fast (10-15ms), efficient, ideal for well-separated classes like motor imagery. Python: `NimbusLDA`, Julia: `RxLDAModel`.
+    **Bayesian Linear Discriminant Analysis** with shared covariance. Fastest (10-15ms), efficient, ideal for well-separated classes like motor imagery. Python: `NimbusLDA`, Julia: `RxLDAModel`.
   </Card>
   <Card
     title="Bayesian GMM"
@@ -105,7 +105,14 @@ Both SDKs provide three production-ready Bayesian models:
     icon="brain"
     href="/models/rxpolya"
   >
-    **Bayesian Multinomial Logistic Regression** with continuous transitions. Most flexible (15-25ms), ideal for complex multinomial classification tasks. Python: `NimbusSoftmax`, Julia: `RxPolyaModel`.
+    **Bayesian Multinomial Logistic Regression** with continuous transitions. Flexible (15-25ms), ideal for complex multinomial classification tasks. Python: `NimbusSoftmax`, Julia: `RxPolyaModel`.
+  </Card>
+  <Card
+    title="Bayesian STS"
+    icon="wave-pulse"
+    href="/models/rxsts"
+  >
+    **Bayesian Structural Time Series** with Extended Kalman Filter. Adaptive (20-30ms), designed for non-stationary data with temporal drift, online learning. Python: `NimbusSTS`.
   </Card>
 </CardGroup>
 

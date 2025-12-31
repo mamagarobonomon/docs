@@ -1,0 +1,943 @@
+---
+title: "Bayesian STS (RxSTS)"
+description: "Bayesian Structural Time Series classifier with Extended Kalman Filter for non-stationary BCI data"
+icon: "wave-pulse"
+---
+
+# Bayesian STS - Bayesian Structural Time Series
+
+**Python**: `NimbusSTS` | **Julia**: Coming Soon  
+**Mathematical Model**: State-Space Model with Extended Kalman Filter (EKF)
+
+Bayesian STS is a **stateful** Bayesian classification model designed for **non-stationary BCI data**. It combines feature-based classification with latent state dynamics, allowing it to adapt to temporal drift, electrode changes, and long-session fatigue.
+
+<Note>
+**Available in Python SDK:**
+- **Python SDK**: `NimbusSTS` class (sklearn-compatible with state management)
+- **Julia SDK**: Coming in future release
+
+This is the **only model in the SDK** that explicitly handles temporal dynamics and non-stationary distributions.
+</Note>
+
+## Overview
+
+Bayesian STS extends beyond traditional static classifiers by modeling **latent state evolution** over time:
+
+- ✅ **Temporal state dynamics** with Extended Kalman Filter
+- ✅ **Drift adaptation** for non-stationary data
+- ✅ **State management API** for explicit time propagation
+- ✅ **Online learning** with delayed feedback support
+- ✅ **Cross-session transfer** with state persistence
+- ✅ **Uncertainty quantification** for predictions and states
+- ✅ **Fast inference** (~20-30ms per trial)
+
+## Quick Start
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_bci import NimbusSTS
+import numpy as np
+
+# Create and fit classifier
+clf = NimbusSTS(transition_cov=0.01, num_steps=100)
+clf.fit(X_train, y_train)
+
+# Stateful prediction with time propagation
+for x_new in streaming_data:
+    clf.propagate_state()  # Advance time
+    prediction = clf.predict(x_new.reshape(1, -1))
+    
+    # After feedback arrives
+    clf.partial_fit(x_new.reshape(1, -1), [true_label])
+
+# Inspect and save state for next session
+z_mean, z_cov = clf.get_latent_state()
+```
+  </Tab>
+</Tabs>
+
+### When to Use Bayesian STS
+
+**Bayesian STS is ideal for:**
+- Non-stationary data with temporal drift
+- Long BCI sessions (>30 minutes) with fatigue effects
+- Cross-day experiments with electrode position changes
+- Adaptive BCI systems with delayed feedback
+- Online learning scenarios with continuous adaptation
+- Environments with changing noise characteristics
+
+**Use [Bayesian LDA](/models/rxlda) or [Bayesian GMM](/models/rxgmm) instead if:**
+- Data is stationary (class distributions don't change over time)
+- Sessions are short (<10 minutes)
+- You need the absolute fastest inference (<15ms)
+- Complexity of state management is not warranted
+
+## Model Architecture
+
+### Mathematical Foundation (State-Space Model)
+
+Bayesian STS implements a state-space model with Extended Kalman Filter inference:
+
+**Latent Dynamics:**
+```
+z_t = A @ z_{t-1} + w_t,  where w_t ~ N(0, Q)
+```
+
+**Observation Model:**
+```
+logits = W @ x_t + H @ z_t + b
+p(y=k | x_t, z_t) = softmax(logits)_k
+```
+
+Where:
+- `z_t` = latent state at time t (captures temporal patterns like class prior drift)
+- `A` = state transition matrix (default: identity for random walk)
+- `Q` = process noise covariance (controls drift speed)
+- `W` = feature weight matrix
+- `H` = state-to-logit projection matrix
+- `x_t` = observed features
+
+**Key Innovation**: The latent state `z` captures temporal patterns that persist across samples, such as gradual shifts in class priors due to fatigue or electrode drift.
+
+### Inference with Extended Kalman Filter
+
+During training, the EKF updates the latent state using observed labels (measurement update). During inference:
+- `propagate_state()`: Advance the prior without labels (time update only)
+- `partial_fit()`: Update state with new label (measurement update)
+- `predict_proba()`: Never mutates state (consistent with sklearn API)
+
+### Hyperparameters
+
+Bayesian STS supports configurable hyperparameters for optimal performance:
+
+**Available Hyperparameters:**
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `state_dim` | int or None | None | [1, n_classes] | Dimension of latent state (default: n_classes - 1) |
+| `w_loc` | float | 0.0 | [-10, 10] | Prior mean for feature weights |
+| `w_scale` | float | 1.0 | [0.1, 10] | Prior scale for feature weights |
+| `transition_cov` | float or None | None | [0.001, 1.0] | Process noise covariance Q (drift speed) |
+| `observation_cov` | float | 1.0 | [0.1, 10] | Observation noise covariance R |
+| `transition_matrix` | ndarray or None | None | (state_dim, state_dim) | State transition matrix A (default: identity) |
+| `learning_rate` | float | 0.1 | [0.01, 1.0] | Step size for parameter updates |
+| `num_steps` | int | 50 | [20, 200] | Number of learning iterations |
+| `rng_seed` | int | 0 | any | Random seed for reproducibility |
+
+**Critical Parameter: `transition_cov` (Q)**
+
+This controls how fast the latent state can drift:
+
+- **0.001**: Very slow drift (multi-day stability)
+  - Use for: Short sessions, stable recording conditions
+  - Example: 10-minute calibration sessions
+  
+- **0.01**: Moderate drift (within-session adaptation)
+  - Use for: Standard BCI sessions (30-60 minutes)
+  - Example: Motor imagery with gradual fatigue
+  
+- **0.1**: Fast drift (rapid environmental changes)
+  - Use for: Highly non-stationary environments
+  - Example: Mobile BCI, changing electrode impedance
+
+**Rule of thumb**: Set to 1% of expected signal variance. If `None`, auto-estimated from data.
+
+### Model Structure
+
+The NimbusSTS classifier maintains:
+- Feature weights `W` (learned during training)
+- State projection `H` (learned during training)
+- Current state mean `z_mean` (updated online)
+- Current state covariance `z_cov` (updated online)
+- Initial state `z_mean_init`, `z_cov_init` (for reset)
+
+## Usage
+
+### 1. Basic Training and Prediction
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_bci import NimbusSTS
+import numpy as np
+
+# Generate sample data (in practice, use real EEG features)
+np.random.seed(42)
+n_samples, n_features = 100, 16
+X_train = np.random.randn(n_samples, n_features)
+y_train = np.random.randint(0, 4, n_samples)
+
+# Train with moderate drift tracking
+clf = NimbusSTS(
+    transition_cov=0.05,  # Moderate drift
+    num_steps=100,
+    verbose=True
+)
+clf.fit(X_train, y_train)
+
+# Standard prediction (each sample treated independently)
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)
+
+print(f"Predictions: {predictions}")
+print(f"Probabilities shape: {probabilities.shape}")
+```
+  </Tab>
+</Tabs>
+
+**Important**: `predict()` and `predict_proba()` never mutate the state (sklearn API compatibility). For time-ordered evaluation, use `propagate_state()` explicitly.
+
+### 2. Stateful Prediction with Time Propagation
+
+For **time-ordered streaming data**, explicitly propagate state between samples:
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_bci import NimbusSTS
+import numpy as np
+
+# Train model
+clf = NimbusSTS(transition_cov=0.05)
+clf.fit(X_train, y_train)
+
+# Streaming prediction with state propagation
+predictions = []
+for x_t in X_stream:  # Time-ordered samples
+    # Advance state one step (EKF time update)
+    clf.propagate_state(n_steps=1)
+    
+    # Predict using current state
+    pred = clf.predict(x_t.reshape(1, -1))[0]
+    predictions.append(pred)
+    
+    print(f"Prediction: {pred}")
+
+# Compare with vs without state propagation
+acc_with_state = np.mean(predictions == y_stream)
+acc_without_state = clf.score(X_stream, y_stream)  # Treats samples independently
+
+print(f"Accuracy with state propagation: {acc_with_state:.2%}")
+print(f"Accuracy without state propagation: {acc_without_state:.2%}")
+```
+  </Tab>
+</Tabs>
+
+### 3. Online Learning with Delayed Feedback
+
+The canonical BCI paradigm: predict → user acts → receive feedback → update
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_bci import NimbusSTS
+
+# Initial training (calibration phase)
+clf = NimbusSTS(transition_cov=0.05, learning_rate=0.1)
+clf.fit(X_calibration, y_calibration)
+
+# Online session with delayed feedback
+for trial in online_session:
+    # 1. Advance time (no measurement)
+    clf.propagate_state()
+    
+    # 2. Predict using current state
+    prediction = clf.predict(trial.features.reshape(1, -1))[0]
+    
+    # 3. User performs action based on prediction
+    execute_action(prediction)
+    
+    # 4. Get feedback (true label) after user completes action
+    true_label = wait_for_feedback()
+    
+    # 5. Update state with measurement (EKF update)
+    clf.partial_fit(trial.features.reshape(1, -1), [true_label])
+    
+    print(f"Trial: pred={prediction}, true={true_label}")
+```
+  </Tab>
+</Tabs>
+
+**Why this matters**: In real BCI, labels aren't available at prediction time. The model must predict using only the prior, then update when feedback arrives.
+
+### 4. State Inspection and Transfer
+
+Save and restore latent state across sessions:
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_bci import NimbusSTS
+import pickle
+
+# Day 1: Train and save state
+clf_day1 = NimbusSTS()
+clf_day1.fit(X_day1, y_day1)
+
+# Get final state
+z_final, P_final = clf_day1.get_latent_state()
+print(f"Final state mean: {z_final}")
+print(f"Final state uncertainty: {np.diag(P_final)}")
+
+# Save model and state
+with open("model_day1.pkl", "wb") as f:
+    pickle.dump({'model': clf_day1, 'state': (z_final, P_final)}, f)
+
+# Day 2: Transfer state with increased uncertainty
+with open("model_day1.pkl", "rb") as f:
+    saved = pickle.load(f)
+
+clf_day2 = saved['model']
+
+# Quick calibration (just a few trials)
+clf_day2.fit(X_day2_calib, y_day2_calib)
+
+# Transfer previous state (with decay)
+z_prior, P_prior = saved['state']
+clf_day2.set_latent_state(
+    z_mean=z_prior * 0.5,  # Decay mean toward 0
+    z_cov=P_prior * 2.0    # Increase uncertainty
+)
+
+# Use model with transferred state
+predictions = clf_day2.predict(X_day2_test)
+```
+  </Tab>
+</Tabs>
+
+**Use case**: Cross-day transfer learning. Start with informed prior from previous session, but increase uncertainty to allow adaptation.
+
+### 5. State Reset and Management
+
+Reset state to initial values from training:
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_bci import NimbusSTS
+
+clf = NimbusSTS()
+clf.fit(X_train, y_train)
+
+# Run one session
+for _ in range(100):
+    clf.propagate_state()
+    # ... predictions ...
+
+# Reset for new session (clean slate)
+clf.reset_state()
+
+# State is now back to initial values
+z_reset, P_reset = clf.get_latent_state()
+print(f"Reset state mean: {z_reset}")  # Near zero
+print(f"Reset state cov diagonal: {np.diag(P_reset)}")  # Identity
+```
+  </Tab>
+</Tabs>
+
+### 6. Batch Inference
+
+Standard sklearn-compatible batch inference:
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_bci import NimbusSTS
+import numpy as np
+
+clf = NimbusSTS()
+clf.fit(X_train, y_train)
+
+# Batch inference (samples treated as independent)
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)
+confidences = np.max(probabilities, axis=1)
+
+# Calculate accuracy
+accuracy = np.mean(predictions == y_test)
+print(f"Accuracy: {accuracy * 100:.1f}%")
+print(f"Mean confidence: {np.mean(confidences):.3f}")
+```
+  </Tab>
+</Tabs>
+
+### 7. Streaming Inference with StreamingSessionSTS
+
+Real-time chunk-by-chunk processing with state management:
+
+<Note>
+For detailed streaming examples, see [Python SDK Streaming Inference](/python-sdk/streaming-inference#nimbussts-streaming).
+</Note>
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_bci import NimbusSTS
+from nimbus_bci.inference import StreamingSessionSTS
+from nimbus_bci.data import BCIMetadata
+
+# Train model
+clf = NimbusSTS(transition_cov=0.05)
+clf.fit(X_train, y_train)
+
+# Setup streaming session
+metadata = BCIMetadata(
+    sampling_rate=250.0,
+    paradigm="motor_imagery",
+    feature_type="csp",
+    n_features=16,
+    n_classes=4,
+    chunk_size=125,  # 500ms chunks
+    temporal_aggregation="logvar"
+)
+
+session = StreamingSessionSTS(clf, metadata)
+
+# Process chunks with automatic state propagation
+for chunk in eeg_stream:  # (n_features, chunk_size)
+    result = session.process_chunk(chunk)
+    print(f"Chunk: pred={result.prediction}, conf={result.confidence:.3f}")
+
+# Finalize trial
+final_result = session.finalize_trial()
+print(f"Final: pred={final_result.prediction}")
+
+# Reset for next trial
+session.reset()
+```
+  </Tab>
+</Tabs>
+
+**Key feature**: `StreamingSessionSTS` automatically calls `propagate_state()` between chunks, properly handling temporal dynamics.
+
+## Hyperparameter Tuning
+
+Fine-tune NimbusSTS for your specific drift characteristics.
+
+### When to Tune Hyperparameters
+
+Consider tuning when:
+- Default performance is unsatisfactory on non-stationary data
+- You observe significant drift or fatigue effects
+- You need to balance adaptation speed vs stability
+- Cross-session performance is poor
+
+### Tuning `transition_cov` (Critical Parameter)
+
+The process noise covariance controls drift speed:
+
+#### For Stable, Short Sessions
+
+```python
+from nimbus_bci import NimbusSTS
+
+# Minimal drift (short sessions, stable conditions)
+clf = NimbusSTS(
+    transition_cov=0.001,  # Very slow drift
+    num_steps=50
+)
+clf.fit(X_train, y_train)
+```
+
+**Use when:**
+- Session duration < 15 minutes
+- Excellent electrode stability
+- Controlled lab environment
+- Minimal user fatigue
+
+#### For Standard Sessions with Gradual Drift
+
+```python
+from nimbus_bci import NimbusSTS
+
+# Moderate drift (typical BCI session)
+clf = NimbusSTS(
+    transition_cov=0.01,  # Moderate drift (default behavior)
+    num_steps=100,
+    learning_rate=0.1
+)
+clf.fit(X_train, y_train)
+```
+
+**Use when:**
+- Session duration 30-60 minutes
+- Standard BCI recording conditions
+- Gradual fatigue or attention changes
+- This is the recommended starting point
+
+#### For Highly Non-Stationary Environments
+
+```python
+from nimbus_bci import NimbusSTS
+
+# Fast drift (rapid environmental changes)
+clf = NimbusSTS(
+    transition_cov=0.1,  # Fast drift
+    observation_cov=2.0,  # Increase measurement noise tolerance
+    num_steps=100,
+    learning_rate=0.2  # Faster adaptation
+)
+clf.fit(X_train, y_train)
+```
+
+**Use when:**
+- Mobile BCI or changing environments
+- Electrode impedance changes during session
+- Rapid user state changes
+- Real-world deployment scenarios
+
+### Auto-Estimation
+
+If unsure, let the model estimate `transition_cov` from data:
+
+```python
+from nimbus_bci import NimbusSTS
+
+# Auto-estimate process noise
+clf = NimbusSTS(
+    transition_cov=None,  # Auto-estimate
+    num_steps=100
+)
+clf.fit(X_train, y_train)
+
+# Check estimated value
+print(f"Estimated transition_cov: {clf.model_.params['Q'][0, 0]:.4f}")
+```
+
+### Hyperparameter Search Example
+
+Systematically search for optimal hyperparameters:
+
+```python
+from sklearn.model_selection import GridSearchCV
+from nimbus_bci import NimbusSTS
+
+# Define parameter grid
+param_grid = {
+    'transition_cov': [0.001, 0.01, 0.05, 0.1],
+    'learning_rate': [0.05, 0.1, 0.2],
+    'num_steps': [50, 100]
+}
+
+# Grid search
+grid = GridSearchCV(
+    NimbusSTS(),
+    param_grid,
+    cv=3,  # Use fewer folds (STS is stateful)
+    scoring='accuracy',
+    n_jobs=-1,
+    verbose=1
+)
+
+grid.fit(X_train, y_train)
+
+print(f"\nBest hyperparameters:")
+print(f"  transition_cov: {grid.best_params_['transition_cov']}")
+print(f"  learning_rate: {grid.best_params_['learning_rate']}")
+print(f"  num_steps: {grid.best_params_['num_steps']}")
+print(f"  CV accuracy: {grid.best_score_*100:.1f}%")
+
+# Use best model
+best_clf = grid.best_estimator_
+```
+
+### Quick Tuning Guidelines
+
+| Scenario | `transition_cov` | `learning_rate` | `num_steps` | Notes |
+|----------|------------------|-----------------|-------------|-------|
+| **Short, stable sessions** | 0.001 | 0.1 | 50 | Minimal drift |
+| **Standard BCI (30-60 min)** | 0.01-0.05 | 0.1 | 100 | Recommended default |
+| **Long sessions (>1 hour)** | 0.05-0.1 | 0.1-0.2 | 100 | Allow more adaptation |
+| **Mobile/real-world** | 0.1-0.5 | 0.2 | 100-200 | Fast adaptation |
+| **Cross-day transfer** | 0.01 | 0.05 | 50 | Start conservative |
+
+<Tip>
+**Pro Tip**: Start with `transition_cov=0.01` and `num_steps=100`. If you observe drift (accuracy degrades over time), increase `transition_cov`. If predictions are too noisy, decrease it.
+</Tip>
+
+## Training Requirements
+
+### Data Requirements
+
+- **Minimum**: 40 trials per class
+- **Recommended**: 80+ trials per class for stable initialization
+- **For fine-tuning**: 10-20 trials with `partial_fit()`
+
+<Warning>
+NimbusSTS requires at least 2 samples to initialize state statistics. Training will raise an error if any class has fewer than 2 samples.
+</Warning>
+
+### Feature Normalization
+
+<Tip>
+**Critical for STS models!**
+
+Normalization is even more important for NimbusSTS than static models, as drift can amplify scale differences.
+</Tip>
+
+```python
+from sklearn.preprocessing import StandardScaler
+import pickle
+
+# Estimate normalization from training data
+scaler = StandardScaler()
+X_train_norm = scaler.fit_transform(X_train)
+
+# Train on normalized features
+clf = NimbusSTS()
+clf.fit(X_train_norm, y_train)
+
+# Save scaler with model
+with open("model_with_scaler.pkl", "wb") as f:
+    pickle.dump({'model': clf, 'scaler': scaler}, f)
+
+# Always apply same normalization
+X_test_norm = scaler.transform(X_test)
+predictions = clf.predict(X_test_norm)
+```
+
+See [Feature Normalization](/inference-configuration/feature-normalization) for complete details.
+
+### Feature Requirements
+
+NimbusSTS expects **preprocessed features**, not raw EEG:
+
+✅ **Required preprocessing:**
+- Bandpass filtering (paradigm-specific)
+- Artifact removal (ICA recommended)
+- Spatial filtering (CSP for motor imagery)
+- Feature extraction (log-variance, bandpower, etc.)
+- Temporal aggregation (for batch training)
+
+❌ **NOT accepted:**
+- Raw EEG channels
+- Unfiltered data
+
+See [Preprocessing Requirements](/inference-configuration/preprocessing-requirements).
+
+## Performance Characteristics
+
+### Computational Performance
+
+| Operation | Latency | Notes |
+|-----------|---------|-------|
+| **Training** | 15-40 seconds | 100 iterations, 100 trials per class |
+| **Batch Inference** | 20-30ms per trial | Slightly slower than static models |
+| **propagate_state()** | <1ms | Fast time update |
+| **partial_fit()** | 5-15ms | Online EKF update |
+| **Streaming Chunk** | 20-30ms | Includes state propagation |
+
+All measurements on standard CPU (no GPU required).
+
+### Classification Accuracy
+
+| Scenario | Typical Accuracy | Comparison to Static Models |
+|----------|------------------|----------------------------|
+| **Stationary data (short sessions)** | 70-85% | Similar to NimbusLDA/GMM |
+| **Non-stationary data (long sessions)** | 75-90% | **+5-15% vs static models** |
+| **Cross-day with state transfer** | 65-80% | **+10-20% vs training from scratch** |
+| **Online adaptation** | Improves over time | Adapts to user state changes |
+
+<Note>
+**Key Insight**: NimbusSTS shines on **non-stationary data** where static models degrade over time. For short, stationary sessions, use NimbusLDA for faster inference.
+</Note>
+
+### Latency Trade-offs
+
+```
+NimbusLDA:     ~10-15ms  ✓ Fastest
+NimbusGMM:     ~15-25ms  ✓ Fast
+NimbusSTS:     ~20-30ms  ✓ Still real-time capable
+NimbusSoftmax: ~15-25ms  ✓ Fast
+```
+
+The ~5-10ms overhead of NimbusSTS is worth it for non-stationary scenarios where static models would degrade.
+
+## Model Inspection
+
+### View Current State
+
+```python
+import numpy as np
+
+# Get latent state
+z_mean, z_cov = clf.get_latent_state()
+
+print("Latent state:")
+print(f"  Mean: {z_mean}")
+print(f"  Covariance diagonal: {np.diag(z_cov)}")
+print(f"  Uncertainty (trace): {np.trace(z_cov):.3f}")
+```
+
+### Monitor State Evolution
+
+```python
+from nimbus_bci import NimbusSTS
+import matplotlib.pyplot as plt
+
+clf = NimbusSTS(transition_cov=0.05)
+clf.fit(X_train, y_train)
+
+# Track state over time
+z_history = []
+uncertainty_history = []
+
+for x_t in X_stream:
+    clf.propagate_state()
+    z_mean, z_cov = clf.get_latent_state()
+    
+    z_history.append(z_mean.copy())
+    uncertainty_history.append(np.trace(z_cov))
+    
+    pred = clf.predict(x_t.reshape(1, -1))
+
+# Plot state evolution
+z_history = np.array(z_history)
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 2, 1)
+plt.plot(z_history)
+plt.xlabel('Time (trials)')
+plt.ylabel('Latent State')
+plt.title('State Evolution Over Time')
+plt.grid(True)
+
+plt.subplot(1, 2, 2)
+plt.plot(uncertainty_history)
+plt.xlabel('Time (trials)')
+plt.ylabel('Uncertainty (trace of cov)')
+plt.title('State Uncertainty Over Time')
+plt.grid(True)
+
+plt.tight_layout()
+plt.show()
+```
+
+### View Model Parameters
+
+```python
+# Feature weights (W)
+W = clf.model_.params['W']
+print(f"Feature weights shape: {W.shape}")  # (n_classes, n_features)
+
+# State projection (H)
+H = clf.model_.params['H']
+print(f"State projection shape: {H.shape}")  # (n_classes, state_dim)
+
+# Transition matrix (A)
+A = clf.model_.params['A']
+print(f"Transition matrix:\n{A}")
+
+# Process noise (Q)
+Q = clf.model_.params['Q']
+print(f"Process noise covariance:\n{Q}")
+```
+
+## Advantages & Limitations
+
+### Advantages
+
+✅ **Handles Non-Stationarity**: Explicitly models temporal drift  
+✅ **Adaptive**: Continuously learns from feedback  
+✅ **Cross-Session Transfer**: State persistence across days  
+✅ **Uncertainty Quantification**: For both predictions and states  
+✅ **Delayed Feedback Support**: Natural for BCI paradigms  
+✅ **Production-Ready**: Real-time capable with <30ms latency  
+✅ **sklearn-Compatible**: Works with pipelines and CV  
+
+### Limitations
+
+❌ **More Complex API**: State management requires careful usage  
+❌ **Slightly Slower**: 5-10ms overhead vs static models  
+❌ **Requires More Tuning**: `transition_cov` is critical  
+❌ **Not Ideal for Stationary Data**: Use NimbusLDA if data is stable  
+❌ **Memory**: Maintains state history (minimal overhead)  
+
+## Comparison: NimbusSTS vs Static Models
+
+| Aspect | NimbusSTS (Stateful) | NimbusLDA/GMM/Softmax (Stateless) |
+|--------|----------------------|-----------------------------------|
+| **Temporal Modeling** | ✅ Explicit state dynamics | ❌ No temporal modeling |
+| **Non-Stationarity** | ✅ Adapts to drift | ❌ Degrades over time |
+| **State Management** | ✅ Explicit API | ❌ Not applicable |
+| **Inference Speed** | ~20-30ms | ~10-25ms (faster) |
+| **API Complexity** | Higher | Lower |
+| **Best For** | Long sessions, cross-day | Short sessions, stable data |
+| **Online Learning** | ✅ Natural with delayed feedback | ✅ Supported but stateless |
+| **Cross-Session Transfer** | ✅ State persistence | ❌ Retrain from scratch |
+
+### Decision Tree
+
+```
+Is your data non-stationary (drift over time)?
+├─ Yes → How long are your sessions?
+│   ├─ >30 min → NimbusSTS (essential)
+│   └─ <30 min → Try NimbusSTS, compare with static models
+└─ No → Do classes have different covariances?
+    ├─ Yes → NimbusGMM
+    └─ No → NimbusLDA (fastest)
+```
+
+**Rule of thumb**: If accuracy degrades >10% from start to end of session, use NimbusSTS.
+
+## Practical Examples
+
+### Example 1: Detecting and Adapting to Drift
+
+```python
+from nimbus_bci import NimbusSTS, NimbusLDA
+import numpy as np
+
+# Compare static vs adaptive on drifting data
+def generate_drifting_data(n_samples, n_features, drift_rate=0.05):
+    X, y = [], []
+    means = np.random.randn(4, n_features) * 2.0
+    
+    for t in range(n_samples):
+        means += np.random.randn(4, n_features) * drift_rate  # Drift!
+        label = t % 4
+        x = np.random.randn(n_features) + means[label]
+        X.append(x)
+        y.append(label)
+    
+    return np.array(X), np.array(y)
+
+# Generate non-stationary data
+X_train, y_train = generate_drifting_data(200, 16, drift_rate=0.03)
+X_test, y_test = generate_drifting_data(100, 16, drift_rate=0.03)
+
+# Static model
+clf_static = NimbusLDA()
+clf_static.fit(X_train, y_train)
+acc_static = clf_static.score(X_test, y_test)
+
+# Adaptive model
+clf_sts = NimbusSTS(transition_cov=0.05, num_steps=100)
+clf_sts.fit(X_train, y_train)
+
+# Evaluate with state propagation
+preds = []
+for x in X_test:
+    clf_sts.propagate_state()
+    pred = clf_sts.predict(x.reshape(1, -1))[0]
+    preds.append(pred)
+
+acc_sts = np.mean(preds == y_test)
+
+print(f"Static model accuracy: {acc_static:.1%}")
+print(f"Adaptive model accuracy: {acc_sts:.1%}")
+print(f"Improvement: {(acc_sts - acc_static)*100:+.1f}%")
+```
+
+### Example 2: Cross-Day Transfer Learning
+
+```python
+from nimbus_bci import NimbusSTS
+import pickle
+
+# Day 1: Initial session
+clf_day1 = NimbusSTS(transition_cov=0.01)
+clf_day1.fit(X_day1_full, y_day1_full)  # Full training
+
+# Save state
+z_day1, P_day1 = clf_day1.get_latent_state()
+
+# Day 2: Start with minimal calibration
+clf_day2 = NimbusSTS(transition_cov=0.01)
+clf_day2.fit(X_day2_calib, y_day2_calib)  # Just 20 trials
+
+# Option A: No transfer (baseline)
+acc_no_transfer = clf_day2.score(X_day2_test, y_day2_test)
+
+# Option B: Transfer state from day 1
+clf_day2.set_latent_state(
+    z_mean=z_day1 * 0.7,  # Partial transfer
+    z_cov=P_day1 * 1.5    # Increase uncertainty
+)
+acc_with_transfer = clf_day2.score(X_day2_test, y_day2_test)
+
+print(f"Day 2 accuracy (no transfer): {acc_no_transfer:.1%}")
+print(f"Day 2 accuracy (with transfer): {acc_with_transfer:.1%}")
+print(f"Improvement: {(acc_with_transfer - acc_no_transfer)*100:+.1f}%")
+```
+
+### Example 3: Real-Time Adaptive BCI Loop
+
+```python
+from nimbus_bci import NimbusSTS
+import time
+
+# Setup
+clf = NimbusSTS(transition_cov=0.05, learning_rate=0.1)
+clf.fit(X_calibration, y_calibration)
+
+# Real-time loop
+accuracy_history = []
+window_size = 10
+
+for i, (features, true_label) in enumerate(online_trials):
+    # 1. Propagate state forward in time
+    clf.propagate_state(n_steps=1)
+    
+    # 2. Make prediction
+    t0 = time.time()
+    prediction = clf.predict(features.reshape(1, -1))[0]
+    latency_ms = (time.time() - t0) * 1000
+    
+    # 3. Execute action (not shown)
+    execute_bci_command(prediction)
+    
+    # 4. Get feedback after action completes
+    feedback_label = wait_for_user_feedback()
+    
+    # 5. Update model
+    clf.partial_fit(features.reshape(1, -1), [feedback_label])
+    
+    # Track performance
+    correct = (prediction == feedback_label)
+    accuracy_history.append(correct)
+    
+    if len(accuracy_history) > window_size:
+        accuracy_history.pop(0)
+    
+    recent_acc = np.mean(accuracy_history)
+    
+    print(f"Trial {i+1}: pred={prediction}, true={feedback_label}, "
+          f"correct={correct}, recent_acc={recent_acc:.1%}, "
+          f"latency={latency_ms:.1f}ms")
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Bayesian LDA (RxLDA)" icon="brain" href="/models/rxlda">
+    Faster static model for stationary data
+  </Card>
+  <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
+    Static model with class-specific covariances
+  </Card>
+  <Card title="Python SDK Streaming" icon="activity" href="/python-sdk/streaming-inference">
+    Real-time streaming with NimbusSTS
+  </Card>
+  <Card title="Advanced Applications" icon="graduation-cap" href="/examples/advanced-applications">
+    Complete tutorials and use cases
+  </Card>
+</CardGroup>
+
+## References
+
+**Implementation:**
+- Extended Kalman Filter: https://en.wikipedia.org/wiki/Extended_Kalman_filter
+- Source code: `/nimbus_bci/models/nimbus_sts/` in nimbus-bci
+
+**Theory:**
+- Durbin, J., & Koopman, S. J. (2012). "Time Series Analysis by State Space Methods"
+- Harvey, A. C. (1990). "Forecasting, Structural Time Series Models and the Kalman Filter"
+- Särkkä, S. (2013). "Bayesian Filtering and Smoothing"
+
+**BCI Applications:**
+- Vidaurre, C., et al. (2011). "Co-adaptive calibration to improve BCI efficiency"
+- Shenoy, P., et al. (2006). "Towards adaptive classification for BCI"
+- Kirchner, E. A., et al. (2013). "On the applicability of brain reading for predictive human-machine interfaces in robotics"
+

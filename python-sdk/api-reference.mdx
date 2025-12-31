@@ -127,6 +127,146 @@ clf.fit(X_train, y_train)
 predictions = clf.predict(X_test)
 ```
 
+### NimbusSTS
+
+Bayesian Structural Time Series classifier with Extended Kalman Filter for non-stationary data.
+
+```python
+from nimbus_bci import NimbusSTS
+
+clf = NimbusSTS(
+    state_dim=None,
+    w_loc=0.0,
+    w_scale=1.0,
+    transition_cov=None,
+    observation_cov=1.0,
+    transition_matrix=None,
+    learning_rate=0.1,
+    num_steps=50,
+    rng_seed=0,
+    verbose=False
+)
+```
+
+**Parameters:**
+- `state_dim` (int or None, default=None): Dimension of latent state. If None, set to `n_classes - 1`
+- `w_loc` (float, default=0.0): Prior mean for feature weights
+- `w_scale` (float, default=1.0): Prior scale for feature weights
+- `transition_cov` (float or None, default=None): Process noise covariance Q (controls drift speed). If None, auto-estimated. Typical values:
+  - 0.001: Very slow drift (multi-day stability)
+  - 0.01: Moderate drift (within-session adaptation)
+  - 0.1: Fast drift (rapid environmental changes)
+- `observation_cov` (float, default=1.0): Observation noise covariance R
+- `transition_matrix` (ndarray or None, default=None): State transition matrix A. If None, uses identity (random walk)
+- `learning_rate` (float, default=0.1): Step size for parameter updates
+- `num_steps` (int, default=50): Number of learning iterations
+- `rng_seed` (int, default=0): Random seed for reproducibility
+- `verbose` (bool, default=False): Print convergence diagnostics during training
+
+**Methods:**
+- `fit(X, y)`: Fit the model
+- `predict(X)`: Predict class labels (stateless)
+- `predict_proba(X)`: Predict class probabilities (stateless)
+- `partial_fit(X, y, classes=None)`: Incremental learning with EKF update
+- `score(X, y)`: Return accuracy score
+- `propagate_state(n_steps=1)`: Advance latent state using prior dynamics only
+- `reset_state()`: Reset latent state to initial values from training
+- `get_latent_state()`: Get current latent state (z_mean, z_cov)
+- `set_latent_state(z_mean, z_cov=None)`: Set latent state manually
+
+**Attributes:**
+- `classes_`: Unique class labels
+- `n_classes_`: Number of classes
+- `n_features_in_`: Number of features
+- `model_`: Underlying Nimbus model with state parameters
+
+**Example - Basic Usage:**
+
+```python
+from nimbus_bci import NimbusSTS
+import numpy as np
+
+# Create and fit
+clf = NimbusSTS(transition_cov=0.05, num_steps=100)
+clf.fit(X_train, y_train)
+
+# Standard prediction (stateless)
+predictions = clf.predict(X_test)
+probabilities = clf.predict_proba(X_test)
+```
+
+**Example - Stateful Prediction:**
+
+```python
+from nimbus_bci import NimbusSTS
+
+# Train model
+clf = NimbusSTS(transition_cov=0.05)
+clf.fit(X_train, y_train)
+
+# Time-ordered prediction with state propagation
+for x_t in X_stream:
+    clf.propagate_state()  # Advance time
+    pred = clf.predict(x_t.reshape(1, -1))
+    print(f"Prediction: {pred}")
+```
+
+**Example - Online Learning with Delayed Feedback:**
+
+```python
+from nimbus_bci import NimbusSTS
+
+# Initial training
+clf = NimbusSTS(transition_cov=0.05, learning_rate=0.1)
+clf.fit(X_calibration, y_calibration)
+
+# Online session
+for trial in online_session:
+    # 1. Advance time (no measurement)
+    clf.propagate_state()
+    
+    # 2. Predict using current state
+    prediction = clf.predict(trial.features.reshape(1, -1))[0]
+    
+    # 3. Execute action
+    execute_action(prediction)
+    
+    # 4. Get feedback after action completes
+    true_label = wait_for_feedback()
+    
+    # 5. Update state with measurement
+    clf.partial_fit(trial.features.reshape(1, -1), [true_label])
+```
+
+**Example - State Inspection and Transfer:**
+
+```python
+from nimbus_bci import NimbusSTS
+
+# Day 1: Train and save state
+clf_day1 = NimbusSTS()
+clf_day1.fit(X_day1, y_day1)
+z_final, P_final = clf_day1.get_latent_state()
+
+# Day 2: Transfer state with increased uncertainty
+clf_day2 = NimbusSTS()
+clf_day2.fit(X_day2_calib, y_day2_calib)  # Minimal calibration
+clf_day2.set_latent_state(z_final * 0.5, P_final * 2.0)
+
+# Use with transferred state
+predictions = clf_day2.predict(X_day2_test)
+```
+
+<Note>
+**Key Differences from Other Classifiers:**
+- **Stateful**: Maintains and evolves latent state over time
+- **Non-stationary**: Designed for data with temporal drift
+- **State Management**: Explicit API for time propagation and state control
+- **Use case**: Long sessions, cross-day transfer, adaptive BCI
+
+See [Bayesian STS Documentation](/models/rxsts) for complete usage guide.
+</Note>
+
 ## Data Structures
 
 ### BCIData
@@ -661,6 +801,40 @@ from nimbus_bci import (
 model = nimbus_softmax_fit(X, y, n_classes=4, label_base=0)
 probs = nimbus_softmax_predict_proba(model, X_test)
 ```
+
+### STS Functions
+
+```python
+from nimbus_bci import (
+    nimbus_sts_fit,
+    nimbus_sts_predict,
+    nimbus_sts_predict_proba,
+    nimbus_sts_update
+)
+
+# Fit
+model = nimbus_sts_fit(
+    X, y,
+    n_classes=4,
+    label_base=0,
+    state_dim=None,
+    transition_cov=0.05,
+    observation_cov=1.0,
+    learning_rate=0.1,
+    num_steps=100,
+    rng_seed=0,
+    verbose=False
+)
+
+# Predict (with optional state evolution)
+probs = nimbus_sts_predict_proba(model, X_test, evolve_state=False)
+preds = nimbus_sts_predict(model, X_test)
+
+# Update (online learning)
+model = nimbus_sts_update(model, X_new, y_new, learning_rate=0.1)
+```
+
+**Note**: The functional API for STS provides lower-level control. For most use cases, prefer the `NimbusSTS` class with its state management methods.
 
 ### Model I/O
 

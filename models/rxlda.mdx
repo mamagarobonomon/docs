@@ -969,20 +969,26 @@ end
 ❌ **Gaussian Assumption**: Assumes normal class distributions  
 ❌ **Not Ideal for Overlapping Classes**: Use RxGMM for complex distributions  
 
-## Comparison: Bayesian LDA vs Bayesian GMM
+## Comparison: Bayesian LDA vs Bayesian GMM vs Bayesian STS
 
-| Aspect | Bayesian LDA (RxLDA) | Bayesian GMM (RxGMM) |
-|--------|-------|-------|
-| **Precision Matrix** | Shared across all classes | Class-specific |
-| **Mathematical Model** | Pooled Gaussian Classifier (PGC) | Heteroscedastic Gaussian Classifier (HGC) |
-| **Training Speed** | Faster | Slower |
-| **Inference Speed** | Faster (~10-15ms) | Slightly slower (~15-20ms) |
-| **Flexibility** | Less flexible | More flexible |
-| **Best For** | Well-separated classes | Overlapping/complex distributions |
-| **Memory** | Lower | Higher |
-| **Parameters** | Fewer (n_classes means + 1 precision) | More (n_classes means + precisions) |
+| Aspect | Bayesian LDA (RxLDA) | Bayesian GMM (RxGMM) | Bayesian STS (RxSTS) |
+|--------|-------|-------|-------|
+| **Precision Matrix** | Shared across all classes | Class-specific | N/A (state-space) |
+| **Mathematical Model** | Pooled Gaussian Classifier (PGC) | Heteroscedastic Gaussian Classifier (HGC) | State-Space Model (EKF) |
+| **Temporal Modeling** | Static (stateless) | Static (stateless) | **Dynamic (stateful)** |
+| **Training Speed** | Faster | Slower | Moderate |
+| **Inference Speed** | Fastest (~10-15ms) | Fast (~15-20ms) | Real-time (~20-30ms) |
+| **Flexibility** | Less flexible | More flexible | Adaptive |
+| **Best For** | Well-separated classes, stationary data | Overlapping/complex distributions | **Non-stationary data, long sessions** |
+| **Memory** | Lower | Higher | Moderate (stores state) |
+| **Parameters** | Fewer (n_classes means + 1 precision) | More (n_classes means + precisions) | Features + state dynamics |
 
-**Rule of thumb**: Start with Bayesian LDA. Switch to Bayesian GMM if accuracy is unsatisfactory.
+**Decision tree:**
+- **Data is stationary** (distributions don't change over time):
+  - Well-separated classes → **Bayesian LDA** ✓ Fastest
+  - Overlapping classes → **Bayesian GMM** ✓ More flexible
+- **Data is non-stationary** (drift, fatigue, long sessions):
+  - → **Bayesian STS** ✓ Adaptive, handles temporal dynamics
 
 ## Next Steps
 
@@ -990,11 +996,11 @@ end
   <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
     More flexible Gaussian Mixture Model with class-specific covariances
   </Card>
+  <Card title="Bayesian STS (RxSTS)" icon="wave-pulse" href="/models/rxsts">
+    Adaptive model for non-stationary data and long sessions
+  </Card>
   <Card title="Training Tutorial" icon="graduation-cap" href="/examples/advanced-applications">
     Complete training walkthrough
-  </Card>
-  <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
-    Full SDK reference
   </Card>
   <Card title="Code Examples" icon="braces" href="/examples/basic-examples">
     Working examples

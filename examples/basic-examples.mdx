@@ -1128,6 +1128,153 @@ println("  • RxGMM: More flexible, better for overlapping distributions")
   </Tab>
 </Tabs>
 
+### NimbusSTS for Non-Stationary Data
+
+Compare adaptive vs static models on drifting data:
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_bci import NimbusLDA, NimbusSTS
+import numpy as np
+
+def generate_drifting_data(n_samples, n_features, n_classes=4, drift_rate=0.03):
+    """Generate data with temporal drift (simulates fatigue/electrode changes)."""
+    X, y = [], []
+    means = np.random.randn(n_classes, n_features) * 2.0
+    
+    for t in range(n_samples):
+        means += np.random.randn(n_classes, n_features) * drift_rate  # Drift!
+        label = t % n_classes
+        x = np.random.randn(n_features) + means[label]
+        X.append(x)
+        y.append(label)
+    
+    return np.array(X), np.array(y)
+
+# Generate non-stationary data
+print("Generating non-stationary data with drift...")
+X_train, y_train = generate_drifting_data(200, 16, n_classes=4, drift_rate=0.03)
+X_test, y_test = generate_drifting_data(100, 16, n_classes=4, drift_rate=0.03)
+
+# Static model (NimbusLDA)
+print("\nTraining static model (NimbusLDA)...")
+clf_static = NimbusLDA()
+clf_static.fit(X_train, y_train)
+acc_static = clf_static.score(X_test, y_test)
+
+# Adaptive model (NimbusSTS)
+print("Training adaptive model (NimbusSTS)...")
+clf_sts = NimbusSTS(
+    transition_cov=0.05,  # Moderate drift tracking
+    num_steps=100
+)
+clf_sts.fit(X_train, y_train)
+
+# Evaluate with state propagation
+preds_sts = []
+for x in X_test:
+    clf_sts.propagate_state()  # Advance time
+    pred = clf_sts.predict(x.reshape(1, -1))[0]
+    preds_sts.append(pred)
+
+acc_sts = np.mean(preds_sts == y_test)
+
+# Results
+print("\n" + "=" * 50)
+print("Non-Stationary Data Performance")
+print("=" * 50)
+print(f"\nNimbusLDA (static):     {acc_static * 100:.1f}%")
+print(f"NimbusSTS (adaptive):   {acc_sts * 100:.1f}%")
+print(f"Improvement:            {(acc_sts - acc_static) * 100:+.1f}%")
+
+print("\nWhen to use NimbusSTS:")
+print("  ✓ Long sessions (>30 minutes)")
+print("  ✓ Cross-day experiments")
+print("  ✓ Observable drift or fatigue effects")
+print("  ✓ Adaptive BCI with online learning")
+```
+  </Tab>
+</Tabs>
+
+**Key Insight**: NimbusSTS shines on non-stationary data where static models degrade over time. The ~5-10% accuracy improvement is typical for long sessions.
+
+### State Inspection and Monitoring
+
+Monitor how NimbusSTS adapts over time:
+
+<Tabs>
+  <Tab title="Python">
+```python
+from nimbus_bci import NimbusSTS
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Train model
+clf = NimbusSTS(transition_cov=0.05)
+clf.fit(X_train, y_train)
+
+# Track state evolution
+state_history = []
+uncertainty_history = []
+predictions = []
+
+for x in X_test:
+    # Propagate state
+    clf.propagate_state()
+    
+    # Get state before prediction
+    z_mean, z_cov = clf.get_latent_state()
+    state_history.append(z_mean.copy())
+    uncertainty_history.append(np.trace(z_cov))
+    
+    # Predict
+    pred = clf.predict(x.reshape(1, -1))[0]
+    predictions.append(pred)
+
+# Visualize state evolution
+state_history = np.array(state_history)
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+# State components
+axes[0].plot(state_history)
+axes[0].set_xlabel('Sample')
+axes[0].set_ylabel('Latent State Components')
+axes[0].set_title('State Evolution Over Time')
+axes[0].grid(True)
+
+# Uncertainty
+axes[1].plot(uncertainty_history)
+axes[1].set_xlabel('Sample')
+axes[1].set_ylabel('Uncertainty (trace of cov)')
+axes[1].set_title('State Uncertainty')
+axes[1].grid(True)
+
+# Accuracy over time (windowed)
+window_size = 10
+acc_over_time = []
+for i in range(len(predictions) - window_size):
+    window_acc = np.mean(predictions[i:i+window_size] == y_test[i:i+window_size])
+    acc_over_time.append(window_acc)
+
+axes[2].plot(acc_over_time)
+axes[2].axhline(y=0.25, color='r', linestyle='--', label='Chance (25%)')
+axes[2].set_xlabel('Sample')
+axes[2].set_ylabel(f'Accuracy (window={window_size})')
+axes[2].set_title('Accuracy Over Time')
+axes[2].legend()
+axes[2].grid(True)
+
+plt.tight_layout()
+plt.show()
+
+print(f"Final state mean: {z_mean}")
+print(f"Final uncertainty: {np.trace(z_cov):.3f}")
+```
+  </Tab>
+</Tabs>
+
 ## Next Steps
 
 <CardGroup cols={2}>
@@ -1142,6 +1289,9 @@ println("  • RxGMM: More flexible, better for overlapping distributions")
   </Card>
   <Card title="RxGMM Model" icon="brain" href="/models/rxgmm">
     Detailed RxGMM documentation
+  </Card>
+  <Card title="RxSTS Model" icon="wave-pulse" href="/models/rxsts">
+    Adaptive model for non-stationary data
   </Card>
   <Card title="Batch Processing" icon="list" href="/inference-configuration/batch-processing">
     Offline batch inference guide

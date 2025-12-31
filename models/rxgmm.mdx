@@ -847,28 +847,31 @@ end
 ❌ **Higher Memory**: Stores n_classes precision matrices  
 ❌ **More Complex**: Longer training time  
 
-## Comparison: Bayesian GMM vs Bayesian LDA
+## Comparison: Bayesian GMM vs Bayesian LDA vs Bayesian STS
 
-| Aspect | Bayesian GMM (RxGMM) | Bayesian LDA (RxLDA) |
-|--------|-------|-------|
-| **Precision Matrix** | Class-specific | Shared (one for all) |
-| **Mathematical Model** | Heteroscedastic Gaussian Classifier (HGC) | Pooled Gaussian Classifier (PGC) |
-| **Training Speed** | Slower | Faster |
-| **Inference Speed** | 15-25ms | 10-15ms |
-| **Flexibility** | High | Moderate |
-| **Data Requirements** | More | Less |
-| **Memory Usage** | Higher | Lower |
-| **Best For** | Heterogeneous classes | Homogeneous classes |
-| **Accuracy Gain** | +2-5% (when applicable) | Baseline |
+| Aspect | Bayesian GMM (RxGMM) | Bayesian LDA (RxLDA) | Bayesian STS (RxSTS) |
+|--------|-------|-------|-------|
+| **Precision Matrix** | Class-specific | Shared (one for all) | N/A (state-space) |
+| **Mathematical Model** | Heteroscedastic Gaussian Classifier (HGC) | Pooled Gaussian Classifier (PGC) | State-Space Model (EKF) |
+| **Temporal Modeling** | Static (stateless) | Static (stateless) | **Dynamic (stateful)** |
+| **Training Speed** | Slower | Faster | Moderate |
+| **Inference Speed** | 15-25ms | 10-15ms | 20-30ms |
+| **Flexibility** | High | Moderate | Adaptive |
+| **Data Requirements** | More | Less | Moderate |
+| **Memory Usage** | Higher | Lower | Moderate (stores state) |
+| **Best For** | Heterogeneous classes | Homogeneous classes | **Non-stationary, long sessions** |
+| **Accuracy Gain** | +2-5% (when applicable) | Baseline | +5-15% (on drifting data) |
 
 ### Decision Tree
 
 ```
-Is speed critical (&lt;15ms)?
-├─ Yes → Use Bayesian LDA
-└─ No → Do classes have similar spreads?
-    ├─ Yes → Use Bayesian LDA (faster, same accuracy)
-    └─ No → Use Bayesian GMM (more accurate)
+Is your data non-stationary (drift over time)?
+├─ Yes → Use Bayesian STS (adaptive, handles temporal dynamics)
+└─ No → Is speed critical (&lt;15ms)?
+    ├─ Yes → Use Bayesian LDA
+    └─ No → Do classes have similar spreads?
+        ├─ Yes → Use Bayesian LDA (faster, same accuracy)
+        └─ No → Use Bayesian GMM (more accurate)
 ```
 
 ## Practical Examples
@@ -922,11 +925,11 @@ end
   <Card title="Bayesian LDA (RxLDA)" icon="brain" href="/models/rxlda">
     Faster model with shared covariance
   </Card>
+  <Card title="Bayesian STS (RxSTS)" icon="wave-pulse" href="/models/rxsts">
+    Adaptive model for non-stationary data
+  </Card>
   <Card title="Training Guide" icon="graduation-cap" href="/examples/advanced-applications">
     Complete training tutorial
-  </Card>
-  <Card title="Julia SDK" icon="code" href="/api-reference/julia-sdk">
-    Full SDK reference
   </Card>
   <Card title="Code Examples" icon="braces" href="/examples/basic-examples">
     Working examples

@@ -64,12 +64,17 @@ Data Stream ──► Factor Graph ──► Message Passing ──► Posterior
 
 ## Model Comparison
 
-| Feature              | RxLDA (NimbusLDA)      | RxGMM (NimbusGMM)         | RxPolya (NimbusSoftmax)   |
-| -------------------- | ---------------------- | ------------------------- | ------------------------- |
-| **Covariance**       | Shared across classes  | Class-specific            | N/A (logistic)            |
-| **Decision Boundary**| Linear                 | Quadratic                 | Non-linear (flexible)     |
-| **Flexibility**      | Lower                  | Higher                    | Highest                   |
-| **Speed**            | Fastest (10-15ms)      | Fast (15-25ms)            | Fast (15-25ms)            |
+| Feature              | RxLDA (NimbusLDA)      | RxGMM (NimbusGMM)         | RxPolya (NimbusSoftmax)   | RxSTS (NimbusSTS)         |
+| -------------------- | ---------------------- | ------------------------- | ------------------------- | ------------------------- |
+| **Covariance**       | Shared across classes  | Class-specific            | N/A (logistic)            | N/A (state-space)         |
+| **Decision Boundary**| Linear                 | Quadratic                 | Non-linear (flexible)     | Dynamic (time-varying)    |
+| **Temporal Model**   | Static                 | Static                    | Static                    | **Stateful (EKF)**        |
+| **Flexibility**      | Lower                  | Higher                    | Highest                   | Adaptive                  |
+| **Speed**            | Fastest (10-15ms)      | Fast (15-25ms)            | Fast (15-25ms)            | Real-time (20-30ms)       |
+| **Best For**         | Motor imagery, stationary | P300, overlapping classes | Complex multinomial       | **Non-stationary, long sessions** |
+| **State Management** | None                   | None                      | None                      | **`propagate_state()`, `get_latent_state()`** |
+| **Online Learning**  | `partial_fit()`        | `partial_fit()`           | `partial_fit()`           | **Continuous with delayed feedback** |
+| **Use Case**         | Short sessions         | Short sessions            | Short sessions            | **Long sessions, cross-day, adaptive BCI** |
 | **Training Time**    | Fast                   | Moderate                  | Moderate                  |
 | **Parameters**       | Fewer (efficient)      | More (flexible)           | Most (very flexible)      |
 | **Best For**         | Well-separated classes | Overlapping distributions | Complex multinomial tasks |
@@ -134,9 +139,14 @@ See [Advanced Applications - SSVEP Control](/examples/advanced-applications#ssve
 
 | Paradigm | Recommended Model | Typical Accuracy | ITR | User Training |
 |----------|-------------------|------------------|-----|---------------|
-| **Motor Imagery** | RxLDA | 70-85% (4-class) | 15-25 bits/min | High |
+| **Motor Imagery** | RxLDA (or RxSTS for long sessions) | 70-85% (4-class) | 15-25 bits/min | High |
 | **P300** | RxGMM | 85-95% (with reps) | 10-20 bits/min | Low |
 | **SSVEP** | RxLDA/RxGMM | 85-95% (4-class) | 30-50 bits/min | Low |
+| **Long-duration Adaptive** | **RxSTS** | **75-90% (maintains over time)** | **Varies** | **Medium** |
+
+<Note>
+**New: Use RxSTS (NimbusSTS)** for sessions >30 minutes or when you observe accuracy degradation over time. It's the only model that explicitly handles temporal drift and non-stationarity.
+</Note>
 
 ---
 
