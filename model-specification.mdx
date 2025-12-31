@@ -9,10 +9,11 @@ icon: "box"
 NimbusSDK provides **pre-built probabilistic models** powered by [RxInfer.jl](https://github.com/ReactiveBayes/RxInfer.jl), a reactive message passing framework for efficient Bayesian inference.
 
 <Info>
-**Three Production Models Available:**
+**Four Production Models Available:**
 - [Bayesian LDA (RxLDA)](/models/rxlda) - Fast, shared covariance
 - [Bayesian GMM (RxGMM)](/models/rxgmm) - Flexible, class-specific covariances
 - [Bayesian Softmax (RxPolya)](/models/rxpolya) - Multinomial logistic regression
+- [Bayesian STS (RxSTS)](/models/rxsts) - Adaptive, for non-stationary data
 
 For detailed implementation, see the individual model pages above.
 </Info>
@@ -21,7 +22,7 @@ For detailed implementation, see the individual model pages above.
 
 ## Model Architecture
 
-All three models are built on **factor graphs** with **reactive message passing**:
+The static models (LDA, GMM, Softmax) are built on **factor graphs** with **reactive message passing**:
 
 ```
         Prior               Likelihood            Posterior
@@ -321,12 +322,15 @@ print(f"ECE: {calib_metrics.ece:.3f}")
 
 ## Next Steps
 
-<CardGroup cols={3}>
+<CardGroup cols={2}>
   <Card title="Bayesian LDA (RxLDA)" icon="brain" href="/models/rxlda">
     Fast, shared covariance classifier
   </Card>
   <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
     Flexible, class-specific covariances
+  </Card>
+  <Card title="Bayesian STS (RxSTS)" icon="brain" href="/models/rxsts">
+    Adaptive, for non-stationary data
   </Card>
   <Card title="Bayesian Softmax (RxPolya)" icon="brain" href="/models/rxpolya">
     Multinomial logistic regression
@@ -337,13 +341,10 @@ print(f"ECE: {calib_metrics.ece:.3f}")
   <Card title="Advanced Applications" icon="rocket" href="/examples/advanced-applications">
     Calibration, adaptation, hybrid systems
   </Card>
-  <Card title="Python SDK" icon="python" href="/python-sdk/introduction">
-    sklearn-compatible classifiers
-  </Card>
 </CardGroup>
 
 ---
 
 <Note>
-**Development Philosophy**: NimbusSDK provides **battle-tested, production-ready models** (Bayesian LDA, Bayesian GMM, Bayesian Softmax) that are proven effective for BCI applications. These models cover the majority of BCI use cases with fast inference, uncertainty quantification, and online learning.
+**Development Philosophy**: NimbusSDK provides **battle-tested, production-ready models** (Bayesian LDA, Bayesian GMM, Bayesian Softmax, Bayesian STS) that are proven effective for BCI applications. These models cover the majority of BCI use cases with fast inference, uncertainty quantification, and online learning. **Bayesian STS** adds adaptive capabilities for non-stationary data and long-duration sessions.
 </Note>
