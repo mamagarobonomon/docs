@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Sitemap (update with your actual docs URL)
+Sitemap: https://docs.nimbusbci.com/sitemap.xml
