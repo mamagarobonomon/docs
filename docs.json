@@ -12,6 +12,10 @@
     "default": "dark",
     "isHidden": true
   },
+  "appearance": {
+    "default": "dark",
+    "strict": true
+  },
   "favicon": "/favicon.svg",
   "api": {
     "baseUrl": "https://api.nimbusbci.com",
