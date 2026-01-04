@@ -183,9 +183,18 @@
       {
         "header": "Legal",
         "items": [
-          { "label": "Privacy", "href": "https://nimbusbci.com/privacy" },
-          { "label": "Terms", "href": "https://nimbusbci.com/terms" },
-          { "label": "Cookies", "href": "https://nimbusbci.com/cookies" }
+          {
+            "label": "Privacy",
+            "href": "https://nimbusbci.com/privacy"
+          },
+          {
+            "label": "Terms",
+            "href": "https://nimbusbci.com/terms"
+          },
+          {
+            "label": "Cookies",
+            "href": "https://nimbusbci.com/cookies"
+          }
         ]
       }
     ]
