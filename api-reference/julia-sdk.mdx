@@ -1,6 +1,6 @@
 ---
 title: "Julia SDK"
-description: "Complete reference for NimbusSDK.jl - Bayesian BCI inference with Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian MPR (RxPolya). RxInfer.jl-based inference engine."
+description: "Complete reference for NimbusSDK.jl - Bayesian BCI inference with Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian Softmax (RxPolya). RxInfer.jl-based inference engine."
 keywords: ["Julia SDK", "NimbusSDK.jl", "Julia BCI", "RxLDA", "RxGMM", "RxPolya", "RxInfer", "Bayesian inference", "Julia", "BCI", "RxLDAModel", "RxGMMModel"]
 icon: "code"
 ---
@@ -13,7 +13,7 @@ icon: "code"
 This page documents the **Julia SDK** (NimbusSDK.jl).
 </Note>
 
-The NimbusSDK.jl Julia package provides production-ready Bayesian inference for Brain-Computer Interface (BCI) applications. Built on **RxInfer.jl**, it offers three models (Bayesian LDA, Bayesian GMM, and Bayesian MPR) with batch and streaming inference capabilities. **Note**: Bayesian STS is currently available in the Python SDK only.
+The NimbusSDK.jl Julia package provides production-ready Bayesian inference for Brain-Computer Interface (BCI) applications. Built on **RxInfer.jl**, it offers three models (Bayesian LDA, Bayesian GMM, and Bayesian Softmax) with batch and streaming inference capabilities. **Note**: Bayesian STS is currently available in the Python SDK only.
 
 ## Installation
 
@@ -302,11 +302,11 @@ Gaussian Mixture Model with class-specific covariance matrices. More flexible, h
 
 ### RxPolyaModel
 
-**Primary Name**: Bayesian MPR (Bayesian Multinomial Probit Regression)  
+**Primary Name**: Bayesian Softmax (Bayesian Multinomial Logistic Regression)  
 **API Name**: `RxPolyaModel`  
-**Mathematical Model**: Bayesian Multinomial Probit Regression
+**Mathematical Model**: Bayesian Multinomial Logistic Regression
 
-Bayesian multinomial probit regression with continuous transitions. Most flexible for complex multinomial classification tasks.
+Bayesian multinomial logistic regression (softmax) with continuous transitions. Most flexible for complex multinomial classification tasks.
 
 **Fields:**
 - `B_posterior` - Learned regression coefficients posterior
@@ -1530,8 +1530,8 @@ check_model_compatibility(model::BCIModel, data::BCIData) -> Bool
   <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
     Detailed documentation for Bayesian GMM
   </Card>
-  <Card title="Bayesian MPR (RxPolya)" icon="brain" href="/models/rxpolya">
-    Detailed documentation for Bayesian MPR
+  <Card title="Bayesian Softmax (RxPolya)" icon="brain" href="/models/rxpolya">
+    Detailed documentation for Bayesian Softmax
   </Card>
   <Card title="Preprocessing Guide" icon="settings" href="/inference-configuration/preprocessing-requirements">
     How to prepare your EEG data

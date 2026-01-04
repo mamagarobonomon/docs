@@ -24,6 +24,12 @@ Streaming inference allows you to process EEG data in real-time, chunk-by-chunk,
 - **Low-latency requirements**: Systems requiring &lt;100ms response times
 - **Continuous monitoring**: Long-duration BCI sessions
 
+<Note>
+**Model coverage:**
+- **Julia SDK** streaming supports: `RxLDAModel`, `RxGMMModel`, `RxPolyaModel` (Bayesian Softmax)
+- **Python SDK** additionally supports: `NimbusSTS` (Bayesian STS)
+</Note>
+
 ## How Streaming Works
 
 Unlike batch inference which processes complete trials, streaming inference processes data incrementally:

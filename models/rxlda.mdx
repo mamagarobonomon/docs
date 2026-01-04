@@ -970,24 +970,26 @@ end
 ❌ **Gaussian Assumption**: Assumes normal class distributions  
 ❌ **Not Ideal for Overlapping Classes**: Use RxGMM for complex distributions  
 
-## Comparison: Bayesian LDA vs Bayesian GMM vs Bayesian STS
+## Comparison: Bayesian LDA vs Bayesian GMM vs Bayesian Softmax vs Bayesian STS
 
-| Aspect | Bayesian LDA (RxLDA) | Bayesian GMM (RxGMM) | Bayesian STS (RxSTS) |
-|--------|-------|-------|-------|
-| **Precision Matrix** | Shared across all classes | Class-specific | N/A (state-space) |
-| **Mathematical Model** | Pooled Gaussian Classifier (PGC) | Heteroscedastic Gaussian Classifier (HGC) | State-Space Model (EKF) |
-| **Temporal Modeling** | Static (stateless) | Static (stateless) | **Dynamic (stateful)** |
-| **Training Speed** | Faster | Slower | Moderate |
-| **Inference Speed** | Fastest (~10-15ms) | Fast (~15-20ms) | Real-time (~20-30ms) |
-| **Flexibility** | Less flexible | More flexible | Adaptive |
-| **Best For** | Well-separated classes, stationary data | Overlapping/complex distributions | **Non-stationary data, long sessions** |
-| **Memory** | Lower | Higher | Moderate (stores state) |
-| **Parameters** | Fewer (n_classes means + 1 precision) | More (n_classes means + precisions) | Features + state dynamics |
+| Aspect | Bayesian LDA (RxLDA) | Bayesian GMM (RxGMM) | Bayesian Softmax (RxPolya) | Bayesian STS (RxSTS) |
+|--------|-------|-------|-------|-------|
+| **Precision Matrix** | Shared across all classes | Class-specific | Latent-space precision (K-1) | N/A (state-space) |
+| **Mathematical Model** | Pooled Gaussian Classifier (PGC) | Heteroscedastic Gaussian Classifier (HGC) | Multinomial Logistic Regression | State-Space Model (EKF) |
+| **Temporal Modeling** | Static (stateless) | Static (stateless) | Static (stateless) | **Dynamic (stateful)** |
+| **Training Speed** | Faster | Slower | Moderate | Moderate |
+| **Inference Speed** | Fastest (~10-15ms) | Fast (~15-20ms) | Fast (~15-25ms) | Real-time (~20-30ms) |
+| **Flexibility** | Lower | Higher | Highest (non-Gaussian) | Adaptive |
+| **Best For** | Well-separated classes, stationary data | Overlapping/complex Gaussian structure | Complex multinomial / non-Gaussian boundaries | **Non-stationary data, long sessions** |
+| **Memory** | Lower | Higher | Moderate | Moderate (stores state) |
+| **Parameters** | Fewer (means + shared precision) | More (means + class precisions) | More (coefficients + latent precision) | Features + state dynamics |
 
 **Decision tree:**
 - **Data is stationary** (distributions don't change over time):
   - Well-separated classes → **Bayesian LDA** ✓ Fastest
   - Overlapping classes → **Bayesian GMM** ✓ More flexible
+- **Data is stationary but decision boundary is non-Gaussian / complex multinomial**:
+  - → **Bayesian Softmax** ✓ Most flexible
 - **Data is non-stationary** (drift, fatigue, long sessions):
   - → **Bayesian STS** ✓ Adaptive, handles temporal dynamics
 
@@ -996,6 +998,9 @@ end
 <CardGroup cols={2}>
   <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
     More flexible Gaussian Mixture Model with class-specific covariances
+  </Card>
+  <Card title="Bayesian Softmax (RxPolya)" icon="brain" href="/models/rxpolya">
+    Most flexible multinomial classifier for complex decision boundaries
   </Card>
   <Card title="Bayesian STS (RxSTS)" icon="wave-pulse" href="/models/rxsts">
     Adaptive model for non-stationary data and long sessions
@@ -1023,29 +1028,34 @@ end
 - Blankertz et al. (2008). "Optimizing spatial filters for robust EEG single-trial analysis"
 - Lotte et al. (2018). "A review of classification algorithms for EEG-based BCI"
 
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "TechArticle",
-  "headline": "Bayesian LDA (RxLDA)",
-  "description": "Bayesian Linear Discriminant Analysis with uncertainty quantification using RxInfer.jl. Fast 10-15ms inference for motor imagery BCI with shared covariance modeling.",
-  "author": {
-    "@type": "Organization",
-    "name": "Nimbus BCI",
-    "url": "https://nimbusbci.com"
-  },
-  "publisher": {
-    "@type": "Organization",
-    "name": "Nimbus BCI",
-    "url": "https://nimbusbci.com"
-  },
-  "about": {
-    "@type": "Thing",
-    "name": "Brain-Computer Interface",
-    "description": "Bayesian classification for motor imagery BCI"
-  },
-  "keywords": "Bayesian LDA, RxLDA, Linear Discriminant Analysis, motor imagery, BCI classification, uncertainty quantification, RxInfer, NimbusLDA",
-  "inLanguage": "en-US",
-  "isAccessibleForFree": true
-}
-</script>
+<script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{
+    __html: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'TechArticle',
+      headline: 'Bayesian LDA (RxLDA)',
+      description:
+        'Bayesian Linear Discriminant Analysis with uncertainty quantification using RxInfer.jl. Fast 10-15ms inference for motor imagery BCI with shared covariance modeling.',
+      author: {
+        '@type': 'Organization',
+        name: 'Nimbus BCI',
+        url: 'https://nimbusbci.com',
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Nimbus BCI',
+        url: 'https://nimbusbci.com',
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'Brain-Computer Interface',
+        description: 'Bayesian classification for motor imagery BCI',
+      },
+      keywords:
+        'Bayesian LDA, RxLDA, Linear Discriminant Analysis, motor imagery, BCI classification, uncertainty quantification, RxInfer, NimbusLDA',
+      inLanguage: 'en-US',
+      isAccessibleForFree: true,
+    }),
+  }}
+/>

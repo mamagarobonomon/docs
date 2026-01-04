@@ -14,7 +14,9 @@ This guide covers the development workflow for building BCI applications with **
 - **Python SDK** (`nimbus-bci`): Ideal for sklearn integration, MNE-Python workflows, and rapid prototyping
 - **Julia SDK** (`NimbusSDK.jl`): Optimal for research applications requiring RxInfer.jl and custom Bayesian models
 
-Both SDKs provide the same core Bayesian classifiers with language-specific ergonomics.
+Model coverage:
+- **Both SDKs**: Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), Bayesian Softmax (RxPolya)
+- **Python SDK only**: Bayesian STS (RxSTS / `NimbusSTS`)
 </Note>
 
 ## Development Environment Setup

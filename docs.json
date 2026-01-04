@@ -180,7 +180,7 @@
     "title": "Nimbus BCI Engine - Bayesian Inference for Brain-Computer Interfaces",
     "description": "Production-ready Bayesian BCI inference with Bayesian LDA, GMM, Softmax, and STS models. Fast sub-30ms inference latency with full uncertainty quantification in Python and Julia.",
     "og": {
-      "image": "/images/hero-light.png",
+      "image": "/images/hero.png",
       "type": "website",
       "siteName": "Nimbus BCI Documentation"
     },

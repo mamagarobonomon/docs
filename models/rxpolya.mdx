@@ -1,28 +1,28 @@
 ---
-title: "Bayesian MPR (RxPolya)"
-description: "Bayesian Multinomial Probit Regression with uncertainty quantification using RxInfer.jl. Flexible 15-25ms inference for complex multinomial BCI classification tasks."
-keywords: ["Bayesian MPR", "RxPolya", "Multinomial Probit Regression", "Bayesian Softmax", "multinomial classification", "BCI", "logistic regression", "RxInfer", "NimbusSoftmax", "probabilistic classification"]
+title: "Bayesian Softmax (RxPolya)"
+description: "Bayesian Multinomial Logistic Regression with uncertainty quantification using RxInfer.jl. Flexible 15-25ms inference for complex multinomial BCI classification tasks."
+keywords: ["Bayesian Softmax", "RxPolya", "Multinomial Logistic Regression", "multinomial classification", "BCI", "logistic regression", "RxInfer", "NimbusSoftmax", "probabilistic classification"]
 icon: "brain"
 ---
 
-# Bayesian Softmax / MPR
+# Bayesian Softmax
 
 **Python**: `NimbusSoftmax` | **Julia**: `RxPolyaModel`  
 **Mathematical Model**: Bayesian Multinomial Logistic Regression
 
-Bayesian Softmax (Python) / Bayesian MPR (Julia) is a Bayesian multinomial classification model with uncertainty quantification. It uses **continuous transitions** to map features to a latent space for probabilistic classification, making it ideal for complex multinomial tasks.
+Bayesian Softmax is a Bayesian multinomial classification model with uncertainty quantification. It uses **continuous transitions** to map features to a latent space for probabilistic classification, making it ideal for complex multinomial tasks.
 
 <Note>
 **Available in Both SDKs:**
 - **Python SDK**: `NimbusSoftmax` - Polya-Gamma variational inference
-- **Julia SDK**: `RxPolyaModel` - Multinomial Probit Regression with RxInfer.jl
+- **Julia SDK**: `RxPolyaModel` - Multinomial Logistic Regression with RxInfer.jl
 
 Both provide Bayesian multinomial classification with uncertainty quantification.
 </Note>
 
 ## Overview
 
-Bayesian Softmax/MPR provides a powerful alternative to traditional Gaussian classifiers:
+Bayesian Softmax provides a powerful alternative to traditional Gaussian classifiers:
 
 - ✅ **Full Bayesian inference** with posterior probability distributions
 - ✅ **Uncertainty quantification** for each prediction
@@ -68,26 +68,26 @@ results = predict_batch(model, test_data)
   </Tab>
 </Tabs>
 
-### When to Use Bayesian MPR
+### When to Use Bayesian Softmax
 
-**Bayesian MPR is ideal for:**
+**Bayesian Softmax is ideal for:**
 - Complex multinomial classification tasks
 - When you need full posterior uncertainty over multinomial distributions
 - Advanced BCI applications requiring flexible classification
-- Tasks where Bayesian multinomial probit regression is theoretically appropriate
+- Problems where Gaussian class-conditional structure (RxLDA/RxGMM) is a poor fit
 - When RxLDA/RxGMM accuracy is insufficient for complex distributions
 
 **Consider [Bayesian LDA](/models/rxlda) or [Bayesian GMM](/models/rxgmm) instead if:**
 - You need faster inference (RxLDA/RxGMM are 5-10ms faster)
 - Classes are well-separated with Gaussian distributions
-- Interpretability of class centers is important (Bayesian MPR is discriminative)
+- Interpretability of class centers is important (Bayesian Softmax is discriminative)
 - You want Mahalanobis distance-based outlier detection
 
 ## Model Architecture
 
-### Mathematical Foundation (Bayesian Multinomial Probit Regression)
+### Mathematical Foundation (Bayesian Multinomial Logistic Regression)
 
-Bayesian MPR implements Bayesian Multinomial Probit Regression using continuous transitions and MultinomialPolya likelihood:
+Bayesian Softmax implements Bayesian Multinomial Logistic Regression using continuous transitions and MultinomialPolya likelihood:
 
 **Generative Model:**
 
@@ -109,7 +109,7 @@ Where:
 
 ### Hyperparameters
 
-Bayesian MPR supports configurable hyperparameters for optimal performance tuning:
+Bayesian Softmax supports configurable hyperparameters for optimal performance tuning:
 
 **Available Hyperparameters:**
 
@@ -509,7 +509,7 @@ println("Final: pred=$(final_result.prediction), conf=$(round(final_result.confi
 
 ## Hyperparameter Tuning
 
-Fine-tune Bayesian MPR for optimal performance on your specific dataset.
+Fine-tune Bayesian Softmax for optimal performance on your specific dataset.
 
 ### When to Tune Hyperparameters
 
@@ -803,7 +803,7 @@ See the [Feature Normalization](/inference-configuration/feature-normalization) 
 
 ### Feature Requirements
 
-Bayesian MPR expects **preprocessed features**, not raw EEG:
+Bayesian Softmax expects **preprocessed features**, not raw EEG:
 
 ✅ **Required preprocessing:**
 - Bandpass filtering (8-30 Hz for motor imagery)
@@ -840,7 +840,7 @@ Slightly slower than RxLDA/RxGMM due to continuous transition complexity.
 | SSVEP | 2-6 | 85-98% | Advanced applications |
 
 <Note>
-Bayesian MPR typically provides comparable or slightly better accuracy than RxLDA/RxGMM for complex distributions, at the cost of ~5-10ms additional latency.
+Bayesian Softmax typically provides comparable or slightly better accuracy than RxLDA/RxGMM for complex distributions, at the cost of ~5-10ms additional latency.
 </Note>
 
 ## Model Inspection
@@ -957,11 +957,11 @@ end
 ❌ **Requires Multiple Trials**: Cannot train on single trial (minimum 2 observations)  
 ❌ **Less Interpretable**: Harder to interpret than generative models with explicit means
 
-## Comparison: Bayesian MPR vs RxLDA vs RxGMM vs RxSTS
+## Comparison: Bayesian Softmax vs RxLDA vs RxGMM vs RxSTS
 
-| Aspect | Bayesian MPR | RxLDA | RxGMM | RxSTS |
+| Aspect | Bayesian Softmax | RxLDA | RxGMM | RxSTS |
 |--------|---------|-------|-------|-------|
-| **Mathematical Model** | Bayesian Multinomial Probit Regression | Pooled Gaussian Classifier (PGC) | Heteroscedastic Gaussian Classifier (HGC) | State-Space Model (EKF) |
+| **Mathematical Model** | Bayesian Multinomial Logistic Regression | Pooled Gaussian Classifier (PGC) | Heteroscedastic Gaussian Classifier (HGC) | State-Space Model (EKF) |
 | **Representation** | (K-1) dimensional latent space | K class means with shared precision | K class means with class-specific precisions | Features + latent state dynamics |
 | **Temporal Modeling** | Static (stateless) | Static (stateless) | Static (stateless) | **Dynamic (stateful)** |
 | **Training Speed** | Moderate | Fastest | Moderate | Moderate |
@@ -985,7 +985,7 @@ Is your data non-stationary (temporal drift)?
         └─ No → Do classes have different covariances?
             ├─ Yes → Use RxGMM
             └─ No → Are distributions complex/non-Gaussian?
-                ├─ Yes → Use Bayesian MPR
+                ├─ Yes → Use Bayesian Softmax
                 └─ No → Use RxLDA (simplest)
 ```
 
@@ -1018,7 +1018,7 @@ for class_id in clf.classes_:
   </Tab>
   <Tab title="Julia">
 ```julia
-# Bayesian MPR for complex motor imagery with overlapping classes
+# Bayesian Softmax for complex motor imagery with overlapping classes
 
 # Train on motor imagery data
 mi_data = BCIData(csp_features, mi_metadata, labels)  # 4-class MI
@@ -1065,7 +1065,7 @@ print(f"Specificity: {specificity * 100:.1f}%")
   </Tab>
   <Tab title="Julia">
 ```julia
-# Bayesian MPR for P300 target/non-target classification
+# Bayesian Softmax for P300 target/non-target classification
 
 # Train on P300 data
 p300_data = BCIData(erp_features, p300_metadata, labels)  # 1=target, 2=non-target
@@ -1132,7 +1132,7 @@ for name, clf in models:
   </Tab>
   <Tab title="Julia">
 ```julia
-# Compare Bayesian MPR with other models
+# Compare Bayesian Softmax with other models
 # Note: NimbusSTS (Bayesian STS) is currently Python-only
 
 # Train all three Julia models
@@ -1144,7 +1144,7 @@ rxpolya_model = train_model(RxPolyaModel, train_data)
 models = [
     ("RxLDA", rxlda_model),
     ("RxGMM", rxgmm_model),
-    ("Bayesian MPR", rxpolya_model)
+    ("Bayesian Softmax", rxpolya_model)
 ]
 
 for (name, model) in models
@@ -1194,37 +1194,42 @@ end
 - Source code: `/src/models/rxpolya/` in NimbusSDK.jl
 
 **Theory:**
-- Albert, J. H., & Chib, S. (1993). "Bayesian analysis of binary and polychotomous response data"
-- Imai, K., & van Dyk, D. A. (2005). "A Bayesian analysis of the multinomial probit model"
-- Multinomial probit regression with Bayesian inference
+- Polson, N. G., Scott, J. G., & Windle, J. (2013). "Bayesian inference for logistic models using Pólya–Gamma latent variables"
+- Windle, J., Polson, N. G., & Scott, J. G. (2014). "Sampling Pólya–Gamma random variates: alternative and approximate techniques"
+- Bayesian multinomial logistic regression (softmax) with Pólya–Gamma augmentation and variational inference
 
 **BCI Applications:**
 - Blankertz et al. (2008). "Optimizing spatial filters for robust EEG single-trial analysis"
 - Lotte et al. (2018). "A review of classification algorithms for EEG-based BCI"
 
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "TechArticle",
-  "headline": "Bayesian MPR (RxPolya)",
-  "description": "Bayesian Multinomial Probit Regression with uncertainty quantification using RxInfer.jl. Flexible 15-25ms inference for complex multinomial BCI classification tasks.",
-  "author": {
-    "@type": "Organization",
-    "name": "Nimbus BCI",
-    "url": "https://nimbusbci.com"
-  },
-  "publisher": {
-    "@type": "Organization",
-    "name": "Nimbus BCI",
-    "url": "https://nimbusbci.com"
-  },
-  "about": {
-    "@type": "Thing",
-    "name": "Brain-Computer Interface",
-    "description": "Bayesian multinomial classification for complex BCI tasks"
-  },
-  "keywords": "Bayesian MPR, RxPolya, Multinomial Probit Regression, Bayesian Softmax, multinomial classification, BCI, logistic regression, RxInfer, NimbusSoftmax",
-  "inLanguage": "en-US",
-  "isAccessibleForFree": true
-}
-</script>
+<script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{
+    __html: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'TechArticle',
+      headline: 'Bayesian Softmax (RxPolya)',
+      description:
+        'Bayesian Multinomial Logistic Regression with uncertainty quantification using RxInfer.jl. Flexible 15-25ms inference for complex multinomial BCI classification tasks.',
+      author: {
+        '@type': 'Organization',
+        name: 'Nimbus BCI',
+        url: 'https://nimbusbci.com',
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Nimbus BCI',
+        url: 'https://nimbusbci.com',
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'Brain-Computer Interface',
+        description: 'Bayesian multinomial classification for complex BCI tasks',
+      },
+      keywords:
+        'Bayesian Softmax, RxPolya, Multinomial Logistic Regression, multinomial classification, BCI, logistic regression, RxInfer, NimbusSoftmax',
+      inLanguage: 'en-US',
+      isAccessibleForFree: true,
+    }),
+  }}
+/>

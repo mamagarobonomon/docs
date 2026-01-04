@@ -7,7 +7,13 @@ icon: "brain"
 
 _Production-ready Bayesian BCI inference with Bayesian LDA, Bayesian GMM, Bayesian Softmax, and Bayesian STS models_
 
-Nimbus provides fast, probabilistic inference for Brain-Computer Interface applications in **Python** and **Julia**. The SDKs deliver sub-30ms inference latency with full uncertainty quantification through **Bayesian LDA**, **Bayesian GMM**, **Bayesian Softmax/MPR**, and **Bayesian STS** implementations.
+Nimbus provides fast, probabilistic inference for Brain-Computer Interface applications in **Python** and **Julia**. The SDKs deliver sub-30ms inference latency with full uncertainty quantification through **Bayesian LDA**, **Bayesian GMM**, **Bayesian Softmax**, and **Bayesian STS** implementations.
+
+<img
+  src="/images/hero.png"
+  alt="Nimbus BCI Engine documentation"
+  style={{ width: '100%', borderRadius: 12, marginTop: 16, marginBottom: 8 }}
+/>
 
 **Choose your SDK:**
 
@@ -109,7 +115,7 @@ The SDKs provide four production-ready Bayesian models:
     **Bayesian Gaussian Mixture Model** with class-specific covariances. More flexible (15-25ms), better for overlapping distributions like P300. Python: `NimbusGMM`, Julia: `RxGMMModel`.
   </Card>
   <Card
-    title="Bayesian Softmax/MPR"
+    title="Bayesian Softmax"
     icon="brain"
     href="/models/rxpolya"
   >
@@ -355,7 +361,7 @@ EEG Hardware → Preprocessing → Nimbus SDK → Application
 
 ## Performance
 
-| Metric | RxLDA | RxGMM | Bayesian MPR | RxSTS |
+| Metric | RxLDA | RxGMM | Bayesian Softmax | RxSTS |
 |--------|-------|-------|--------------|-------|
 | **Inference Latency** | 10-15ms | 15-25ms | 15-25ms | 20-30ms |
 | **Training Time** | 10-30s | 15-40s | 15-40s | 15-40s |
@@ -448,42 +454,47 @@ Contact **hello@nimbusbci.com** for licensing information.
 
 Nimbus BCI Engine - Bringing Bayesian inference to Brain-Computer Interfaces
 
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "Nimbus BCI Engine",
-  "description": "Production-ready Bayesian inference for Brain-Computer Interfaces in Python and Julia. Fast sub-30ms inference latency with full uncertainty quantification.",
-  "applicationCategory": "DeveloperApplication",
-  "operatingSystem": ["Python", "Julia"],
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "USD"
-  },
-  "provider": {
-    "@type": "Organization",
-    "name": "Nimbus BCI",
-    "url": "https://nimbusbci.com",
-    "sameAs": [
-      "https://github.com/nimbusbci",
-      "https://x.com/nimbusbci",
-      "https://linkedin.com/company/nimbusbci"
-    ]
-  },
-  "softwareVersion": "2.0.2",
-  "featureList": [
-    "Bayesian LDA",
-    "Bayesian GMM",
-    "Bayesian Softmax",
-    "Bayesian STS",
-    "Uncertainty Quantification",
-    "Real-time Inference",
-    "Streaming Support",
-    "Motor Imagery Classification",
-    "P300 Detection",
-    "SSVEP Classification"
-  ],
-  "keywords": "BCI, brain-computer interface, Bayesian inference, EEG, motor imagery, P300, SSVEP, probabilistic AI, RxInfer, Python SDK, Julia SDK"
-}
-</script>
+<script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{
+    __html: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Nimbus BCI Engine',
+      description:
+        'Production-ready Bayesian inference for Brain-Computer Interfaces in Python and Julia. Fast sub-30ms inference latency with full uncertainty quantification.',
+      applicationCategory: 'DeveloperApplication',
+      operatingSystem: ['Python', 'Julia'],
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'USD',
+      },
+      provider: {
+        '@type': 'Organization',
+        name: 'Nimbus BCI',
+        url: 'https://nimbusbci.com',
+        sameAs: [
+          'https://github.com/nimbusbci',
+          'https://x.com/nimbusbci',
+          'https://linkedin.com/company/nimbusbci',
+        ],
+      },
+      softwareVersion: '2.0.2',
+      featureList: [
+        'Bayesian LDA',
+        'Bayesian GMM',
+        'Bayesian Softmax',
+        'Bayesian STS',
+        'Uncertainty Quantification',
+        'Real-time Inference',
+        'Streaming Support',
+        'Motor Imagery Classification',
+        'P300 Detection',
+        'SSVEP Classification',
+      ],
+      keywords:
+        'BCI, brain-computer interface, Bayesian inference, EEG, motor imagery, P300, SSVEP, probabilistic AI, RxInfer, Python SDK, Julia SDK',
+    }),
+  }}
+/>

@@ -5,7 +5,7 @@ keywords: ["Julia SDK", "quickstart", "NimbusSDK.jl", "Julia BCI", "getting star
 icon: "rocket"
 ---
 
-# Get Started with Nimbus BCI
+# Get Started with NimbusSDK.jl (Julia SDK)
 
 Build your first brain-computer interface application in just a few steps. This guide will take you from setup to running inference on neural data in under 10 minutes.
 
@@ -73,6 +73,7 @@ Create a new Julia script and run your first BCI inference:
 
 ```julia
 using NimbusSDK
+using Statistics
 
 # Step 1: One-time setup with your API key
 NimbusSDK.install_core("your-api-key-here")
@@ -136,6 +137,7 @@ Train a custom RxLDA model on your labeled data:
 
 ```julia
 using NimbusSDK
+using Statistics
 
 # One-time setup: Install core with your API key
 NimbusSDK.install_core("your-api-key")
@@ -180,8 +182,13 @@ using JLD2
 
 # Later: Load and use with same normalization
 @load "my_custom_model.jld2" model norm_params
+
+# Load your test features and apply the same normalization
+test_features = load_your_test_features()  # (n_features × n_samples × n_trials)
 test_features_norm = apply_normalization(test_features, norm_params)
-test_data = BCIData(test_features_norm, metadata)
+
+# Reuse the same metadata structure as training
+test_data = BCIData(test_features_norm, train_data.metadata)
 results = predict_batch(model, test_data)
 ```
 
@@ -271,9 +278,9 @@ NimbusSDK includes Bayesian inference models for different BCI scenarios:
 - Better for complex class structures
 - Slightly slower than Bayesian LDA
 
-### Bayesian MPR (RxPolya)
+### Bayesian Softmax (RxPolya)
 **API Name**: `RxPolyaModel`  
-**Mathematical Model**: Bayesian Multinomial Probit Regression
+**Mathematical Model**: Bayesian Multinomial Logistic Regression
 
 - **Continuous transition mapping** to latent space
 - Most flexible for complex multinomial tasks
@@ -301,8 +308,8 @@ Now that you have NimbusSDK running, explore these advanced features:
   <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
     Learn about the Bayesian GMM model in detail
   </Card>
-  <Card title="Bayesian MPR (RxPolya)" icon="brain" href="/models/rxpolya">
-    Learn about the Bayesian MPR (Multinomial Probit Regression) model
+  <Card title="Bayesian Softmax (RxPolya)" icon="brain" href="/models/rxpolya">
+    Learn about the Bayesian Softmax (Multinomial Logistic Regression) model
   </Card>
   <Card title="Bayesian STS (RxSTS)" icon="brain" href="/models/rxsts">
     Adaptive model for non-stationary data (Python SDK only)
@@ -313,7 +320,7 @@ Now that you have NimbusSDK running, explore these advanced features:
   <Card title="Batch Processing" icon="list" href="/inference-configuration/batch-processing">
     Process multiple trials efficiently
   </Card>
-  <Card title="Streaming Inference" icon="activity" href="/inference-configuration/real-time-setup">
+  <Card title="Streaming Inference" icon="activity" href="/inference-configuration/streaming-inference">
     Real-time chunk-by-chunk processing
   </Card>
 </CardGroup>

@@ -31,6 +31,11 @@ List available pre-trained models based on your license tier.
 | `paradigm` | string | Filter by BCI paradigm: `motor_imagery`, `p300`, `ssvep` (optional) |
 | `type` | string | Filter by model type: `RxLDA`, `RxGMM`, `RxPolya` (optional) |
 
+<Note>
+The model registry is used by the **Julia SDK** and currently includes `RxLDA`, `RxGMM`, and `RxPolya`.  
+`RxSTS` / Bayesian STS is **Python SDK only** and does not appear in the model registry.
+</Note>
+
 **Request:**
 ```bash
 curl "https://api.nimbusbci.com/v1/models/list?api_key=nbci_live_your_key"
@@ -87,7 +92,7 @@ curl "https://api.nimbusbci.com/v1/models/list?api_key=nbci_live_your_key"
 
 - `name` (string): Unique model identifier
 - `version` (string): Model version
-- `type` (string): Model type (`RxLDA` or `RxGMM`)
+- `type` (string): Model type (`RxLDA`, `RxGMM`, or `RxPolya`)
 - `paradigm` (string): BCI paradigm (`motor_imagery`, `p300`, `ssvep`, etc.)
 - `n_features` (number): Expected number of input features
 - `n_classes` (number): Number of output classes

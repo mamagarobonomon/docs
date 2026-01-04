@@ -12,7 +12,7 @@ Nimbus uses reactive message passing on factor graphs to perform efficient Bayes
 <Note>
 **SDK Implementation:**
 - **Julia SDK**: Full access to RxInfer.jl's reactive message passing on factor graphs, enabling custom model development
-- **Python SDK**: Pre-compiled Bayesian models (LDA, GMM, Softmax, STS) with optimized inference engines. The underlying factor graph architecture runs efficiently without requiring manual graph construction
+- **Python SDK**: Pre-compiled Bayesian models (LDA, GMM, Softmax, and STS / `NimbusSTS`) with optimized inference engines. The underlying factor graph architecture runs efficiently without requiring manual graph construction
 
 Both SDKs provide the same probabilistic guarantees and real-time performance. Julia SDK offers more flexibility for research; Python SDK offers more ergonomics for production BCI applications.
 </Note>
@@ -117,7 +117,7 @@ Benefits:
 - Medium Dynamics (100ms): Motor planning  
 - Fast Dynamics (10ms): Neural oscillations
 
-Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian MPR (RxPolya) handle temporal structure through proper feature aggregation and trial-level inference.
+Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian Softmax (RxPolya) handle temporal structure through proper feature aggregation and trial-level inference.
 
 ### Multi-modal Integration
 
@@ -183,7 +183,7 @@ BCI signals can have extreme values. RxInfer handles this robustly:
 
 ### Model Structure
 
-Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian MPR (RxPolya) all use factor graph representations:
+Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), Bayesian Softmax (RxPolya), and Bayesian STS (`NimbusSTS`) all use factor graph representations:
 
 **RxLDA**: Linear Discriminant Analysis
 - Gaussian observations with shared precision matrix
@@ -195,10 +195,12 @@ Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian MPR (RxPolya) all use f
 - More flexible for overlapping distributions
 - Handles complex class structures
 
-**Bayesian MPR (RxPolya)**: Multinomial Probit Regression
+**Bayesian Softmax (RxPolya)**: Multinomial Logistic Regression
 - Continuous transitions to latent space
 - MultinomialPolya likelihood for classification
 - Most flexible for complex multinomial tasks
+
+**Bayesian STS (`NimbusSTS`)**: State-space model with temporal dynamics (Python SDK only)
 
 ### Inference Process
 

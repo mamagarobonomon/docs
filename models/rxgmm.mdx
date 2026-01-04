@@ -848,20 +848,20 @@ end
 ❌ **Higher Memory**: Stores n_classes precision matrices  
 ❌ **More Complex**: Longer training time  
 
-## Comparison: Bayesian GMM vs Bayesian LDA vs Bayesian STS
+## Comparison: Bayesian GMM vs Bayesian LDA vs Bayesian Softmax vs Bayesian STS
 
-| Aspect | Bayesian GMM (RxGMM) | Bayesian LDA (RxLDA) | Bayesian STS (RxSTS) |
-|--------|-------|-------|-------|
-| **Precision Matrix** | Class-specific | Shared (one for all) | N/A (state-space) |
-| **Mathematical Model** | Heteroscedastic Gaussian Classifier (HGC) | Pooled Gaussian Classifier (PGC) | State-Space Model (EKF) |
-| **Temporal Modeling** | Static (stateless) | Static (stateless) | **Dynamic (stateful)** |
-| **Training Speed** | Slower | Faster | Moderate |
-| **Inference Speed** | 15-25ms | 10-15ms | 20-30ms |
-| **Flexibility** | High | Moderate | Adaptive |
-| **Data Requirements** | More | Less | Moderate |
-| **Memory Usage** | Higher | Lower | Moderate (stores state) |
-| **Best For** | Heterogeneous classes | Homogeneous classes | **Non-stationary, long sessions** |
-| **Accuracy Gain** | +2-5% (when applicable) | Baseline | +5-15% (on drifting data) |
+| Aspect | Bayesian GMM (RxGMM) | Bayesian LDA (RxLDA) | Bayesian Softmax (RxPolya) | Bayesian STS (RxSTS) |
+|--------|-------|-------|-------|-------|
+| **Precision Matrix** | Class-specific | Shared (one for all) | Latent-space precision (K-1) | N/A (state-space) |
+| **Mathematical Model** | Heteroscedastic Gaussian Classifier (HGC) | Pooled Gaussian Classifier (PGC) | Multinomial Logistic Regression | State-Space Model (EKF) |
+| **Temporal Modeling** | Static (stateless) | Static (stateless) | Static (stateless) | **Dynamic (stateful)** |
+| **Training Speed** | Slower | Faster | Moderate | Moderate |
+| **Inference Speed** | 15-25ms | 10-15ms | 15-25ms | 20-30ms |
+| **Flexibility** | High | Moderate | Highest (non-Gaussian) | Adaptive |
+| **Data Requirements** | More | Less | Moderate | Moderate |
+| **Memory Usage** | Higher | Lower | Moderate | Moderate (stores state) |
+| **Best For** | Heterogeneous class spreads | Homogeneous classes | Complex decision boundaries / non-Gaussian structure | **Non-stationary, long sessions** |
+| **Accuracy Gain** | +2-5% (when applicable) | Baseline | Often improves on non-Gaussian tasks | +5-15% (on drifting data) |
 
 ### Decision Tree
 
@@ -870,9 +870,11 @@ Is your data non-stationary (drift over time)?
 ├─ Yes → Use Bayesian STS (adaptive, handles temporal dynamics)
 └─ No → Is speed critical (&lt;15ms)?
     ├─ Yes → Use Bayesian LDA
-    └─ No → Do classes have similar spreads?
-        ├─ Yes → Use Bayesian LDA (faster, same accuracy)
-        └─ No → Use Bayesian GMM (more accurate)
+    └─ No → Do classes have different spreads / covariances?
+        ├─ Yes → Use Bayesian GMM (more accurate)
+        └─ No → Is the decision boundary complex / non-Gaussian?
+            ├─ Yes → Use Bayesian Softmax (most flexible)
+            └─ No → Use Bayesian LDA (simplest)
 ```
 
 ## Practical Examples
@@ -926,6 +928,9 @@ end
   <Card title="Bayesian LDA (RxLDA)" icon="brain" href="/models/rxlda">
     Faster model with shared covariance
   </Card>
+  <Card title="Bayesian Softmax (RxPolya)" icon="brain" href="/models/rxpolya">
+    Most flexible multinomial classifier for complex decision boundaries
+  </Card>
   <Card title="Bayesian STS (RxSTS)" icon="wave-pulse" href="/models/rxsts">
     Adaptive model for non-stationary data
   </Card>
@@ -952,29 +957,34 @@ end
 - Farwell, L. A., & Donchin, E. (1988). "Talking off the top of your head"
 - Lotte et al. (2018). "A review of classification algorithms for EEG-based BCI"
 
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "TechArticle",
-  "headline": "Bayesian GMM (RxGMM)",
-  "description": "Bayesian Gaussian Mixture Model with class-specific covariances using RxInfer.jl. Flexible 15-25ms inference for P300 and overlapping class distributions.",
-  "author": {
-    "@type": "Organization",
-    "name": "Nimbus BCI",
-    "url": "https://nimbusbci.com"
-  },
-  "publisher": {
-    "@type": "Organization",
-    "name": "Nimbus BCI",
-    "url": "https://nimbusbci.com"
-  },
-  "about": {
-    "@type": "Thing",
-    "name": "Brain-Computer Interface",
-    "description": "Bayesian classification for P300 and SSVEP BCI"
-  },
-  "keywords": "Bayesian GMM, RxGMM, Gaussian Mixture Model, P300, BCI classification, heteroscedastic, class-specific covariance, RxInfer, NimbusGMM",
-  "inLanguage": "en-US",
-  "isAccessibleForFree": true
-}
-</script>
+<script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{
+    __html: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'TechArticle',
+      headline: 'Bayesian GMM (RxGMM)',
+      description:
+        'Bayesian Gaussian Mixture Model with class-specific covariances using RxInfer.jl. Flexible 15-25ms inference for P300 and overlapping class distributions.',
+      author: {
+        '@type': 'Organization',
+        name: 'Nimbus BCI',
+        url: 'https://nimbusbci.com',
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Nimbus BCI',
+        url: 'https://nimbusbci.com',
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'Brain-Computer Interface',
+        description: 'Bayesian classification for P300 and SSVEP BCI',
+      },
+      keywords:
+        'Bayesian GMM, RxGMM, Gaussian Mixture Model, P300, BCI classification, heteroscedastic, class-specific covariance, RxInfer, NimbusGMM',
+      inLanguage: 'en-US',
+      isAccessibleForFree: true,
+    }),
+  }}
+/>
