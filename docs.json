@@ -178,7 +178,17 @@
       "x": "https://x.com/nimbusbci",
       "github": "https://github.com/nimbusbci",
       "linkedin": "https://linkedin.com/company/nimbusbci"
-    }
+    },
+    "links": [
+      {
+        "header": "Legal",
+        "items": [
+          { "label": "Privacy", "href": "https://nimbusbci.com/privacy" },
+          { "label": "Terms", "href": "https://nimbusbci.com/terms" },
+          { "label": "Cookies", "href": "https://nimbusbci.com/cookies" }
+        ]
+      }
+    ]
   },
   "seo": {
     "title": "Nimbus BCI Engine - Bayesian Inference for Brain-Computer Interfaces",
