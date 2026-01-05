@@ -101,35 +101,32 @@ Nimbus provides production-ready Bayesian models. Some are available in both SDK
 
 <CardGroup cols={2}>
   <Card
-    title="NimbusLDA (Bayesian LDA)"
+    title="Bayesian LDA (NimbusLDA)"
     icon="brain"
     href="/models/rxlda"
   >
     **Bayesian Linear Discriminant Analysis** with shared covariance. Fastest (10-15ms), ideal for well-separated classes like motor imagery. Python: `NimbusLDA`, Julia: `NimbusLDA`.
   </Card>
   <Card
-    title="NimbusQDA (Bayesian QDA)"
+    title="Bayesian QDA (NimbusQDA)"
     icon="brain"
     href="/models/rxgmm"
   >
     **Bayesian Quadratic Discriminant Analysis** with class-specific covariances. More flexible (15-25ms), better for overlapping distributions like P300. Python: `NimbusQDA`, Julia: `NimbusQDA`.
   </Card>
   <Card
-    title="NimbusSoftmax (Python only)"
+    title="Bayesian Multinomial (NimbusSoftmax / NimbusProbit)"
     icon="brain"
     href="/models/rxpolya"
   >
-    **Bayesian multinomial logistic regression** (Polya-Gamma VI). Flexible non-Gaussian boundaries. Python: `NimbusSoftmax`.
+    **Non-Gaussian multinomial classifier family**. Python: `NimbusSoftmax`. Julia: `NimbusProbit`.
   </Card>
   <Card
-    title="NimbusSTS (Python only)"
+    title="Bayesian STS (NimbusSTS)"
     icon="brain"
     href="/models/rxsts"
   >
     **State-space model** with EKF-style inference for drift/non-stationarity and online learning. Python: `NimbusSTS`.
-  </Card>
-  <Card title="NimbusProbit (Julia only)" icon="brain" href="/models/nimbusprobit">
-    **Bayesian multinomial probit regression** for non-Gaussian static classification. Julia: `NimbusProbit`.
   </Card>
 </CardGroup>
 

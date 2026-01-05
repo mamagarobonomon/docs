@@ -67,9 +67,8 @@
         "group": "Models & Algorithms",
         "pages": [
           "models/rxlda",
-          "models/rxpolya",
           "models/rxgmm",
-          "models/nimbusprobit",
+          "models/rxpolya",
           "models/rxsts",
           "model-specification"
         ]
