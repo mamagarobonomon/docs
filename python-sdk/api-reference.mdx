@@ -1,7 +1,7 @@
 ---
 title: "API Reference"
-description: "Complete API documentation for nimbus-bci Python SDK. Reference for NimbusLDA, NimbusGMM, NimbusSoftmax, NimbusSTS classes and methods."
-keywords: ["API reference", "Python SDK", "nimbus-bci", "NimbusLDA", "NimbusGMM", "NimbusSoftmax", "NimbusSTS", "BCI API", "Python documentation"]
+description: "Complete API documentation for nimbus-bci Python SDK. Reference for NimbusLDA, NimbusQDA, NimbusSoftmax, NimbusSTS classes and methods."
+keywords: ["API reference", "Python SDK", "nimbus-bci", "NimbusLDA", "NimbusQDA", "NimbusSoftmax", "NimbusSTS", "BCI API", "Python documentation"]
 icon: "book"
 ---
 
@@ -63,14 +63,14 @@ probabilities = clf.predict_proba(X_test)
 clf.partial_fit(X_new, y_new)
 ```
 
-### NimbusGMM
+### NimbusQDA
 
-Bayesian Gaussian Mixture Model with class-specific covariances.
+Bayesian QDA with class-specific covariances.
 
 ```python
-from nimbus_bci import NimbusGMM
+from nimbus_bci import NimbusQDA
 
-clf = NimbusGMM(
+clf = NimbusQDA(
     mu_loc=0.0,
     mu_scale=3.0,
     wishart_df=None,
@@ -87,10 +87,10 @@ clf = NimbusGMM(
 **Example:**
 
 ```python
-from nimbus_bci import NimbusGMM
+from nimbus_bci import NimbusQDA
 
 # Better for overlapping distributions (e.g., P300)
-clf = NimbusGMM()
+clf = NimbusQDA()
 clf.fit(X_train, y_train)
 probs = clf.predict_proba(X_test)
 ```

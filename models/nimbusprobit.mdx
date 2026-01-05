@@ -1,0 +1,57 @@
+---
+title: "NimbusProbit (Julia only)"
+description: "Bayesian Multinomial Probit Regression for BCI classification in NimbusSDK.jl. Flexible non-Gaussian decision boundaries with uncertainty quantification."
+keywords: ["NimbusProbit", "Bayesian Probit", "Multinomial Probit Regression", "BCI", "RxInfer", "Julia SDK", "uncertainty quantification", "classification"]
+icon: "brain"
+---
+
+# NimbusProbit — Bayesian Multinomial Probit Regression
+
+**Julia**: `NimbusProbit` | **Python**: Not currently available  
+**Mathematical Model**: Bayesian Multinomial Probit Regression
+
+NimbusProbit is NimbusSDK.jl’s most flexible **static** classifier. Compared to Gaussian models (`NimbusLDA`, `NimbusQDA`), it can represent **non-Gaussian decision boundaries** while still producing calibrated posterior probabilities.
+
+<Note>
+**Availability**
+- **Julia SDK**: ✅ `NimbusProbit`
+- **Python SDK**: ❌ Not currently available (use `NimbusSoftmax` for a non-Gaussian static model in Python)
+</Note>
+
+## Quick Start (Julia)
+
+```julia
+using NimbusSDK
+
+# One-time setup
+NimbusSDK.install_core("nbci_live_your_key")
+
+# Train
+model = train_model(
+    NimbusProbit,
+    train_data;
+    iterations = 50
+)
+
+# Batch inference
+results = predict_batch(model, test_data)
+println("Accuracy: $(sum(results.predictions .== labels) / length(labels))")
+```
+
+## When to Use NimbusProbit
+
+- Complex multi-class tasks where `NimbusLDA` / `NimbusQDA` plateau
+- Non-Gaussian boundaries (e.g., overlapping clusters not well modeled by class-conditional Gaussians)
+- You still need **uncertainty quantification** and stable probabilities
+
+## When Not to Use It
+
+- If latency must be minimized: start with `NimbusLDA`, then `NimbusQDA`
+- If the task is non-stationary / drifting: use `NimbusSTS` (Python-only)
+
+## Next Steps
+
+- Julia SDK reference: `/api-reference/julia-sdk`
+- Static Gaussian models: `/models/rxlda`, `/models/rxgmm`
+- Python non-Gaussian static model: `/models/rxpolya`
+

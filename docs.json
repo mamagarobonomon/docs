@@ -67,9 +67,10 @@
         "group": "Models & Algorithms",
         "pages": [
           "models/rxlda",
-          "models/rxgmm",
-          "models/rxsts",
           "models/rxpolya",
+          "models/rxgmm",
+          "models/nimbusprobit",
+          "models/rxsts",
           "model-specification"
         ]
       },
@@ -201,7 +202,7 @@
   },
   "seo": {
     "title": "Nimbus BCI Engine - Bayesian Inference for Brain-Computer Interfaces",
-    "description": "Production-ready Bayesian BCI inference with Bayesian LDA, GMM, Softmax, and STS models. Fast sub-30ms inference latency with full uncertainty quantification in Python and Julia.",
+    "description": "Production-ready Bayesian BCI inference with NimbusLDA and NimbusQDA in Python & Julia, plus NimbusSoftmax and NimbusSTS (Python) and NimbusProbit (Julia). Fast sub-30ms inference latency with uncertainty quantification.",
     "og": {
       "image": "/images/hero.png",
       "type": "website",

@@ -29,11 +29,11 @@ List available pre-trained models based on your license tier.
 |-----------|------|-------------|
 | `api_key` | string | Your Nimbus API key (required) |
 | `paradigm` | string | Filter by BCI paradigm: `motor_imagery`, `p300`, `ssvep` (optional) |
-| `type` | string | Filter by model type: `RxLDA`, `RxGMM`, `RxPolya` (optional) |
+| `type` | string | Filter by model type: `NimbusLDA`, `NimbusQDA`, `NimbusProbit` (optional) |
 
 <Note>
-The model registry is used by the **Julia SDK** and currently includes `RxLDA`, `RxGMM`, and `RxPolya`.  
-`RxSTS` / Bayesian STS is **Python SDK only** and does not appear in the model registry.
+The model registry is used by the **Julia SDK** and currently includes `NimbusLDA`, `NimbusQDA`, and `NimbusProbit`.  
+`NimbusSTS` / Bayesian STS is **Python SDK only** and does not appear in the model registry.
 </Note>
 
 **Request:**
@@ -48,7 +48,7 @@ curl "https://api.nimbusbci.com/v1/models/list?api_key=nbci_live_your_key"
     {
       "name": "motor_imagery_4class_v1",
       "version": "1.0.0",
-      "type": "RxLDA",
+      "type": "NimbusLDA",
       "paradigm": "motor_imagery",
       "n_features": 16,
       "n_classes": 4,
@@ -67,7 +67,7 @@ curl "https://api.nimbusbci.com/v1/models/list?api_key=nbci_live_your_key"
     {
       "name": "p300_binary_v1",
       "version": "1.0.0",
-      "type": "RxGMM",
+      "type": "NimbusQDA",
       "paradigm": "p300",
       "n_features": 8,
       "n_classes": 2,
@@ -92,7 +92,7 @@ curl "https://api.nimbusbci.com/v1/models/list?api_key=nbci_live_your_key"
 
 - `name` (string): Unique model identifier
 - `version` (string): Model version
-- `type` (string): Model type (`RxLDA`, `RxGMM`, or `RxPolya`)
+- `type` (string): Model type (`NimbusLDA`, `NimbusQDA`, or `NimbusProbit`)
 - `paradigm` (string): BCI paradigm (`motor_imagery`, `p300`, `ssvep`, etc.)
 - `n_features` (number): Expected number of input features
 - `n_classes` (number): Number of output classes
@@ -108,8 +108,8 @@ curl "https://api.nimbusbci.com/v1/models/list?api_key=nbci_live_your_key"
 # Get only motor imagery models
 curl "https://api.nimbusbci.com/v1/models/list?api_key=nbci_live_...&paradigm=motor_imagery"
 
-# Get only RxLDA models
-curl "https://api.nimbusbci.com/v1/models/list?api_key=nbci_live_...&type=RxLDA"
+# Get only NimbusLDA models
+curl "https://api.nimbusbci.com/v1/models/list?api_key=nbci_live_...&type=NimbusLDA"
 ```
 
 ### Using in Julia SDK
@@ -123,7 +123,7 @@ using NimbusSDK
 NimbusSDK.install_core("nbci_live_your_key")
 
 # Load pre-trained model (SDK calls /v1/models/list internally)
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 # SDK downloads, verifies checksum, and caches the model locally
 ```
@@ -295,7 +295,7 @@ using NimbusSDK
 NimbusSDK.install_core("nbci_live_your_key")
 
 # 2. Load pre-trained model (calls /v1/models/list)
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 # 3. Run inference (local, no API call)
 data = BCIData(features, metadata, labels)
@@ -359,10 +359,10 @@ Models are downloaded once and cached locally:
 
 ```julia
 # First call: downloads from API
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")  # ~2-3 seconds
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")  # ~2-3 seconds
 
 # Subsequent calls: loads from cache
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")  # &lt;100ms
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")  # &lt;100ms
 ```
 
 Cache location: `~/.nimbus/models/`

@@ -172,7 +172,7 @@ features = randn(8, 250, 10)  # Only 8 features!
 
 try
     data = BCIData(features, metadata)
-    model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+    model = load_model(NimbusLDA, "motor_imagery_4class_v1")
     results = predict_batch(model, data)
     # Error: "Data has 8 features but model expects 16 features"
 catch e
@@ -251,7 +251,7 @@ end
 using NimbusSDK
 
 # Load a 4-class motor imagery model
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 # But provide 2-class data
 metadata = BCIMetadata(
@@ -311,7 +311,7 @@ metadata = BCIMetadata(...)
 data = BCIData(features, metadata)  # No labels!
 
 try
-    model = train_model(RxLDAModel, data)
+    model = train_model(NimbusLDA, data)
     # Error: "Training requires labeled data. Please provide labels in BCIData."
 catch e
     println("Training requires labeled data")
@@ -320,7 +320,7 @@ end
 # Fix: Provide labels
 labels = rand(1:4, 50)
 data_with_labels = BCIData(features, metadata, labels)
-model = train_model(RxLDAModel, data_with_labels)  # ✓ Works
+model = train_model(NimbusLDA, data_with_labels)  # ✓ Works
 ```
 
 ### Streaming Errors
@@ -512,7 +512,7 @@ function production_bci_inference(api_key::String, model_name::String,
     # 2. Load model
     local model
     try
-        model = load_model(RxLDAModel, model_name)
+        model = load_model(NimbusLDA, model_name)
     catch e
         @error "Failed to load model" model_name exception=e
         return nothing

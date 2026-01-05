@@ -116,9 +116,9 @@ Maintain class balance in folds:
 
 ```python
 from sklearn.model_selection import StratifiedKFold, cross_val_score
-from nimbus_bci import NimbusGMM
+from nimbus_bci import NimbusQDA
 
-clf = NimbusGMM()
+clf = NimbusQDA()
 cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 scores = cross_val_score(clf, X, y, cv=cv, scoring='accuracy')
 
@@ -203,7 +203,7 @@ More efficient for large parameter spaces:
 ```python
 from sklearn.model_selection import RandomizedSearchCV
 from scipy.stats import uniform, randint
-from nimbus_bci import NimbusGMM
+from nimbus_bci import NimbusQDA
 
 # Define parameter distributions
 param_dist = {
@@ -213,7 +213,7 @@ param_dist = {
 
 # Random search
 random_search = RandomizedSearchCV(
-    NimbusGMM(),
+    NimbusQDA(),
     param_dist,
     n_iter=20,
     cv=5,
@@ -263,11 +263,11 @@ Compare different nimbus-bci classifiers:
 
 ```python
 from sklearn.model_selection import cross_val_score
-from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax, NimbusSTS
+from nimbus_bci import NimbusLDA, NimbusQDA, NimbusSoftmax, NimbusSTS
 
 classifiers = {
     'LDA': NimbusLDA(),
-    'GMM': NimbusGMM(),
+    'QDA': NimbusQDA(),
     'Softmax': NimbusSoftmax(),
     'STS': NimbusSTS()
 }
@@ -353,12 +353,12 @@ Combine multiple nimbus-bci classifiers:
 
 ```python
 from sklearn.ensemble import VotingClassifier
-from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax, NimbusSTS
+from nimbus_bci import NimbusLDA, NimbusQDA, NimbusSoftmax, NimbusSTS
 
 ensemble = VotingClassifier(
     estimators=[
         ('lda', NimbusLDA()),
-        ('gmm', NimbusGMM()),
+        ('qda', NimbusQDA()),
         ('softmax', NimbusSoftmax()),
         ('sts', NimbusSTS())
     ],
@@ -490,9 +490,9 @@ For binary classification:
 ```python
 from sklearn.metrics import roc_curve, auc, roc_auc_score
 import matplotlib.pyplot as plt
-from nimbus_bci import NimbusGMM
+from nimbus_bci import NimbusQDA
 
-clf = NimbusGMM()
+clf = NimbusQDA()
 clf.fit(X_train, y_train)
 y_probs = clf.predict_proba(X_test)[:, 1]
 

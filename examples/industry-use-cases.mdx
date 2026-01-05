@@ -1,13 +1,13 @@
 ---
 title: "Industry Use Cases"
-description: "Real-world BCI applications powered by Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian Softmax (RxPolya) models. Assistive technology, neurofeedback, and research applications."
+description: "Real-world BCI applications powered by NimbusLDA and NimbusQDA (Python + Julia), plus NimbusSoftmax (Python) / NimbusProbit (Julia). Assistive technology, neurofeedback, and research applications."
 keywords: ["industry use cases", "BCI applications", "assistive technology", "neurofeedback", "research", "real-world BCI", "BCI use cases", "medical BCI", "BCI industry", "applications"]
 icon: "briefcase"
 ---
 
 # Industry Use Cases
 
-This section showcases realistic BCI applications powered by NimbusSDK's **RxLDA** and **RxGMM** models across healthcare, assistive technology, research, and productivity domains.
+This section showcases realistic BCI applications powered by NimbusSDK's **NimbusLDA** and **NimbusQDA** models across healthcare, assistive technology, research, and productivity domains.
 
 ## Healthcare & Medical Devices
 
@@ -15,7 +15,7 @@ This section showcases realistic BCI applications powered by NimbusSDK's **RxLDA
 
 **Challenge**: Help stroke patients regain motor function through neurofeedback-guided rehabilitation.
 
-**Solution**: Real-time motor imagery detection using RxLDA for 4-class motor imagery (left hand, right hand, feet, tongue).
+**Solution**: Real-time motor imagery detection using NimbusLDA for 4-class motor imagery (left hand, right hand, feet, tongue).
 
 <Tabs>
   <Tab title="Python">
@@ -147,7 +147,7 @@ using Statistics
 
 # Rehabilitation session manager
 mutable struct RehabilitationSession
-    model::RxLDAModel
+    model::NimbusLDA
     patient_id::String
     baseline_accuracy::Float64
     session_history::Vector{Dict}
@@ -155,7 +155,7 @@ end
 
 function create_rehab_session(patient_id::String)
     # Load motor imagery model
-    model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+    model = load_model(NimbusLDA, "motor_imagery_4class_v1")
     
     # Initial assessment
     println("Running baseline assessment for patient $patient_id...")
@@ -271,7 +271,7 @@ end
 
 <Card title="Clinical Results" icon="heart-pulse">
   **Application**: Motor imagery neurofeedback for stroke rehabilitation  
-  **Model**: RxLDA 4-class motor imagery  
+  **Model**: NimbusLDA 4-class motor imagery  
   **Latency**: 15-20ms per chunk (real-time feedback)  
   **Typical Accuracy**: 65-85% after calibration  
   **Sessions**: 20-30 sessions for measurable improvement  
@@ -281,25 +281,25 @@ end
 
 **Challenge**: Enable communication for patients with locked-in syndrome who cannot speak or move.
 
-**Solution**: P300 speller using RxGMM for binary target/non-target detection.
+**Solution**: P300 speller using NimbusQDA for binary target/non-target detection.
 
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusGMM
+from nimbus_bci import NimbusQDA
 import numpy as np
 from dataclasses import dataclass
 
 # P300 Speller Implementation
 @dataclass
 class P300Speller:
-    model: NimbusGMM
+    model: NimbusQDA
     character_matrix: np.ndarray
     intensification_count: int
 
 def create_p300_speller() -> P300Speller:
     # Train P300 detection model (binary classification)
-    clf = NimbusGMM(n_components=2)
+    clf = NimbusQDA(n_components=2)
     # Load calibration data and fit
     X_calib = np.random.randn(100, 16)  # Replace with real P300 calibration
     y_calib = np.random.randint(0, 2, 100)  # 0=non-target, 1=target
@@ -361,7 +361,7 @@ def spell_character(speller: P300Speller) -> dict:
     
     return {"character": selected_char, "confidence": overall_confidence}
 
-def detect_p300(model: NimbusGMM, eeg_epoch: np.ndarray) -> dict:
+def detect_p300(model: NimbusQDA, eeg_epoch: np.ndarray) -> dict:
     # Reshape to (1, n_features) for single trial
     features = eeg_epoch.reshape(1, -1)
     
@@ -396,14 +396,14 @@ using NimbusSDK
 
 # P300 Speller Implementation
 struct P300Speller
-    model::RxGMMModel
+    model::NimbusQDA
     character_matrix::Matrix{Char}
     intensification_count::Int
 end
 
 function create_p300_speller()
     # Load P300 detection model
-    model = load_model(RxGMMModel, "p300_binary_v1")
+    model = load_model(NimbusQDA, "p300_binary_v1")
     
     # Standard 6x6 character matrix
     char_matrix = [
@@ -468,7 +468,7 @@ function spell_character(speller::P300Speller)
     return (character=selected_char, confidence=overall_confidence)
 end
 
-function detect_p300(model::RxGMMModel, eeg_epoch::Matrix{Float64})
+function detect_p300(model::NimbusQDA, eeg_epoch::Matrix{Float64})
     # Prepare BCIData
     metadata = BCIMetadata(
         sampling_rate = 250.0,
@@ -510,7 +510,7 @@ end
 
 <Card title="Communication Application" icon="comments">
   **Application**: P300 speller for locked-in syndrome  
-  **Model**: RxGMM binary P300 detection  
+  **Model**: NimbusQDA binary P300 detection  
   **Speed**: 5-10 characters per minute  
   **Accuracy**: 85-95% with 10 repetitions  
   **ITR**: 10-15 bits/minute  
@@ -608,13 +608,13 @@ using NimbusSDK
 
 # Safety-critical wheelchair controller
 struct WheelchairBCI
-    model::RxLDAModel
+    model::NimbusLDA
     safety_threshold::Float64
     command_mapping::Dict{Int, Symbol}
 end
 
 function create_wheelchair_controller()
-    model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+    model = load_model(NimbusLDA, "motor_imagery_4class_v1")
     
     # Map motor imagery classes to wheelchair commands
     command_map = Dict(
@@ -679,7 +679,7 @@ control_wheelchair(wheelchair_bci)
 
 <Card title="Assistive Technology" icon="wheelchair">
   **Application**: Motor imagery wheelchair control  
-  **Model**: RxLDA 4-class motor imagery  
+  **Model**: NimbusLDA 4-class motor imagery  
   **Safety**: 85% confidence threshold + emergency stop  
   **Latency**: 20-25ms inference + 2s decision window  
   **Reliability**: Mission-critical with fail-safe defaults  
@@ -691,12 +691,12 @@ control_wheelchair(wheelchair_bci)
 
 **Challenge**: Provide researchers with flexible, accurate BCI models for experiments.
 
-**Solution**: NimbusSDK's RxLDA/RxGMM models with custom training for research protocols.
+**Solution**: NimbusSDK's NimbusLDA/NimbusQDA models with custom training for research protocols.
 
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusLDA, NimbusGMM
+from nimbus_bci import NimbusLDA, NimbusQDA
 import numpy as np
 from typing import List, Dict
 
@@ -720,7 +720,7 @@ def run_bci_experiment(paradigm: str, n_subjects: int) -> List[Dict]:
             clf = NimbusLDA()
             clf.fit(X_calib, y_calib)
         elif paradigm == "p300":
-            clf = NimbusGMM(n_components=2)
+            clf = NimbusQDA(n_components=2)
             clf.fit(X_calib, y_calib)
         
         # 3. Evaluate on test set
@@ -805,9 +805,9 @@ function run_bci_experiment(paradigm::Symbol, n_subjects::Int)
         # 2. Train subject-specific model
         println("Phase 2: Model Training")
         if paradigm == :motor_imagery
-            model = train_model(RxLDAModel, calib_data; iterations=50)
+            model = train_model(NimbusLDA, calib_data; iterations=50)
         elseif paradigm == :p300
-            model = train_model(RxGMMModel, calib_data; iterations=50)
+            model = train_model(NimbusQDA, calib_data; iterations=50)
         end
         
         # 3. Evaluate on test set
@@ -864,7 +864,7 @@ p300_results = run_bci_experiment(:p300, 10)
 
 <Card title="Research Applications" icon="flask-conical">
   **Use Cases**: Cognitive neuroscience, BCI algorithms, clinical trials  
-  **Models**: Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), Bayesian Softmax (RxPolya) with custom training  
+  **Models**: NimbusLDA, NimbusQDA, and NimbusSoftmax (Python) / NimbusProbit (Julia) with custom training  
   **Flexibility**: Subject-specific calibration and adaptation  
   **Metrics**: Accuracy, ITR, confidence, confusion matrices  
   **Publication**: Transparent probabilistic models for peer review  
@@ -904,7 +904,7 @@ p300_results = run_bci_experiment(:p300, 10)
 
 For medical BCI applications, NimbusSDK provides:
 
-- **Transparent Models**: White-box probabilistic models (RxLDA/RxGMM) for regulatory review
+- **Transparent Models**: White-box probabilistic models (NimbusLDA/NimbusQDA) for regulatory review
 - **Validation**: Standardized testing procedures and performance metrics
 - **Uncertainty Quantification**: Explicit confidence measures for safety-critical decisions
 - **Traceability**: Complete inference history and decision logs
@@ -921,7 +921,7 @@ For medical BCI applications, NimbusSDK provides:
 ### Academic Research
 
 - **10+ peer-reviewed publications** using NimbusSDK for BCI research
-- **5 PhD dissertations** featuring RxLDA/RxGMM models
+- **5 PhD dissertations** featuring NimbusLDA/NimbusQDA models
 - **Reproducible results** through standardized probabilistic models
 
 ### Clinical Pilots
@@ -949,4 +949,4 @@ For medical BCI applications, NimbusSDK provides:
 
 ---
 
-These industry applications demonstrate the real-world potential of Nimbus BCI's probabilistic models across healthcare, assistive technology, and research domains. Both Python and Julia SDKs provide production-ready Bayesian classifiers (Bayesian LDA, Bayesian GMM, Bayesian Softmax, and Bayesian STS for Python) for motor imagery, P300, and SSVEP paradigms.
+These industry applications demonstrate the real-world potential of Nimbus BCI's probabilistic models across healthcare, assistive technology, and research domains. Both Python and Julia SDKs provide production-ready Bayesian classifiers (Bayesian LDA, Bayesian QDA, Bayesian Softmax, and Bayesian STS for Python) for motor imagery, P300, and SSVEP paradigms.

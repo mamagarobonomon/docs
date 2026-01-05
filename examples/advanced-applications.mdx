@@ -1,7 +1,7 @@
 ---
 title: "Advanced Applications"
-description: "Sophisticated BCI applications using NimbusSDK Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian Softmax (RxPolya) models. Training, calibration, and adaptive systems."
-keywords: ["advanced applications", "BCI applications", "model training", "calibration", "adaptive BCI", "RxLDA", "RxGMM", "RxPolya", "advanced examples", "BCI development", "custom models"]
+description: "Sophisticated BCI applications using Nimbus models: NimbusLDA and NimbusQDA (Python + Julia), plus NimbusSoftmax (Python) / NimbusProbit (Julia). Training, calibration, and adaptive systems."
+keywords: ["advanced applications", "BCI applications", "model training", "calibration", "adaptive BCI", "NimbusLDA", "NimbusQDA", "NimbusProbit", "advanced examples", "BCI development", "custom models"]
 icon: "rocket"
 ---
 
@@ -139,7 +139,7 @@ print(f"(With only 48 calibration trials total!)")
 using NimbusSDK
 
 # Load cross-subject baseline
-baseline = load_model(RxLDAModel, "cross_subject_model.jld2")
+baseline = load_model(NimbusLDA, "cross_subject_model.jld2")
 
 # Collect minimal calibration from new subject (Subject 006)
 new_subj_calib = collect_calibration_trials(
@@ -174,7 +174,7 @@ Combine motor imagery and P300 for robust control.
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusLDA, NimbusGMM
+from nimbus_bci import NimbusLDA, NimbusQDA
 from dataclasses import dataclass
 from typing import Optional
 import numpy as np
@@ -256,8 +256,8 @@ using NimbusSDK
 NimbusSDK.install_core("your-api-key")
 
 # Load both models
-mi_model = load_model(RxLDAModel, "motor_imagery_4class_v1")  # Bayesian LDA
-p300_model = load_model(RxLDAModel, "p300_binary_v1")  # Bayesian LDA
+mi_model = load_model(NimbusLDA, "motor_imagery_4class_v1")  # Bayesian LDA
+p300_model = load_model(NimbusLDA, "p300_binary_v1")  # Bayesian LDA
 
 struct HybridBCIResult
     mi_prediction::Int
@@ -588,7 +588,7 @@ for trial_idx in range(1, 201):
 using NimbusSDK
 
 # Start with baseline Bayesian LDA model
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 # Collect online data with implicit labels
 online_features = []
@@ -1005,7 +1005,7 @@ Run systematic experiments across multiple sessions.
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusLDA, NimbusGMM
+from nimbus_bci import NimbusLDA, NimbusQDA
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
@@ -1114,9 +1114,9 @@ function run_experiment_session(
     
     # Load appropriate model
     model = if model_type == :rxlda
-        load_model(RxLDAModel, "motor_imagery_4class_v1")  # Bayesian LDA
+        load_model(NimbusLDA, "motor_imagery_4class_v1")  # Bayesian LDA
     else
-        load_model(RxGMMModel, "motor_imagery_4class_gmm_v1")  # Bayesian GMM
+        load_model(NimbusQDA, "motor_imagery_4class_gmm_v1")  # Bayesian QDA
     end
     
     # Collect data
@@ -1189,7 +1189,7 @@ def run_multi_session_experiment():
         )
         sessions.append(session1)
         
-        # Session 2: NimbusGMM comparison
+        # Session 2: NimbusQDA comparison
         session2 = run_experiment_session(
             subject_id=subject,
             session_id=f"{subject}_session2_gmm",
@@ -1216,7 +1216,7 @@ def run_multi_session_experiment():
     print("Model Comparison")
     print("=" * 60)
     print(f"NimbusLDA mean accuracy: {np.mean(lda_accs) * 100:.1f}% ± {np.std(lda_accs) * 100:.1f}%")
-    print(f"NimbusGMM mean accuracy: {np.mean(gmm_accs) * 100:.1f}% ± {np.std(gmm_accs) * 100:.1f}%")
+    print(f"NimbusQDA mean accuracy: {np.mean(gmm_accs) * 100:.1f}% ± {np.std(gmm_accs) * 100:.1f}%")
     
     return sessions
 
@@ -1232,7 +1232,7 @@ function run_multi_session_experiment()
     sessions = []
     
     for subject in subjects
-        # Session 1: RxLDA baseline
+        # Session 1: NimbusLDA baseline
         session1 = run_experiment_session(
             subject,
             "$(subject)_session1_rxlda",
@@ -1241,11 +1241,11 @@ function run_multi_session_experiment()
         )
         push!(sessions, session1)
         
-        # Session 2: RxGMM comparison
+        # Session 2: NimbusQDA comparison
         session2 = run_experiment_session(
             subject,
             "$(subject)_session2_rxgmm",
-            :rxgmm,  # Bayesian GMM
+            :rxgmm,  # Bayesian QDA
             80
         )
         push!(sessions, session2)
@@ -1270,7 +1270,7 @@ function run_multi_session_experiment()
     println("Model Comparison")
     println("="^60)
     println("Bayesian LDA mean accuracy: $(round(mean(rxlda_accs) * 100, digits=1))% ± $(round(std(rxlda_accs) * 100, digits=1))%")
-    println("Bayesian GMM mean accuracy: $(round(mean(rxgmm_accs) * 100, digits=1))% ± $(round(std(rxgmm_accs) * 100, digits=1))%")
+    println("Bayesian QDA mean accuracy: $(round(mean(rxgmm_accs) * 100, digits=1))% ± $(round(std(rxgmm_accs) * 100, digits=1))%")
     
     return sessions
 end
@@ -1597,5 +1597,5 @@ end
 ---
 
 <Note>
-All examples use actual NimbusSDK.jl functions and real Bayesian LDA (RxLDA) and Bayesian GMM (RxGMM) models. These are production-ready patterns used in real BCI applications.
+All examples use actual NimbusSDK.jl functions and real Bayesian LDA (NimbusLDA) and Bayesian QDA (NimbusQDA) models. These are production-ready patterns used in real BCI applications.
 </Note>

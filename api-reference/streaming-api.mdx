@@ -26,7 +26,7 @@ Streaming inference allows you to process EEG data in real-time, chunk-by-chunk,
 
 <Note>
 **Model coverage:**
-- **Julia SDK** streaming supports: `RxLDAModel`, `RxGMMModel`, `RxPolyaModel` (Bayesian Softmax)
+- **Julia SDK** streaming supports: `NimbusLDA`, `NimbusQDA`, `NimbusProbit` (Bayesian Softmax)
 - **Python SDK** additionally supports: `NimbusSTS` (Bayesian STS)
 </Note>
 
@@ -59,7 +59,7 @@ using NimbusSDK
 NimbusSDK.install_core("nbci_live_your_key")
 
 # 2. Load model
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 # 3. Configure streaming metadata
 metadata = BCIMetadata(
@@ -117,7 +117,7 @@ using NimbusSDK
 
 # Setup
 NimbusSDK.install_core("nbci_live_your_key")
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 metadata = BCIMetadata(
     sampling_rate = 250.0,
@@ -178,7 +178,7 @@ init_streaming(model, metadata::BCIMetadata) -> StreamingSession
 ```
 
 **Parameters:**
-- `model`: Loaded RxLDA or RxGMM model
+- `model`: Loaded `NimbusLDA` or `NimbusQDA` model
 - `metadata`: BCIMetadata with `chunk_size` specified
 
 **Returns:** StreamingSession object
@@ -390,7 +390,7 @@ result = process_chunk(session, chunk; iterations=5)  # ~10-20ms
 
 ```julia
 # Load and compile model before streaming starts
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 session = init_streaming(model, metadata)
 
 # Warm-up: process dummy chunk to compile functions

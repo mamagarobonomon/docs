@@ -15,8 +15,10 @@ This guide covers the development workflow for building BCI applications with **
 - **Julia SDK** (`NimbusSDK.jl`): Optimal for research applications requiring RxInfer.jl and custom Bayesian models
 
 Model coverage:
-- **Both SDKs**: Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), Bayesian Softmax (RxPolya)
-- **Python SDK only**: Bayesian STS (RxSTS / `NimbusSTS`)
+- **Both SDKs**: NimbusLDA, NimbusQDA
+- **Python SDK only**: NimbusSoftmax, NimbusSTS
+- **Julia SDK only**: NimbusProbit
+- **Python SDK only**: Bayesian STS (NimbusSTS / `NimbusSTS`)
 </Note>
 
 ## Development Environment Setup
@@ -580,9 +582,9 @@ function train_motor_imagery_model(data_file::String)
     train_data, test_data = split_data(training_data, test_ratio=0.2)
     
     # 6. Train model
-    println("5. Training RxLDA model...")
+    println("5. Training NimbusLDA model...")
     trained_model = train_model(
-        RxLDAModel,
+        NimbusLDA,
         train_data;
         iterations = 50,
         showprogress = true,
@@ -767,7 +769,7 @@ function run_realtime_bci(model_path::String; duration_seconds::Int=60)
     
     # 2. Load model
     println("\nLoading model...")
-    model = load_model(RxLDAModel, model_path)
+    model = load_model(NimbusLDA, model_path)
     println("✓ Model loaded: $(model.metadata.name)")
     
     # 3. Configure streaming
@@ -867,7 +869,7 @@ end
 # tests/test_training.py
 import pytest
 import numpy as np
-from nimbus_bci import NimbusLDA, NimbusGMM
+from nimbus_bci import NimbusLDA, NimbusQDA
 from nimbus_bci.data import BCIData, BCIMetadata
 
 def test_model_training():
@@ -972,7 +974,7 @@ using NimbusSDK
     end
     
     @testset "Model Training" begin
-        # Test RxLDA training
+        # Test NimbusLDA training
         features = randn(8, 100, 50)
         labels = rand(1:2, 50)
         metadata = BCIMetadata(
@@ -982,9 +984,9 @@ using NimbusSDK
         )
         
         data = BCIData(features, metadata, labels)
-        model = train_model(RxLDAModel, data; iterations=10)
+        model = train_model(NimbusLDA, data; iterations=10)
         
-        @test model isa RxLDAModel
+        @test model isa NimbusLDA
         @test get_n_features(model) == 8
         @test get_n_classes(model) == 2
     end
@@ -999,7 +1001,7 @@ using NimbusSDK
         )
         
         data = BCIData(features, metadata)
-        model = train_model(RxLDAModel, BCIData(randn(8, 100, 30), metadata, rand(1:2, 30)); iterations=10)
+        model = train_model(NimbusLDA, BCIData(randn(8, 100, 30), metadata, rand(1:2, 30)); iterations=10)
         
         results = predict_batch(model, data)
         
@@ -1010,7 +1012,7 @@ using NimbusSDK
     
     @testset "Streaming Inference" begin
         # Test streaming
-        model = train_model(RxLDAModel, BCIData(randn(8, 100, 30), metadata, rand(1:2, 30)); iterations=10)
+        model = train_model(NimbusLDA, BCIData(randn(8, 100, 30), metadata, rand(1:2, 30)); iterations=10)
         
         metadata = BCIMetadata(
             sampling_rate = 250.0,

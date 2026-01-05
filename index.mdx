@@ -1,13 +1,13 @@
 ---
 title: "Nimbus BCI Engine"
-description: "Production-ready Bayesian inference for Brain-Computer Interfaces in Python and Julia. Fast sub-30ms inference latency with Bayesian LDA, GMM, Softmax, and STS models. Full uncertainty quantification for motor imagery, P300, and SSVEP paradigms."
-keywords: ["BCI", "brain-computer interface", "Bayesian inference", "EEG", "motor imagery", "P300", "SSVEP", "probabilistic AI", "RxInfer", "Nimbus BCI", "Python SDK", "Julia SDK", "Bayesian LDA", "Bayesian GMM", "uncertainty quantification", "real-time BCI"]
+description: "Production-ready Bayesian inference for Brain-Computer Interfaces in Python and Julia. Fast sub-30ms inference latency with NimbusLDA and NimbusQDA, plus NimbusSoftmax/NimbusSTS (Python) and NimbusProbit (Julia). Full uncertainty quantification for motor imagery, P300, and SSVEP paradigms."
+keywords: ["BCI", "brain-computer interface", "Bayesian inference", "EEG", "motor imagery", "P300", "SSVEP", "probabilistic AI", "RxInfer", "Nimbus BCI", "Python SDK", "Julia SDK", "Bayesian LDA", "Bayesian QDA", "uncertainty quantification", "real-time BCI"]
 icon: "brain"
 ---
 
-_Production-ready Bayesian BCI inference with Bayesian LDA, Bayesian GMM, Bayesian Softmax, and Bayesian STS models_
+_Production-ready Bayesian BCI inference with NimbusLDA and NimbusQDA, plus NimbusSoftmax / NimbusSTS (Python) and NimbusProbit (Julia)_
 
-Nimbus provides fast, probabilistic inference for Brain-Computer Interface applications in **Python** and **Julia**. The SDKs deliver sub-30ms inference latency with full uncertainty quantification through **Bayesian LDA**, **Bayesian GMM**, **Bayesian Softmax**, and **Bayesian STS** implementations.
+Nimbus provides fast, probabilistic inference for Brain-Computer Interface applications in **Python** and **Julia**. The SDKs deliver sub-30ms inference latency with full uncertainty quantification through **Bayesian LDA**, **Bayesian QDA**, **Bayesian Softmax**, and **Bayesian STS** implementations.
 
 <img
   src="/images/hero.png"
@@ -70,7 +70,7 @@ Brain-Computer Interfaces face unique challenges: noisy neural signals, inherent
     icon="zap"
     href="/core-concepts/probabilistic-ai"
   >
-    Bayesian LDA and Bayesian GMM models with 10-20ms inference latency using RxInfer.jl reactive message passing
+    NimbusLDA and NimbusQDA models with 10-20ms inference latency using RxInfer.jl reactive message passing
   </Card>
   <Card
     title="Training & Calibration"
@@ -97,36 +97,39 @@ Brain-Computer Interfaces face unique challenges: noisy neural signals, inherent
 
 ## Implemented Models
 
-The SDKs provide four production-ready Bayesian models:
+Nimbus provides production-ready Bayesian models. Some are available in both SDKs, and some are SDK-specific:
 
 <CardGroup cols={2}>
   <Card
-    title="Bayesian LDA"
+    title="NimbusLDA (Bayesian LDA)"
     icon="brain"
     href="/models/rxlda"
   >
-    **Bayesian Linear Discriminant Analysis** with shared covariance. Fastest (10-15ms), efficient, ideal for well-separated classes like motor imagery. Python: `NimbusLDA`, Julia: `RxLDAModel`.
+    **Bayesian Linear Discriminant Analysis** with shared covariance. Fastest (10-15ms), ideal for well-separated classes like motor imagery. Python: `NimbusLDA`, Julia: `NimbusLDA`.
   </Card>
   <Card
-    title="Bayesian GMM"
+    title="NimbusQDA (Bayesian QDA)"
     icon="brain"
     href="/models/rxgmm"
   >
-    **Bayesian Gaussian Mixture Model** with class-specific covariances. More flexible (15-25ms), better for overlapping distributions like P300. Python: `NimbusGMM`, Julia: `RxGMMModel`.
+    **Bayesian Quadratic Discriminant Analysis** with class-specific covariances. More flexible (15-25ms), better for overlapping distributions like P300. Python: `NimbusQDA`, Julia: `NimbusQDA`.
   </Card>
   <Card
-    title="Bayesian Softmax"
+    title="NimbusSoftmax (Python only)"
     icon="brain"
     href="/models/rxpolya"
   >
-    **Bayesian Multinomial Logistic Regression** with continuous transitions. Flexible (15-25ms), ideal for complex multinomial classification tasks. Python: `NimbusSoftmax`, Julia: `RxPolyaModel`.
+    **Bayesian multinomial logistic regression** (Polya-Gamma VI). Flexible non-Gaussian boundaries. Python: `NimbusSoftmax`.
   </Card>
   <Card
-    title="Bayesian STS"
+    title="NimbusSTS (Python only)"
     icon="brain"
     href="/models/rxsts"
   >
-    **Bayesian Structural Time Series** with Extended Kalman Filter. Adaptive (20-30ms), designed for non-stationary data with temporal drift, online learning. Python: `NimbusSTS`.
+    **State-space model** with EKF-style inference for drift/non-stationarity and online learning. Python: `NimbusSTS`.
+  </Card>
+  <Card title="NimbusProbit (Julia only)" icon="brain" href="/models/nimbusprobit">
+    **Bayesian multinomial probit regression** for non-Gaussian static classification. Julia: `NimbusProbit`.
   </Card>
 </CardGroup>
 
@@ -141,7 +144,7 @@ The SDKs provide four production-ready Bayesian models:
     - Left/right hand
     - Hands/feet/tongue
     - 70-90% accuracy
-    - RxLDA recommended
+    - NimbusLDA recommended
   </Card>
   <Card
     title="P300"
@@ -151,7 +154,7 @@ The SDKs provide four production-ready Bayesian models:
     - Target/non-target
     - Speller applications
     - 80-95% accuracy
-    - RxGMM recommended
+    - NimbusQDA recommended
   </Card>
   <Card
     title="SSVEP"
@@ -199,7 +202,7 @@ using NimbusSDK
 NimbusSDK.install_core("nbci_live_your_key")
 
 # 2. Load pre-trained model
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 # 3. Prepare preprocessed features (CSP, bandpower, etc.)
 data = BCIData(csp_features, metadata, labels)
@@ -361,7 +364,7 @@ EEG Hardware → Preprocessing → Nimbus SDK → Application
 
 ## Performance
 
-| Metric | RxLDA | RxGMM | Bayesian Softmax | RxSTS |
+| Metric | NimbusLDA | NimbusQDA | NimbusSoftmax (Py) | NimbusSTS (Py) |
 |--------|-------|-------|--------------|-------|
 | **Inference Latency** | 10-15ms | 15-25ms | 15-25ms | 20-30ms |
 | **Training Time** | 10-30s | 15-40s | 15-40s | 15-40s |
@@ -376,12 +379,12 @@ All measurements on standard CPU (no GPU required).
 **Python SDK:**
 - **Core**: Python 3.10+, NumPy, JAX, NumPyro
 - **Integration**: scikit-learn pipelines, MNE-Python
-- **Models**: NimbusLDA, NimbusGMM, NimbusSoftmax (Polya-Gamma VI), NimbusSTS (Kalman Filter)
+- **Models**: NimbusLDA, NimbusQDA, NimbusSoftmax, NimbusSTS
 
 **Julia SDK:**
 - **Core**: Julia 1.9+
 - **Inference Engine**: [RxInfer.jl](https://rxinfer.com/) - Reactive message passing
-- **Models**: RxLDAModel, RxGMMModel, RxPolyaModel
+- **Models**: NimbusLDA, NimbusQDA, NimbusProbit
 
 **Common:**
 - **Preprocessing**: MNE-Python, EEGLAB, BrainFlow
@@ -390,14 +393,14 @@ All measurements on standard CPU (no GPU required).
 ## What's Included
 
 **Python SDK** (`nimbus-bci`):
-- ✅ sklearn-compatible classifiers: NimbusLDA, NimbusGMM, NimbusSoftmax, NimbusSTS
+- ✅ sklearn-compatible classifiers: NimbusLDA, NimbusQDA, NimbusSoftmax, NimbusSTS
 - ✅ MNE-Python integration for EEG preprocessing
 - ✅ Streaming inference for real-time BCI
 - ✅ Online learning with `partial_fit()`
 - ✅ Comprehensive metrics and diagnostics
 
 **Julia SDK** (`NimbusSDK.jl`):
-- ✅ RxInfer.jl-based models: RxLDAModel, RxGMMModel, RxPolyaModel
+- ✅ RxInfer.jl-based models: NimbusLDA, NimbusQDA, NimbusProbit
 - ✅ Pre-trained model distribution
 - ✅ Batch and streaming inference
 - ✅ Training and calibration
@@ -483,7 +486,7 @@ Nimbus BCI Engine - Bringing Bayesian inference to Brain-Computer Interfaces
       softwareVersion: '2.0.2',
       featureList: [
         'Bayesian LDA',
-        'Bayesian GMM',
+        'Bayesian QDA',
         'Bayesian Softmax',
         'Bayesian STS',
         'Uncertainty Quantification',

@@ -78,8 +78,8 @@ using Statistics
 # Step 1: One-time setup with your API key
 NimbusSDK.install_core("your-api-key-here")
 
-# Step 2: Load a pre-trained RxLDA model
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+# Step 2: Load a pre-trained NimbusLDA model
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 println("✓ Model loaded: $(get_n_features(model)) features, $(get_n_classes(model)) classes")
 
 # Step 3: Prepare your preprocessed CSP features
@@ -133,7 +133,7 @@ NimbusSDK expects features in a specific format:
 
 ## Step 4: Training Your Own Model
 
-Train a custom RxLDA model on your labeled data:
+Train a custom NimbusLDA model on your labeled data:
 
 ```julia
 using NimbusSDK
@@ -166,9 +166,9 @@ train_data = BCIData(
 )
 
 # Train the model
-println("Training RxLDA model...")
+println("Training NimbusLDA model...")
 model = train_model(
-    RxLDAModel,
+    NimbusLDA,
     train_data;
     iterations = 50,        # Number of inference iterations
     showprogress = true,    # Show training progress
@@ -220,7 +220,7 @@ using NimbusSDK
 NimbusSDK.install_core("your-api-key")
 
 # Load model (core is already installed)
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 # Initialize streaming session (1 second chunks at 250 Hz)
 metadata = BCIMetadata(
@@ -260,8 +260,8 @@ end
 
 NimbusSDK includes Bayesian inference models for different BCI scenarios:
 
-### Bayesian LDA (RxLDA)
-**API Name**: `RxLDAModel`  
+### Bayesian LDA (NimbusLDA)
+**API Name**: `NimbusLDA`  
 **Mathematical Model**: Pooled Gaussian Classifier (PGC)
 
 - **Shared covariance** across classes
@@ -269,8 +269,8 @@ NimbusSDK includes Bayesian inference models for different BCI scenarios:
 - Best for well-separated classes
 - Typical training time: 10-30 seconds (50 iterations, 100 trials)
 
-### Bayesian GMM (RxGMM)
-**API Name**: `RxGMMModel`  
+### Bayesian QDA (NimbusQDA)
+**API Name**: `NimbusQDA`  
 **Mathematical Model**: Heteroscedastic Gaussian Classifier (HGC)
 
 - **Class-specific covariances**
@@ -278,9 +278,9 @@ NimbusSDK includes Bayesian inference models for different BCI scenarios:
 - Better for complex class structures
 - Slightly slower than Bayesian LDA
 
-### Bayesian Softmax (RxPolya)
-**API Name**: `RxPolyaModel`  
-**Mathematical Model**: Bayesian Multinomial Logistic Regression
+### NimbusProbit (Julia only)
+**API Name**: `NimbusProbit`  
+**Mathematical Model**: Bayesian Multinomial Probit Regression
 
 - **Continuous transition mapping** to latent space
 - Most flexible for complex multinomial tasks
@@ -302,16 +302,16 @@ Now that you have NimbusSDK running, explore these advanced features:
   <Card title="Feature Normalization" icon="arrows-up-down" href="/inference-configuration/feature-normalization">
     Critical guide for cross-session BCI performance (+15-30% accuracy)
   </Card>
-  <Card title="Bayesian LDA (RxLDA)" icon="brain" href="/models/rxlda">
+  <Card title="Bayesian LDA (NimbusLDA)" icon="brain" href="/models/rxlda">
     Learn about the Bayesian LDA model in detail
   </Card>
-  <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
-    Learn about the Bayesian GMM model in detail
+  <Card title="Bayesian QDA (NimbusQDA)" icon="brain" href="/models/rxgmm">
+    Learn about the Bayesian QDA model in detail
   </Card>
-  <Card title="Bayesian Softmax (RxPolya)" icon="brain" href="/models/rxpolya">
-    Learn about the Bayesian Softmax (Multinomial Logistic Regression) model
+  <Card title="NimbusProbit" icon="brain" href="/models/nimbusprobit">
+    Learn about NimbusProbit in detail
   </Card>
-  <Card title="Bayesian STS (RxSTS)" icon="brain" href="/models/rxsts">
+  <Card title="Bayesian STS (NimbusSTS)" icon="brain" href="/models/rxsts">
     Adaptive model for non-stationary data (Python SDK only)
   </Card>
   <Card title="Preprocessing Guide" icon="settings" href="/inference-configuration/preprocessing-requirements">

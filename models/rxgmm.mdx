@@ -1,28 +1,28 @@
 ---
-title: "Bayesian GMM (RxGMM)"
-description: "Bayesian Gaussian Mixture Model with class-specific covariances using RxInfer.jl. Flexible 15-25ms inference for P300 and overlapping class distributions."
-keywords: ["Bayesian GMM", "RxGMM", "Gaussian Mixture Model", "P300", "BCI classification", "heteroscedastic", "class-specific covariance", "RxInfer", "NimbusGMM"]
+title: "NimbusQDA (Bayesian QDA)"
+description: "NimbusQDA is a Bayesian QDA-style classifier with class-specific covariances. Flexible 15-25ms inference for P300 and overlapping class distributions."
+keywords: ["NimbusQDA", "Bayesian QDA", "Quadratic Discriminant Analysis", "P300", "BCI classification", "heteroscedastic", "class-specific covariance", "RxInfer"]
 icon: "brain"
 ---
 
-# Bayesian GMM - Bayesian Gaussian Mixture Model
+# NimbusQDA — Bayesian QDA (class-specific covariances)
 
-**Python**: `NimbusGMM` | **Julia**: `RxGMMModel`  
+**Python**: `NimbusQDA` | **Julia**: `NimbusQDA`  
 **Mathematical Model**: Heteroscedastic Gaussian Classifier (HGC)
 
-Bayesian GMM is a Bayesian classification model with **class-specific covariance matrices**, making it more flexible than Bayesian LDA for modeling complex class distributions.
+NimbusQDA is a Bayesian classification model with **class-specific covariance matrices**, making it more flexible than NimbusLDA for modeling complex class distributions.
 
 <Note>
 **Available in Both SDKs:**
-- **Python SDK**: `NimbusGMM` class (sklearn-compatible)
-- **Julia SDK**: `RxGMMModel` (RxInfer.jl-based)
+- **Python SDK**: `NimbusQDA` class (sklearn-compatible)
+- **Julia SDK**: `NimbusQDA` (RxInfer.jl-based)
 
 Both implementations provide class-specific covariances for flexible modeling.
 </Note>
 
 ## Overview
 
-Bayesian GMM extends beyond traditional Gaussian classifiers by allowing each class to have its own covariance structure:
+Bayesian QDA extends beyond traditional Gaussian classifiers by allowing each class to have its own covariance structure:
 
 - ✅ **Class-specific covariances** (unlike Bayesian LDA's shared covariance)
 - ✅ **More flexible modeling** of heterogeneous distributions
@@ -36,11 +36,11 @@ Bayesian GMM extends beyond traditional Gaussian classifiers by allowing each cl
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusGMM
+from nimbus_bci import NimbusQDA
 import numpy as np
 
 # Create and fit classifier
-clf = NimbusGMM(mu_scale=3.0)
+clf = NimbusQDA(mu_scale=3.0)
 clf.fit(X_train, y_train)
 
 # Predict with uncertainty
@@ -56,7 +56,7 @@ using NimbusSDK
 
 # Train model
 model = train_model(
-    RxGMMModel,
+    NimbusQDA,
     train_data;
     iterations=50
 )
@@ -67,9 +67,9 @@ results = predict_batch(model, test_data)
   </Tab>
 </Tabs>
 
-### When to Use Bayesian GMM
+### When to Use Bayesian QDA
 
-**Bayesian GMM is ideal for:**
+**Bayesian QDA is ideal for:**
 - Complex, overlapping class distributions
 - Classes with significantly different variances
 - P300 detection (target/non-target with different spreads)
@@ -86,7 +86,7 @@ results = predict_batch(model, test_data)
 
 ### Mathematical Foundation (Heteroscedastic Gaussian Classifier)
 
-Bayesian GMM implements a Heteroscedastic Gaussian Classifier (HGC), which models class-conditional distributions with **class-specific precision matrices**:
+Bayesian QDA implements a Heteroscedastic Gaussian Classifier (HGC), which models class-conditional distributions with **class-specific precision matrices**:
 
 ```
 p(x | y=k) = N(μ_k, W_k^-1)
@@ -101,7 +101,7 @@ Where:
 
 ### Hyperparameters
 
-Bayesian GMM supports configurable hyperparameters for optimal performance tuning:
+Bayesian QDA supports configurable hyperparameters for optimal performance tuning:
 
 **Available Hyperparameters (training):**
 
@@ -123,7 +123,7 @@ Bayesian GMM supports configurable hyperparameters for optimal performance tunin
 ### Model Structure
 
 ```julia
-struct RxGMMModel <: BCIModel
+struct NimbusQDA <: BCIModel
     mean_posteriors::Vector        # MvNormal posteriors for class means
     precision_posteriors::Vector   # Wishart posteriors for class precisions
     priors::Vector{Float64}        # Empirical class priors
@@ -167,11 +167,11 @@ end
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusGMM
+from nimbus_bci import NimbusQDA
 import pickle
 
 # Python SDK: Train locally, no model zoo
-clf = NimbusGMM(mu_scale=3.0)
+clf = NimbusQDA(mu_scale=3.0)
 clf.fit(X_train, y_train)
 
 # Save and load
@@ -192,7 +192,7 @@ using NimbusSDK
 NimbusSDK.install_core("nbci_live_your_key")
 
 # Load from Nimbus model zoo
-model = load_model(RxGMMModel, "p300_gmm_v1")
+model = load_model(NimbusQDA, "p300_gmm_v1")
 
 println("Model loaded:")
 println("  Features: $(get_n_features(model))")
@@ -207,7 +207,7 @@ println("  Paradigm: $(get_paradigm(model))")
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusGMM
+from nimbus_bci import NimbusQDA
 from nimbus_bci.compat import from_mne_epochs
 import mne
 import pickle
@@ -223,12 +223,12 @@ epochs = mne.Epochs(raw, events, event_id, tmin=-0.2, tmax=0.8, preload=True)
 # Extract features
 X, y = from_mne_epochs(epochs)
 
-# Train NimbusGMM with default hyperparameters
-clf = NimbusGMM()
+# Train NimbusQDA with default hyperparameters
+clf = NimbusQDA()
 clf.fit(X, y)
 
 # Or train with custom hyperparameters
-clf_tuned = NimbusGMM(
+clf_tuned = NimbusQDA(
     mu_scale=3.0,        # Prior strength
     sigma_scale=1.0      # Covariance regularization
 )
@@ -262,19 +262,19 @@ train_data = BCIData(
     train_labels  # Required for training!
 )
 
-# Train RxGMM model with default hyperparameters
+# Train NimbusQDA model with default hyperparameters
 model = train_model(
-    RxGMMModel,
+    NimbusQDA,
     train_data;
     iterations = 50,        # Inference iterations
     showprogress = true,    # Show progress bar
     name = "my_p300_gmm",
-    description = "P300 binary classifier with RxGMM"
+    description = "P300 binary classifier with NimbusQDA"
 )
 
 # Or train with custom hyperparameters (v0.2.0+)
 model = train_model(
-    RxGMMModel,
+    NimbusQDA,
     train_data;
     iterations = 50,
     showprogress = true,
@@ -304,7 +304,7 @@ save_model(model, "my_p300_gmm.jld2")
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusGMM
+from nimbus_bci import NimbusQDA
 import pickle
 
 # Load baseline model
@@ -315,7 +315,7 @@ with open("p300_baseline.pkl", "rb") as f:
 X_calib, y_calib = collect_calibration_trials()
 
 # Personalize using online learning
-personalized_clf = NimbusGMM()
+personalized_clf = NimbusQDA()
 personalized_clf.fit(X_baseline, y_baseline)
 
 for _ in range(10):
@@ -329,7 +329,7 @@ with open("subject_001_p300_calibrated.pkl", "wb") as f:
   <Tab title="Julia">
 ```julia
 # Load base model
-base_model = load_model(RxGMMModel, "p300_baseline_v1")
+base_model = load_model(NimbusQDA, "p300_baseline_v1")
 
 # Collect calibration trials (10-20 per class)
 calib_data = BCIData(calib_features, metadata, calib_labels)
@@ -438,7 +438,7 @@ println("Final: pred=$(final_result.prediction), conf=$(round(final_result.confi
 
 ## Hyperparameter Tuning (v0.2.0+)
 
-Fine-tune Bayesian GMM for optimal performance on your specific dataset.
+Fine-tune Bayesian QDA for optimal performance on your specific dataset.
 
 ### When to Tune Hyperparameters
 
@@ -458,10 +458,10 @@ Use lower regularization to let the data drive the model:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusGMM
+from nimbus_bci import NimbusQDA
 
 # Lower regularization for clean data
-clf = NimbusGMM(
+clf = NimbusQDA(
     mu_scale=1.0,      # Weaker prior
     sigma_scale=0.1    # Less covariance regularization
 )
@@ -471,7 +471,7 @@ clf.fit(X_train, y_train)
   <Tab title="Julia">
 ```julia
 model = train_model(
-    RxGMMModel,
+    NimbusQDA,
     train_data;
     iterations = 50,
     dof_offset = 1,                    # Less regularization
@@ -494,10 +494,10 @@ Use higher regularization for stability (especially important for GMM with class
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusGMM
+from nimbus_bci import NimbusQDA
 
 # Higher regularization for noisy data
-clf = NimbusGMM(
+clf = NimbusQDA(
     mu_scale=5.0,      # Stronger prior
     sigma_scale=10.0   # More covariance regularization
 )
@@ -507,7 +507,7 @@ clf.fit(X_train, y_train)
   <Tab title="Julia">
 ```julia
 model = train_model(
-    RxGMMModel,
+    NimbusQDA,
     train_data;
     iterations = 50,
     dof_offset = 3,                    # More regularization
@@ -530,7 +530,7 @@ The defaults work well for most scenarios:
 
 ```julia
 model = train_model(
-    RxGMMModel,
+    NimbusQDA,
     train_data;
     iterations = 50,
     dof_offset = 2,                    # Balanced (default)
@@ -552,7 +552,7 @@ For P300 paradigms where target/non-target classes have different variances:
 # P300 often benefits from GMM's class-specific covariances
 # Use moderate regularization to avoid overfitting
 model = train_model(
-    RxGMMModel,
+    NimbusQDA,
     p300_train_data;
     iterations = 50,
     dof_offset = 2,                    # Standard regularization
@@ -577,12 +577,12 @@ train_data, val_data = split_data(all_data, ratio=0.8)
 best_accuracy = 0.0
 best_params = nothing
 
-println("Searching hyperparameters for RxGMM...")
+println("Searching hyperparameters for NimbusQDA...")
 for dof in dof_values
     for prior in prior_values
         # Train model
         model = train_model(
-            RxGMMModel,
+            NimbusQDA,
             train_data;
             iterations = 50,
             dof_offset = dof,
@@ -611,7 +611,7 @@ println("  Validation accuracy: $(round(best_accuracy*100, digits=1))%")
 
 # Retrain with best params
 final_model = train_model(
-    RxGMMModel,
+    NimbusQDA,
     all_data;
     iterations = 50,
     dof_offset = best_params.dof,
@@ -632,7 +632,7 @@ final_model = train_model(
 | **P300 target/non-target** | 2 | 0.02 | Moderate, class-specific covariances helpful |
 
 <Tip>
-**Pro Tip**: Bayesian GMM's class-specific covariances can overfit to noise with poor data. When in doubt, start with defaults and increase regularization (`dof_offset=3`, `mean_prior_precision=0.03`) if you see overfitting.
+**Pro Tip**: Bayesian QDA's class-specific covariances can overfit to noise with poor data. When in doubt, start with defaults and increase regularization (`dof_offset=3`, `mean_prior_precision=0.03`) if you see overfitting.
 </Tip>
 
 <Note>
@@ -648,7 +648,7 @@ final_model = train_model(
 - **For calibration**: 10-20 trials per class
 
 <Warning>
-**Bayesian GMM requires at least 2 observations per class** to estimate class-specific statistics. Training will fail if any class has fewer than 2 observations.
+**Bayesian QDA requires at least 2 observations per class** to estimate class-specific statistics. Training will fail if any class has fewer than 2 observations.
 </Warning>
 
 ### Feature Normalization
@@ -670,7 +670,7 @@ scaler = StandardScaler()
 X_train_norm = scaler.fit_transform(X_train)
 
 # Train with normalized features
-clf = NimbusGMM()
+clf = NimbusQDA()
 clf.fit(X_train_norm, y_train)
 
 # Save model and scaler together
@@ -690,7 +690,7 @@ train_norm = apply_normalization(train_features, norm_params)
 
 # Train with normalized features
 train_data = BCIData(train_norm, metadata, labels)
-model = train_model(RxGMMModel, train_data)
+model = train_model(NimbusQDA, train_data)
 
 # Save params with model
 @save "model.jld2" model norm_params
@@ -705,7 +705,7 @@ See the [Feature Normalization](/inference-configuration/feature-normalization) 
 
 ### Feature Requirements
 
-Bayesian GMM expects **preprocessed features**, not raw EEG:
+Bayesian QDA expects **preprocessed features**, not raw EEG:
 
 ✅ **Required preprocessing:**
 - Bandpass filtering (paradigm-specific)
@@ -730,18 +730,18 @@ See [Preprocessing Requirements](/inference-configuration/preprocessing-requirem
 | **Batch Inference** | 15-25ms per trial | 10 iterations |
 | **Streaming Chunk** | 15-25ms | 10 iterations per chunk |
 
-Slightly slower than RxLDA due to class-specific covariances.
+Slightly slower than NimbusLDA due to class-specific covariances.
 
 ### Classification Accuracy
 
-| Paradigm | Classes | Typical Accuracy | When to Use Bayesian GMM |
+| Paradigm | Classes | Typical Accuracy | When to Use Bayesian QDA |
 |----------|---------|------------------|-------------------|
 | P300 | 2 (Target/Non-target) | 85-95% | Target/non-target have different variances |
 | Motor Imagery | 2-4 | 70-85% | When Bayesian LDA accuracy insufficient |
 | SSVEP | 2-6 | 85-98% | Complex frequency responses |
 
 <Note>
-Bayesian GMM typically provides 2-5% higher accuracy than Bayesian LDA when class covariances differ significantly, at the cost of ~5-10ms additional latency.
+Bayesian QDA typically provides 2-5% higher accuracy than Bayesian LDA when class covariances differ significantly, at the cost of ~5-10ms additional latency.
 </Note>
 
 ## Model Inspection
@@ -843,14 +843,14 @@ end
 
 ### Limitations
 
-❌ **More Parameters**: Requires more training data than RxLDA  
-❌ **Slower Inference**: ~15-25ms vs ~10-15ms for RxLDA  
+❌ **More Parameters**: Requires more training data than NimbusLDA  
+❌ **Slower Inference**: ~15-25ms vs ~10-15ms for NimbusLDA  
 ❌ **Higher Memory**: Stores n_classes precision matrices  
 ❌ **More Complex**: Longer training time  
 
-## Comparison: Bayesian GMM vs Bayesian LDA vs Bayesian Softmax vs Bayesian STS
+## Comparison: Bayesian QDA vs Bayesian LDA vs Bayesian Softmax vs Bayesian STS
 
-| Aspect | Bayesian GMM (RxGMM) | Bayesian LDA (RxLDA) | Bayesian Softmax (RxPolya) | Bayesian STS (RxSTS) |
+| Aspect | Bayesian QDA (NimbusQDA) | Bayesian LDA (NimbusLDA) | NimbusProbit | Bayesian STS (NimbusSTS) |
 |--------|-------|-------|-------|-------|
 | **Precision Matrix** | Class-specific | Shared (one for all) | Latent-space precision (K-1) | N/A (state-space) |
 | **Mathematical Model** | Heteroscedastic Gaussian Classifier (HGC) | Pooled Gaussian Classifier (PGC) | Multinomial Logistic Regression | State-Space Model (EKF) |
@@ -871,7 +871,7 @@ Is your data non-stationary (drift over time)?
 └─ No → Is speed critical (&lt;15ms)?
     ├─ Yes → Use Bayesian LDA
     └─ No → Do classes have different spreads / covariances?
-        ├─ Yes → Use Bayesian GMM (more accurate)
+        ├─ Yes → Use Bayesian QDA (more accurate)
         └─ No → Is the decision boundary complex / non-Gaussian?
             ├─ Yes → Use Bayesian Softmax (most flexible)
             └─ No → Use Bayesian LDA (simplest)
@@ -882,11 +882,11 @@ Is your data non-stationary (drift over time)?
 ### P300 Detection
 
 ```julia
-# Bayesian GMM is ideal for P300 where target/non-target have different variances
+# Bayesian QDA is ideal for P300 where target/non-target have different variances
 
 # Train on P300 data
 p300_data = BCIData(erp_features, p300_metadata, labels)  # 1=target, 2=non-target
-model = train_model(RxGMMModel, p300_data; iterations=50)
+model = train_model(NimbusQDA, p300_data; iterations=50)
 
 # Test
 results = predict_batch(model, test_data)
@@ -906,18 +906,18 @@ println("Specificity: $(round(specificity * 100, digits=1))%")
 
 ```julia
 # Try Bayesian LDA first
-rxlda_model = train_model(RxLDAModel, train_data)
+rxlda_model = train_model(NimbusLDA, train_data)
 rxlda_results = predict_batch(rxlda_model, test_data)
 rxlda_acc = sum(rxlda_results.predictions .== test_labels) / length(test_labels)
 
-# If accuracy insufficient, try Bayesian GMM
+# If accuracy insufficient, try Bayesian QDA
 if rxlda_acc < 0.75
-    println("Bayesian LDA accuracy low ($(round(rxlda_acc*100, digits=1))%), trying Bayesian GMM...")
-    rxgmm_model = train_model(RxGMMModel, train_data)
+    println("Bayesian LDA accuracy low ($(round(rxlda_acc*100, digits=1))%), trying Bayesian QDA...")
+    rxgmm_model = train_model(NimbusQDA, train_data)
     rxgmm_results = predict_batch(rxgmm_model, test_data)
     rxgmm_acc = sum(rxgmm_results.predictions .== test_labels) / length(test_labels)
     
-    println("Bayesian GMM accuracy: $(round(rxgmm_acc*100, digits=1))%")
+    println("Bayesian QDA accuracy: $(round(rxgmm_acc*100, digits=1))%")
     println("Improvement: +$(round((rxgmm_acc-rxlda_acc)*100, digits=1))%")
 end
 ```
@@ -925,13 +925,13 @@ end
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Bayesian LDA (RxLDA)" icon="brain" href="/models/rxlda">
+  <Card title="Bayesian LDA (NimbusLDA)" icon="brain" href="/models/rxlda">
     Faster model with shared covariance
   </Card>
-  <Card title="Bayesian Softmax (RxPolya)" icon="brain" href="/models/rxpolya">
+  <Card title="NimbusProbit" icon="brain" href="/models/rxpolya">
     Most flexible multinomial classifier for complex decision boundaries
   </Card>
-  <Card title="Bayesian STS (RxSTS)" icon="wave-pulse" href="/models/rxsts">
+  <Card title="Bayesian STS (NimbusSTS)" icon="wave-pulse" href="/models/rxsts">
     Adaptive model for non-stationary data
   </Card>
   <Card title="Training Guide" icon="graduation-cap" href="/examples/advanced-applications">
@@ -963,9 +963,9 @@ end
     __html: JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'TechArticle',
-      headline: 'Bayesian GMM (RxGMM)',
+      headline: 'Bayesian QDA (NimbusQDA)',
       description:
-        'Bayesian Gaussian Mixture Model with class-specific covariances using RxInfer.jl. Flexible 15-25ms inference for P300 and overlapping class distributions.',
+        'Bayesian Quadratic Discriminant Analysis with class-specific covariances using RxInfer.jl. Flexible 15-25ms inference for P300 and overlapping class distributions.',
       author: {
         '@type': 'Organization',
         name: 'Nimbus BCI',
@@ -982,7 +982,7 @@ end
         description: 'Bayesian classification for P300 and SSVEP BCI',
       },
       keywords:
-        'Bayesian GMM, RxGMM, Gaussian Mixture Model, P300, BCI classification, heteroscedastic, class-specific covariance, RxInfer, NimbusGMM',
+        'Bayesian QDA, NimbusQDA, Quadratic Discriminant Analysis, P300, BCI classification, heteroscedastic, class-specific covariance, RxInfer, NimbusQDA',
       inLanguage: 'en-US',
       isAccessibleForFree: true,
     }),

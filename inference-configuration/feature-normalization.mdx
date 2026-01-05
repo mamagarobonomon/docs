@@ -292,7 +292,7 @@ using JLD2
 # 5. Training
 metadata = BCIMetadata(250.0, :motor_imagery, :csp, 16, 4, nothing)
 train_data = BCIData(train_norm, metadata, train_labels)
-model = train_model(RxLDAModel, train_data)
+model = train_model(NimbusLDA, train_data)
 
 # 6. Deployment - load and apply same params
 @load "model_with_norm.jld2" model norm_params
@@ -345,7 +345,7 @@ csp_norm = normalize_features(csp_features)  # ✅ Normalize features
 ```julia
 # Training session
 train_norm = normalize_features(train_features)
-model = train_model(RxLDAModel, train_data)
+model = train_model(NimbusLDA, train_data)
 save_model(model, "model.jld2")
 
 # Later, deployment session
@@ -357,7 +357,7 @@ test_norm = normalize_features(test_features)  # ❌ Different normalization!
 # Training session
 params = estimate_normalization_params(train_features)
 train_norm = apply_normalization(train_features, params)
-model = train_model(RxLDAModel, train_data)
+model = train_model(NimbusLDA, train_data)
 @save "model.jld2" model params  # ✅ Save params
 
 # Later, deployment session
@@ -385,7 +385,7 @@ train_norm = apply_normalization(train_features, norm_params)
 # Train model
 metadata = BCIMetadata(250.0, :motor_imagery, :csp, 16, 4, nothing)
 train_data = BCIData(train_norm, metadata, train_labels)
-model = train_model(RxLDAModel, train_data; iterations=50)
+model = train_model(NimbusLDA, train_data; iterations=50)
 
 # Save model AND normalization params
 @save "motor_imagery_model.jld2" model norm_params

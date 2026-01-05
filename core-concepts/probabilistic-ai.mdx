@@ -46,7 +46,7 @@ Most current BCI systems use deterministic classification that always returns a 
 
 ### Bayesian Inference for BCI
 
-Both SDKs use Bayesian inference to model uncertainty explicitly with production-ready models: Bayesian LDA, Bayesian GMM, Bayesian Softmax, and Bayesian STS (Python SDK).
+Both SDKs use Bayesian inference to model uncertainty explicitly with production-ready models: Bayesian LDA, Bayesian QDA, Bayesian Softmax, and Bayesian STS (Python SDK).
 
 <Tabs>
   <Tab title="Python">
@@ -83,7 +83,7 @@ using NimbusSDK
 
 # Authenticate and load model
 NimbusSDK.install_core("your-api-key")
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 # Run inference - returns full posterior distribution
 results = predict_batch(model, bci_data)
@@ -247,7 +247,7 @@ NimbusSDK uses **RxInfer.jl** for efficient Bayesian inference through reactive 
 4. **Automatic inference** - RxInfer generates efficient inference algorithms automatically
 
 <Tip>
-The mathematical details are handled automatically by RxInfer. NimbusSDK provides Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian STS (NimbusSTS - Python only) models pre-configured for optimal BCI performance.
+The mathematical details are handled automatically by RxInfer. NimbusSDK provides Bayesian LDA (NimbusLDA), Bayesian QDA (NimbusQDA), and Bayesian STS (NimbusSTS - Python only) models pre-configured for optimal BCI performance.
 </Tip>
 
 ### Performance Characteristics
@@ -260,15 +260,15 @@ NimbusSDK achieves:
 
 ### Supported Models
 
-**Bayesian LDA (RxLDA) - Pooled Gaussian Classifier**
-- API Name: `RxLDAModel`
+**Bayesian LDA (NimbusLDA) - Pooled Gaussian Classifier**
+- API Name: `NimbusLDA`
 - Shared covariance across classes
 - Fast inference and training
 - Best for well-separated classes
 - Typical accuracy: 70-90% (motor imagery)
 
-**Bayesian GMM (RxGMM) - Heteroscedastic Gaussian Classifier**
-- API Name: `RxGMMModel`
+**Bayesian QDA (NimbusQDA) - Heteroscedastic Gaussian Classifier**
+- API Name: `NimbusQDA`
 - Class-specific covariances
 - More flexible for overlapping distributions
 - Slightly slower than Bayesian LDA

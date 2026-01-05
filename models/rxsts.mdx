@@ -1,7 +1,7 @@
 ---
-title: "Bayesian STS (RxSTS)"
+title: "Bayesian STS (NimbusSTS)"
 description: "Bayesian Structural Time Series classifier with Extended Kalman Filter for non-stationary BCI data. Adaptive temporal modeling for EEG signals with drift adaptation and state management."
-keywords: ["Bayesian STS", "RxSTS", "Structural Time Series", "Kalman Filter", "non-stationary BCI", "adaptive classification", "temporal drift", "state-space model", "BCI", "EEG"]
+keywords: ["Bayesian STS", "NimbusSTS", "Structural Time Series", "Kalman Filter", "non-stationary BCI", "adaptive classification", "temporal drift", "state-space model", "BCI", "EEG"]
 icon: "brain"
 ---
 
@@ -68,7 +68,7 @@ z_mean, z_cov = clf.get_latent_state()
 - Online learning scenarios with continuous adaptation
 - Environments with changing noise characteristics
 
-**Use [Bayesian LDA](/models/rxlda) or [Bayesian GMM](/models/rxgmm) instead if:**
+**Use [Bayesian LDA](/models/rxlda) or [Bayesian QDA](/models/rxgmm) instead if:**
 - Data is stationary (class distributions don't change over time)
 - Sessions are short (&lt;10 minutes)
 - You need the absolute fastest inference (&lt;15ms)
@@ -648,7 +648,7 @@ All measurements on standard CPU (no GPU required).
 
 ```
 NimbusLDA:     ~10-15ms  ✓ Fastest
-NimbusGMM:     ~15-25ms  ✓ Fast
+NimbusQDA:     ~15-25ms  ✓ Fast
 NimbusSTS:     ~20-30ms  ✓ Still real-time capable
 NimbusSoftmax: ~15-25ms  ✓ Fast
 ```
@@ -776,7 +776,7 @@ Is your data non-stationary (drift over time)?
 │   ├─ >30 min → NimbusSTS (essential)
 │   └─ &lt;30 min → Try NimbusSTS, compare with static models
 └─ No → Do classes have different covariances?
-    ├─ Yes → NimbusGMM
+    ├─ Yes → NimbusQDA
     └─ No → NimbusLDA (fastest)
 ```
 
@@ -912,10 +912,10 @@ for i, (features, true_label) in enumerate(online_trials):
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Bayesian LDA (RxLDA)" icon="brain" href="/models/rxlda">
+  <Card title="Bayesian LDA (NimbusLDA)" icon="brain" href="/models/rxlda">
     Faster static model for stationary data
   </Card>
-  <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
+  <Card title="Bayesian QDA (NimbusQDA)" icon="brain" href="/models/rxgmm">
     Static model with class-specific covariances
   </Card>
   <Card title="Python SDK Streaming" icon="activity" href="/python-sdk/streaming-inference">
@@ -948,7 +948,7 @@ for i, (features, true_label) in enumerate(online_trials):
     __html: JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'TechArticle',
-      headline: 'Bayesian STS (RxSTS)',
+      headline: 'Bayesian STS (NimbusSTS)',
       description:
         'Bayesian Structural Time Series classifier with Extended Kalman Filter for non-stationary BCI data. Adaptive temporal modeling for EEG signals with drift adaptation and state management.',
       author: {
@@ -967,7 +967,7 @@ for i, (features, true_label) in enumerate(online_trials):
         description: 'Adaptive Bayesian classification for non-stationary BCI data',
       },
       keywords:
-        'Bayesian STS, RxSTS, Structural Time Series, Kalman Filter, non-stationary BCI, adaptive classification, temporal drift, state-space model, BCI, EEG',
+        'Bayesian STS, NimbusSTS, Structural Time Series, Kalman Filter, non-stationary BCI, adaptive classification, temporal drift, state-space model, BCI, EEG',
       inLanguage: 'en-US',
       isAccessibleForFree: true,
     }),

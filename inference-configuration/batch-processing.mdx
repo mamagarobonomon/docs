@@ -10,7 +10,7 @@ icon: "list"
 Batch processing is essential for offline analysis, model training, research studies, and comprehensive data evaluation. Both Python and Julia SDKs provide efficient batch inference capabilities optimized for processing multiple trials simultaneously.
 
 <Note>
-Both SDKs support Bayesian models: **Bayesian LDA**, **Bayesian GMM**, **Bayesian Softmax**, and **Bayesian STS** (Python SDK only). Examples show both SDKs - you can use any model type.
+Both SDKs support Bayesian models: **Bayesian LDA**, **Bayesian QDA**, **Bayesian Softmax**, and **Bayesian STS** (Python SDK only). Examples show both SDKs - you can use any model type.
 </Note>
 
 ## When to Use Batch Processing
@@ -72,7 +72,7 @@ using NimbusSDK
 NimbusSDK.install_core("your-api-key")
 
 # 2. Load model
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 # 3. Prepare batch data
 # Features shape: (n_features × n_samples × n_trials)
@@ -177,7 +177,7 @@ train_data = BCIData(
 
 # Train Bayesian LDA model
 model = train_model(
-    RxLDAModel,
+    NimbusLDA,
     train_data;
     iterations = 50,           # Number of inference iterations
     showprogress = true,       # Display progress bar
@@ -207,7 +207,7 @@ Fine-tune a pre-trained model with subject-specific data:
 using NimbusSDK
 
 # Load pre-trained baseline model
-base_model = load_model(RxLDAModel, "motor_imagery_baseline_v1")
+base_model = load_model(NimbusLDA, "motor_imagery_baseline_v1")
 
 # Collect calibration data (10-20 trials is often sufficient)
 calib_features = collect_calibration_trials()  # Your function
@@ -245,8 +245,8 @@ println("✓ Model calibrated for subject")
 - Calibration: 10-20 trials per class sufficient
 
 **Model selection:**
-- **Bayesian LDA (RxLDA)**: Faster, shared covariance, good for well-separated classes
-- **Bayesian GMM (RxGMM)**: More flexible, class-specific covariances, better for overlapping classes
+- **Bayesian LDA (NimbusLDA)**: Faster, shared covariance, good for well-separated classes
+- **Bayesian QDA (NimbusQDA)**: More flexible, class-specific covariances, better for overlapping classes
 - **Bayesian STS (NimbusSTS, Python only)**: Adaptive, temporal state-space model, best for non-stationary data and long sessions
 
 **Iteration count:**
@@ -288,7 +288,7 @@ for fold in 1:k_folds
     
     # Train model
     train_data = BCIData(train_features, metadata, train_labels_fold)
-    model = train_model(RxLDAModel, train_data; iterations=50)
+    model = train_model(NimbusLDA, train_data; iterations=50)
     
     # Test model
     test_data = BCIData(test_features, metadata, test_labels_fold)
@@ -433,12 +433,12 @@ end
 using NimbusSDK
 
 # Train multiple models
-rxlda = train_model(RxLDAModel, train_data; iterations=50)
-rxgmm = train_model(RxGMMModel, train_data; iterations=50)
+rxlda = train_model(NimbusLDA, train_data; iterations=50)
+rxgmm = train_model(NimbusQDA, train_data; iterations=50)
 
 # Test both models
 models = [rxlda, rxgmm]
-model_names = ["RxLDA", "RxGMM"]
+model_names = ["NimbusLDA", "NimbusQDA"]
 
 println("=== Model Comparison ===")
 for (model, name) in zip(models, model_names)

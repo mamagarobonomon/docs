@@ -1,7 +1,7 @@
 ---
 title: "Julia SDK"
-description: "Complete reference for NimbusSDK.jl - Bayesian BCI inference with Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian Softmax (RxPolya). RxInfer.jl-based inference engine."
-keywords: ["Julia SDK", "NimbusSDK.jl", "Julia BCI", "RxLDA", "RxGMM", "RxPolya", "RxInfer", "Bayesian inference", "Julia", "BCI", "RxLDAModel", "RxGMMModel"]
+description: "Complete reference for NimbusSDK.jl - Bayesian BCI inference with NimbusLDA, NimbusQDA, and NimbusProbit. RxInfer.jl-based inference engine."
+keywords: ["Julia SDK", "NimbusSDK.jl", "Julia BCI", "NimbusLDA", "NimbusQDA", "NimbusProbit", "RxInfer", "Bayesian inference", "Julia", "BCI", "NimbusLDA", "NimbusQDA"]
 icon: "code"
 ---
 
@@ -13,7 +13,7 @@ icon: "code"
 This page documents the **Julia SDK** (NimbusSDK.jl).
 </Note>
 
-The NimbusSDK.jl Julia package provides production-ready Bayesian inference for Brain-Computer Interface (BCI) applications. Built on **RxInfer.jl**, it offers three models (Bayesian LDA, Bayesian GMM, and Bayesian Softmax) with batch and streaming inference capabilities. **Note**: Bayesian STS is currently available in the Python SDK only.
+The NimbusSDK.jl Julia package provides production-ready Bayesian inference for Brain-Computer Interface (BCI) applications. Built on **RxInfer.jl**, it offers three models (NimbusLDA, NimbusQDA, and NimbusProbit) with batch and streaming inference capabilities. **Note**: NimbusSTS is currently available in the Python SDK only.
 
 ## Installation
 
@@ -56,7 +56,7 @@ using NimbusSDK
 NimbusSDK.install_core("your-api-key")
 
 # Load model
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 # Prepare data
 data = BCIData(features, metadata, labels)
@@ -89,7 +89,7 @@ NimbusSDK.install_core("nbci_live_...")
 
 # After installation, you can use the SDK in any project
 using NimbusSDK
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 ```
 
 <Note>
@@ -260,10 +260,10 @@ println("Usage: $(round(status.usage_percentage, digits=1))%")
 
 NimbusSDK.jl provides three Bayesian inference models (Bayesian STS is available in Python SDK only):
 
-### RxLDAModel
+### NimbusLDA
 
 **Primary Name**: Bayesian LDA (Bayesian Linear Discriminant Analysis)  
-**API Name**: `RxLDAModel`  
+**API Name**: `NimbusLDA`  
 **Mathematical Model**: Pooled Gaussian Classifier (PGC)
 
 Linear Discriminant Analysis with shared precision matrix. Fast inference with good performance for well-separated classes.
@@ -280,13 +280,13 @@ Linear Discriminant Analysis with shared precision matrix. Fast inference with g
 **Accessing model parameters**: To get point estimates from posterior distributions, use `mean(model.mean_posteriors[k])` for class means and `mean(model.precision_posterior)` for the precision matrix. The SDK stores full posterior distributions (not just point estimates) for proper Bayesian inference.
 </Note>
 
-### RxGMMModel
+### NimbusQDA
 
-**Primary Name**: Bayesian GMM (Bayesian Gaussian Mixture Model)  
-**API Name**: `RxGMMModel`  
+**Primary Name**: Bayesian QDA  
+**API Name**: `NimbusQDA`  
 **Mathematical Model**: Heteroscedastic Gaussian Classifier (HGC)
 
-Gaussian Mixture Model with class-specific covariance matrices. More flexible, handles overlapping distributions.
+Gaussian classifier with class-specific covariance matrices. More flexible, handles overlapping distributions.
 
 **Fields:**
 - `mean_posteriors::Vector` - Full posterior distributions for class means (MvNormal objects, one per class)
@@ -300,13 +300,13 @@ Gaussian Mixture Model with class-specific covariance matrices. More flexible, h
 **Accessing model parameters**: To get point estimates from posterior distributions, use `mean(model.mean_posteriors[k])` for class means and `mean(model.precision_posteriors[k])` for class-specific precision matrices. The SDK stores full posterior distributions (not just point estimates) for proper Bayesian inference.
 </Note>
 
-### RxPolyaModel
+### NimbusProbit
 
-**Primary Name**: Bayesian Softmax (Bayesian Multinomial Logistic Regression)  
-**API Name**: `RxPolyaModel`  
-**Mathematical Model**: Bayesian Multinomial Logistic Regression
+**Primary Name**: Bayesian Multinomial Probit Regression  
+**API Name**: `NimbusProbit`  
+**Mathematical Model**: Bayesian Multinomial Probit Regression
 
-Bayesian multinomial logistic regression (softmax) with continuous transitions. Most flexible for complex multinomial classification tasks.
+Non-Gaussian multinomial classifier for complex multinomial classification tasks.
 
 **Fields:**
 - `B_posterior` - Learned regression coefficients posterior
@@ -325,16 +325,16 @@ load_model(ModelType, filepath::String) -> Model
 ```
 
 **Parameters:**
-- `ModelType` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
+- `ModelType` - `NimbusLDA`, `NimbusQDA`, or `NimbusProbit`
 - `model_name::String` - Model identifier or filepath
 
 **Example:**
 ```julia
 # Load from Nimbus model zoo
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 # Load custom model
-model = load_model(RxLDAModel, "my_model.jld2")
+model = load_model(NimbusLDA, "my_model.jld2")
 ```
 
 ### save_model()
@@ -346,7 +346,7 @@ save_model(model, filepath::String)
 ```
 
 **Parameters:**
-- `model` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
+- `model` - `NimbusLDA`, `NimbusQDA`, or `NimbusProbit`
 - `filepath::String` - File path to save model (typically `.jld2` format)
 
 ### train_model()
@@ -358,7 +358,7 @@ train_model(ModelType, train_data::BCIData; kwargs...) -> Model
 ```
 
 **Parameters (common to all models):**
-- `ModelType` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
+- `ModelType` - `NimbusLDA`, `NimbusQDA`, or `NimbusProbit`
 - `train_data::BCIData` - Labeled training data (must include labels!)
 - `iterations::Int` - Number of inference iterations (default: 50)
 - `showprogress::Bool` - Show training progress (default: false)
@@ -366,12 +366,12 @@ train_model(ModelType, train_data::BCIData; kwargs...) -> Model
 - `description::String` - Model description (default: `""`)
 
 **Model-specific hyperparameters:**
-- **RxLDAModel / RxGMMModel**
+- **NimbusLDA / NimbusQDA**
   - `dof_offset::Int` – Degrees of freedom offset for Wishart priors during training  
     - Default: `2`, range: \([1, 5]\)
   - `mean_prior_precision::Float64` – Prior precision for class means  
     - Default: `0.01`, range: \([0.001, 0.1]\)
-- **RxPolyaModel**
+- **NimbusProbit**
   - `N::Int` – Trials per observation (default: `1`)
   - `ξβ::Union{Nothing, Vector{Float64}}` – Prior mean for regression coefficients (`nothing` → auto)
   - `Wβ::Union{Nothing, Matrix{Float64}}` – Prior precision for regression coefficients (`nothing` → auto)
@@ -383,11 +383,11 @@ Hyperparameters for each model type are documented in more detail on the corresp
 `/models/rxlda`, `/models/rxgmm`, and `/models/rxpolya`.
 </Note>
 
-**Example (RxLDA):**
+**Example (NimbusLDA):**
 ```julia
 # Train with default hyperparameters
 model = train_model(
-    RxLDAModel,
+    NimbusLDA,
     train_data;
     iterations = 50,
     showprogress = true,
@@ -397,7 +397,7 @@ model = train_model(
 
 # Train with custom hyperparameters
 model = train_model(
-    RxLDAModel,
+    NimbusLDA,
     train_data;
     iterations = 50,
     showprogress = true,
@@ -431,7 +431,7 @@ calibrate_model(
 
 **Example:**
 ```julia
-base_model = load_model(RxLDAModel, "motor_imagery_baseline_v1")
+base_model = load_model(NimbusLDA, "motor_imagery_baseline_v1")
 personalized_model = calibrate_model(base_model, calib_data; iterations=20)
 
 # The personalized model inherits all hyperparameters from base_model
@@ -504,7 +504,7 @@ predict_batch(
 ```
 
 **Parameters:**
-- `model` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
+- `model` - `NimbusLDA`, `NimbusQDA`, or `NimbusProbit`
 - `data::BCIData` - Data to predict (labels optional)
 - `iterations::Int` - Number of inference iterations (default: 10)
 
@@ -860,13 +860,13 @@ get_n_features(model::BCIModel) -> Int
 ```
 
 **Parameters:**
-- `model` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
+- `model` - `NimbusLDA`, `NimbusQDA`, or `NimbusProbit`
 
 **Returns:** Number of features expected by the model
 
 **Example:**
 ```julia
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 n_features = get_n_features(model)  # e.g., 16
 ```
 
@@ -879,13 +879,13 @@ get_n_classes(model::BCIModel) -> Int
 ```
 
 **Parameters:**
-- `model` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
+- `model` - `NimbusLDA`, `NimbusQDA`, or `NimbusProbit`
 
 **Returns:** Number of classes the model can classify
 
 **Example:**
 ```julia
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 n_classes = get_n_classes(model)  # e.g., 4
 ```
 
@@ -898,13 +898,13 @@ get_paradigm(model::BCIModel) -> Union{Symbol, Nothing}
 ```
 
 **Parameters:**
-- `model` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
+- `model` - `NimbusLDA`, `NimbusQDA`, or `NimbusProbit`
 
 **Returns:** Paradigm symbol (`:motor_imagery`, `:p300`, etc.) or `nothing` if paradigm-agnostic
 
 **Example:**
 ```julia
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 paradigm = get_paradigm(model)  # :motor_imagery
 ```
 
@@ -918,7 +918,7 @@ list_available_models(; paradigm=nothing, model_type=nothing) -> Vector{Dict}
 
 **Parameters:**
 - `paradigm` - Optional filter by BCI paradigm (`:motor_imagery`, `:p300`, `:ssvep`)
-- `model_type` - Optional filter by model type (`:RxLDA`, `:RxGMM`, `:RxPolya`)
+- `model_type` - Optional filter by model type (`:NimbusLDA`, `:NimbusQDA`, `:NimbusProbit`)
 
 **Returns:** Vector of model information dictionaries with keys: `name`, `version`, `type`, `paradigm`, `n_features`, `n_classes`, `requires_license`
 
@@ -933,7 +933,7 @@ all_models = list_available_models()
 mi_models = list_available_models(paradigm=:motor_imagery)
 
 # Filter by model type
-lda_models = list_available_models(model_type=:RxLDA)
+lda_models = list_available_models(model_type=:NimbusLDA)
 
 # Print model information
 for model in all_models
@@ -980,7 +980,7 @@ check_model_license_compatibility(model_name::String) -> Bool
 **Example:**
 ```julia
 if check_model_license_compatibility("motor_imagery_4class_v1")
-    model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+    model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 else
     @warn "Your license does not allow access to this model"
 end
@@ -1039,14 +1039,14 @@ check_model_compatibility(model::BCIModel, data::BCIData) -> Bool
 ```
 
 **Parameters:**
-- `model` - `RxLDAModel`, `RxGMMModel`, or `RxPolyaModel`
+- `model` - `NimbusLDA`, `NimbusQDA`, or `NimbusProbit`
 - `data::BCIData` - Data to check compatibility with
 
 **Returns:** `true` if model and data are compatible
 
 **Example:**
 ```julia
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 data = BCIData(features, metadata, labels)
 
 if check_model_compatibility(model, data)
@@ -1451,7 +1451,7 @@ compute_mahalanobis_distances(
 ```
 
 **Parameters:**
-- `model` - `RxLDAModel` or `RxGMMModel` (RxPolya returns zeros)
+- `model` - `NimbusLDA` or `NimbusQDA` (NimbusProbit returns zeros)
 - `features::Array{Float64, 3}` - Feature array (n_features × n_samples × n_trials)
 
 **Returns:** Distance matrix (n_trials × n_classes)
@@ -1474,7 +1474,7 @@ compute_outlier_scores(
 ```
 
 **Parameters:**
-- `model` - `RxLDAModel` or `RxGMMModel`
+- `model` - `NimbusLDA` or `NimbusQDA`
 - `features::Array{Float64, 3}` - Feature array (n_features × n_samples × n_trials)
 
 **Returns:** Outlier scores (higher = more outlier-like)
@@ -1524,14 +1524,14 @@ check_model_compatibility(model::BCIModel, data::BCIData) -> Bool
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Bayesian LDA (RxLDA)" icon="brain" href="/models/rxlda">
+  <Card title="Bayesian LDA (NimbusLDA)" icon="brain" href="/models/rxlda">
     Detailed documentation for Bayesian LDA
   </Card>
-  <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
-    Detailed documentation for Bayesian GMM
+  <Card title="Bayesian QDA (NimbusQDA)" icon="brain" href="/models/rxgmm">
+    Detailed documentation for Bayesian QDA
   </Card>
-  <Card title="Bayesian Softmax (RxPolya)" icon="brain" href="/models/rxpolya">
-    Detailed documentation for Bayesian Softmax
+  <Card title="NimbusProbit" icon="brain" href="/models/nimbusprobit">
+    Detailed documentation for NimbusProbit
   </Card>
   <Card title="Preprocessing Guide" icon="settings" href="/inference-configuration/preprocessing-requirements">
     How to prepare your EEG data

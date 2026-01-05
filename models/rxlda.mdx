@@ -1,13 +1,13 @@
 ---
-title: "Bayesian LDA (RxLDA)"
+title: "Bayesian LDA (NimbusLDA)"
 description: "Bayesian Linear Discriminant Analysis with uncertainty quantification using RxInfer.jl. Fast 10-15ms inference for motor imagery BCI with shared covariance modeling."
-keywords: ["Bayesian LDA", "RxLDA", "Linear Discriminant Analysis", "motor imagery", "BCI classification", "uncertainty quantification", "RxInfer", "NimbusLDA", "pooled Gaussian"]
+keywords: ["Bayesian LDA", "NimbusLDA", "Linear Discriminant Analysis", "motor imagery", "BCI classification", "uncertainty quantification", "RxInfer", "NimbusLDA", "pooled Gaussian"]
 icon: "brain"
 ---
 
 # Bayesian LDA - Bayesian Linear Discriminant Analysis
 
-**Python**: `NimbusLDA` | **Julia**: `RxLDAModel`  
+**Python**: `NimbusLDA` | **Julia**: `NimbusLDA`  
 **Mathematical Model**: Pooled Gaussian Classifier (PGC)
 
 Bayesian LDA is a Bayesian classification model with uncertainty quantification. It uses a **shared precision matrix** across all classes, making it fast and efficient for BCI classification.
@@ -15,7 +15,7 @@ Bayesian LDA is a Bayesian classification model with uncertainty quantification.
 <Note>
 **Available in Both SDKs:**
 - **Python SDK**: `NimbusLDA` class (sklearn-compatible)
-- **Julia SDK**: `RxLDAModel` (RxInfer.jl-based)
+- **Julia SDK**: `NimbusLDA` (RxInfer.jl-based)
 
 Both implementations provide the same Bayesian inference with uncertainty quantification.
 </Note>
@@ -57,7 +57,7 @@ using NimbusSDK
 
 # Train model
 model = train_model(
-    RxLDAModel,
+    NimbusLDA,
     train_data;
     iterations=50
 )
@@ -77,7 +77,7 @@ results = predict_batch(model, test_data)
 - Interpretable results for medical applications
 - When classes have similar covariance structures
 
-**Consider [Bayesian GMM](/models/rxgmm) instead if:**
+**Consider [Bayesian QDA](/models/rxgmm) instead if:**
 - Classes have significantly different covariance structures
 - Complex, overlapping distributions
 - Need more flexibility in modeling per-class variances
@@ -123,7 +123,7 @@ Bayesian LDA supports configurable hyperparameters for optimal performance tunin
 ### Model Structure
 
 ```julia
-struct RxLDAModel <: BCIModel
+struct NimbusLDA <: BCIModel
     mean_posteriors::Vector          # MvNormal posteriors for class means
     precision_posterior::Any         # Wishart posterior for shared precision
     priors::Vector{Float64}          # Empirical class priors
@@ -220,7 +220,7 @@ using NimbusSDK
 NimbusSDK.install_core("nbci_live_your_key")
 
 # Load from Nimbus model zoo
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 println("Model loaded:")
 println("  Features: $(get_n_features(model))")
@@ -292,9 +292,9 @@ train_data = BCIData(
     train_labels  # Required for training!
 )
 
-# Train RxLDA model with default hyperparameters
+# Train NimbusLDA model with default hyperparameters
 model = train_model(
-    RxLDAModel,
+    NimbusLDA,
     train_data;
     iterations = 50,        # Inference iterations
     showprogress = true,    # Show progress bar
@@ -304,7 +304,7 @@ model = train_model(
 
 # Or train with custom hyperparameters (v0.2.0+)
 model = train_model(
-    RxLDAModel,
+    NimbusLDA,
     train_data;
     iterations = 50,
     showprogress = true,
@@ -366,7 +366,7 @@ print("Model personalized successfully!")
   <Tab title="Julia">
 ```julia
 # Load base model
-base_model = load_model(RxLDAModel, "motor_imagery_baseline_v1")
+base_model = load_model(NimbusLDA, "motor_imagery_baseline_v1")
 
 # Collect 10-20 calibration trials from new subject
 calib_features = collect_calibration_trials()  # Your function
@@ -536,7 +536,7 @@ clf.fit(X_train, y_train)
   <Tab title="Julia">
 ```julia
 model = train_model(
-    RxLDAModel,
+    NimbusLDA,
     train_data;
     iterations = 50,
     dof_offset = 1,               # Less regularization
@@ -572,7 +572,7 @@ clf.fit(X_train, y_train)
   <Tab title="Julia">
 ```julia
 model = train_model(
-    RxLDAModel,
+    NimbusLDA,
     train_data;
     iterations = 50,
     dof_offset = 3,               # More regularization
@@ -594,7 +594,7 @@ The defaults work well for most scenarios:
 
 ```julia
 model = train_model(
-    RxLDAModel,
+    NimbusLDA,
     train_data;
     iterations = 50,
     dof_offset = 2,               # Balanced (default)
@@ -672,7 +672,7 @@ for dof in dof_values
     for prior in prior_values
         # Train model with these hyperparameters
         model = train_model(
-            RxLDAModel,
+            NimbusLDA,
             train_data;
             iterations = 50,
             dof_offset = dof,
@@ -701,7 +701,7 @@ println("  Validation accuracy: $(round(best_accuracy*100, digits=1))%")
 
 # Retrain on all data with best hyperparameters
 final_model = train_model(
-    RxLDAModel,
+    NimbusLDA,
     all_data;
     iterations = 50,
     dof_offset = best_params.dof,
@@ -778,7 +778,7 @@ train_norm = apply_normalization(train_features, norm_params)
 
 # Train with normalized features
 train_data = BCIData(train_norm, metadata, labels)
-model = train_model(RxLDAModel, train_data)
+model = train_model(NimbusLDA, train_data)
 
 # Save params with model
 @save "model.jld2" model norm_params
@@ -941,7 +941,7 @@ print(f"\nBest configuration: mu_scale={best_config} ({best_acc*100:.1f}%)")
 # Train multiple models and compare
 models = []
 for n_iter in [20, 50, 100]
-    model = train_model(RxLDAModel, train_data; iterations=n_iter)
+    model = train_model(NimbusLDA, train_data; iterations=n_iter)
     results = predict_batch(model, test_data)
     accuracy = sum(results.predictions .== test_labels) / length(test_labels)
     
@@ -968,11 +968,11 @@ end
 ❌ **Shared Covariance Assumption**: May not fit well if classes have very different spreads  
 ❌ **Linear Decision Boundary**: Cannot capture non-linear class boundaries  
 ❌ **Gaussian Assumption**: Assumes normal class distributions  
-❌ **Not Ideal for Overlapping Classes**: Use RxGMM for complex distributions  
+❌ **Not Ideal for Overlapping Classes**: Use NimbusQDA for complex distributions  
 
-## Comparison: Bayesian LDA vs Bayesian GMM vs Bayesian Softmax vs Bayesian STS
+## Comparison: Bayesian LDA vs Bayesian QDA vs Bayesian Softmax vs Bayesian STS
 
-| Aspect | Bayesian LDA (RxLDA) | Bayesian GMM (RxGMM) | Bayesian Softmax (RxPolya) | Bayesian STS (RxSTS) |
+| Aspect | Bayesian LDA (NimbusLDA) | Bayesian QDA (NimbusQDA) | Bayesian Softmax (NimbusSoftmax) | Bayesian STS (NimbusSTS) |
 |--------|-------|-------|-------|-------|
 | **Precision Matrix** | Shared across all classes | Class-specific | Latent-space precision (K-1) | N/A (state-space) |
 | **Mathematical Model** | Pooled Gaussian Classifier (PGC) | Heteroscedastic Gaussian Classifier (HGC) | Multinomial Logistic Regression | State-Space Model (EKF) |
@@ -987,7 +987,7 @@ end
 **Decision tree:**
 - **Data is stationary** (distributions don't change over time):
   - Well-separated classes → **Bayesian LDA** ✓ Fastest
-  - Overlapping classes → **Bayesian GMM** ✓ More flexible
+  - Overlapping classes → **Bayesian QDA** ✓ More flexible
 - **Data is stationary but decision boundary is non-Gaussian / complex multinomial**:
   - → **Bayesian Softmax** ✓ Most flexible
 - **Data is non-stationary** (drift, fatigue, long sessions):
@@ -996,13 +996,13 @@ end
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
-    More flexible Gaussian Mixture Model with class-specific covariances
+  <Card title="Bayesian QDA (NimbusQDA)" icon="brain" href="/models/rxgmm">
+    More flexible classifier with class-specific covariances
   </Card>
-  <Card title="Bayesian Softmax (RxPolya)" icon="brain" href="/models/rxpolya">
+  <Card title="Bayesian Softmax (NimbusSoftmax)" icon="brain" href="/models/rxpolya">
     Most flexible multinomial classifier for complex decision boundaries
   </Card>
-  <Card title="Bayesian STS (RxSTS)" icon="wave-pulse" href="/models/rxsts">
+  <Card title="Bayesian STS (NimbusSTS)" icon="wave-pulse" href="/models/rxsts">
     Adaptive model for non-stationary data and long sessions
   </Card>
   <Card title="Training Tutorial" icon="graduation-cap" href="/examples/advanced-applications">
@@ -1034,7 +1034,7 @@ end
     __html: JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'TechArticle',
-      headline: 'Bayesian LDA (RxLDA)',
+      headline: 'Bayesian LDA (NimbusLDA)',
       description:
         'Bayesian Linear Discriminant Analysis with uncertainty quantification using RxInfer.jl. Fast 10-15ms inference for motor imagery BCI with shared covariance modeling.',
       author: {
@@ -1053,7 +1053,7 @@ end
         description: 'Bayesian classification for motor imagery BCI',
       },
       keywords:
-        'Bayesian LDA, RxLDA, Linear Discriminant Analysis, motor imagery, BCI classification, uncertainty quantification, RxInfer, NimbusLDA',
+        'Bayesian LDA, NimbusLDA, Linear Discriminant Analysis, motor imagery, BCI classification, uncertainty quantification, RxInfer, NimbusLDA',
       inLanguage: 'en-US',
       isAccessibleForFree: true,
     }),

@@ -261,15 +261,15 @@ print(f"Entropy: {final.entropy:.2f} bits")
 Try different Bayesian models:
 
 ```python
-from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax, NimbusSTS
+from nimbus_bci import NimbusLDA, NimbusQDA, NimbusSoftmax, NimbusSTS
 
 # Bayesian LDA (shared covariance)
 clf_lda = NimbusLDA()
 clf_lda.fit(X_train, y_train)
 
-# Bayesian GMM (class-specific covariances)
-clf_gmm = NimbusGMM()
-clf_gmm.fit(X_train, y_train)
+# Bayesian QDA (class-specific covariances)
+clf_qda = NimbusQDA()
+clf_qda.fit(X_train, y_train)
 
 # Bayesian Softmax (Polya-Gamma VI)
 clf_softmax = NimbusSoftmax()
@@ -280,7 +280,7 @@ clf_sts = NimbusSTS(transition_cov=0.05)
 clf_sts.fit(X_train, y_train)
 
 # Compare performance
-for name, clf in [("LDA", clf_lda), ("GMM", clf_gmm), 
+for name, clf in [("LDA", clf_lda), ("QDA", clf_qda),
                    ("Softmax", clf_softmax), ("STS", clf_sts)]:
     score = clf.score(X_test, y_test)
     print(f"{name}: {score:.2%}")
@@ -289,7 +289,7 @@ for name, clf in [("LDA", clf_lda), ("GMM", clf_gmm),
 | Model | Best For | Speed | Statefulness |
 |-------|----------|-------|--------------|
 | **NimbusLDA** | Motor imagery, well-separated classes | Fastest (10-15ms) | Stateless |
-| **NimbusGMM** | P300, overlapping distributions | Fast (15-25ms) | Stateless |
+| **NimbusQDA** | P300, overlapping distributions | Fast (15-25ms) | Stateless |
 | **NimbusSoftmax** | Complex multinomial tasks | Fast (15-25ms) | Stateless |
 | **NimbusSTS** | Non-stationary data, long sessions, adaptive BCI | Real-time (20-30ms) | Stateful |
 
@@ -514,10 +514,10 @@ prediction = pipe.predict(new_trial.reshape(1, -1))[0]
 ### P300 Speller
 
 ```python
-from nimbus_bci import NimbusGMM
+from nimbus_bci import NimbusQDA
 
 # GMM works better for P300 (overlapping distributions)
-clf = NimbusGMM()
+clf = NimbusQDA()
 clf.fit(erp_features, labels)  # 0=non-target, 1=target
 
 # Predict with confidence

@@ -22,7 +22,7 @@ nimbus-bci handles:
 - Uncertainty quantification
 - Online learning
 - Real-time inference
-- Model families: `NimbusLDA`, `NimbusGMM`, `NimbusSoftmax`, `NimbusSTS`
+- Model families: `NimbusLDA`, `NimbusQDA`, `NimbusSoftmax`, `NimbusSTS`
 
 ## Installation
 
@@ -228,8 +228,8 @@ features = extract_bandpower_features(
 )
 
 # Train classifier
-from nimbus_bci import NimbusGMM
-clf = NimbusGMM()
+from nimbus_bci import NimbusQDA
+clf = NimbusQDA()
 clf.fit(features, epochs.events[:, 2])
 ```
 
@@ -253,7 +253,7 @@ features_multitaper = extract_bandpower_features(
 
 ```python
 import mne
-from nimbus_bci import NimbusGMM
+from nimbus_bci import NimbusQDA
 import numpy as np
 
 # Load P300 data
@@ -289,7 +289,7 @@ def extract_erp_features(epochs):
 erp_features = extract_erp_features(epochs)
 
 # Train classifier
-clf = NimbusGMM()
+clf = NimbusQDA()
 clf.fit(erp_features, epochs.events[:, 2])
 ```
 

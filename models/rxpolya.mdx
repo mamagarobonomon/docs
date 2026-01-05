@@ -1,23 +1,21 @@
 ---
-title: "Bayesian Softmax (RxPolya)"
+title: "NimbusSoftmax (Python) / NimbusProbit (Julia)"
 description: "Bayesian Multinomial Logistic Regression with uncertainty quantification using RxInfer.jl. Flexible 15-25ms inference for complex multinomial BCI classification tasks."
-keywords: ["Bayesian Softmax", "RxPolya", "Multinomial Logistic Regression", "multinomial classification", "BCI", "logistic regression", "RxInfer", "NimbusSoftmax", "probabilistic classification"]
+keywords: ["Bayesian Softmax", "NimbusSoftmax", "Multinomial Logistic Regression", "multinomial classification", "BCI", "logistic regression", "RxInfer", "NimbusSoftmax", "probabilistic classification"]
 icon: "brain"
 ---
 
-# Bayesian Softmax
+# Non-Gaussian Multinomial Classifiers (Softmax / Probit)
 
-**Python**: `NimbusSoftmax` | **Julia**: `RxPolyaModel`  
-**Mathematical Model**: Bayesian Multinomial Logistic Regression
+**Python**: `NimbusSoftmax` | **Julia**: `NimbusProbit`  
+**Model family**: Non-Gaussian multinomial classification with uncertainty quantification
 
 Bayesian Softmax is a Bayesian multinomial classification model with uncertainty quantification. It uses **continuous transitions** to map features to a latent space for probabilistic classification, making it ideal for complex multinomial tasks.
 
 <Note>
-**Available in Both SDKs:**
-- **Python SDK**: `NimbusSoftmax` - Polya-Gamma variational inference
-- **Julia SDK**: `RxPolyaModel` - Multinomial Logistic Regression with RxInfer.jl
-
-Both provide Bayesian multinomial classification with uncertainty quantification.
+**Availability**
+- **Python SDK**: ✅ `NimbusSoftmax` (Polya-Gamma VI; optional dependency)
+- **Julia SDK**: ✅ `NimbusProbit`
 </Note>
 
 ## Overview
@@ -57,7 +55,7 @@ using NimbusSDK
 
 # Train model
 model = train_model(
-    RxPolyaModel,
+    NimbusProbit,
     train_data;
     iterations=50
 )
@@ -74,11 +72,11 @@ results = predict_batch(model, test_data)
 - Complex multinomial classification tasks
 - When you need full posterior uncertainty over multinomial distributions
 - Advanced BCI applications requiring flexible classification
-- Problems where Gaussian class-conditional structure (RxLDA/RxGMM) is a poor fit
-- When RxLDA/RxGMM accuracy is insufficient for complex distributions
+- Problems where Gaussian class-conditional structure (NimbusLDA/NimbusQDA) is a poor fit
+- When NimbusLDA/NimbusQDA accuracy is insufficient for complex distributions
 
-**Consider [Bayesian LDA](/models/rxlda) or [Bayesian GMM](/models/rxgmm) instead if:**
-- You need faster inference (RxLDA/RxGMM are 5-10ms faster)
+**Consider [Bayesian LDA](/models/rxlda) or [Bayesian QDA](/models/rxgmm) instead if:**
+- You need faster inference (NimbusLDA/NimbusQDA are 5-10ms faster)
 - Classes are well-separated with Gaussian distributions
 - Interpretability of class centers is important (Bayesian Softmax is discriminative)
 - You want Mahalanobis distance-based outlier detection
@@ -152,7 +150,7 @@ Bayesian Softmax supports configurable hyperparameters for optimal performance t
 ### Model Structure
 
 ```julia
-struct RxPolyaModel <: BCIModel
+struct NimbusProbit <: BCIModel
     B_posterior                        # Learned regression coefficients posterior
     W_posterior                        # Learned precision matrix posterior
     metadata::ModelMetadata            # Model info
@@ -166,7 +164,7 @@ end
 
 ### RxInfer Implementation
 
-The RxPolya model uses RxInfer.jl for variational Bayesian inference:
+The NimbusSoftmax model uses RxInfer.jl for variational Bayesian inference:
 
 **Learning Phase:**
 ```julia
@@ -237,7 +235,7 @@ using NimbusSDK
 NimbusSDK.install_core("nbci_live_your_key")
 
 # Load from Nimbus model zoo
-model = load_model(RxPolyaModel, "motor_imagery_polya_v1")
+model = load_model(NimbusProbit, "motor_imagery_polya_v1")
 
 println("Model loaded:")
 println("  Features: $(get_n_features(model))")
@@ -307,19 +305,19 @@ train_data = BCIData(
     train_labels  # Required for training!
 )
 
-# Train RxPolya model with default hyperparameters
+# Train NimbusSoftmax model with default hyperparameters
 model = train_model(
-    RxPolyaModel,
+    NimbusProbit,
     train_data;
     iterations = 50,        # Inference iterations
     showprogress = true,    # Show progress bar
     name = "my_motor_imagery_polya",
-    description = "4-class MI classifier with RxPolya"
+    description = "4-class MI classifier with NimbusSoftmax"
 )
 
 # Or train with custom hyperparameters
 model = train_model(
-    RxPolyaModel,
+    NimbusProbit,
     train_data;
     iterations = 50,
     showprogress = true,
@@ -383,7 +381,7 @@ with open("subject_001_calibrated.pkl", "wb") as f:
   <Tab title="Julia">
 ```julia
 # Load base model
-base_model = load_model(RxPolyaModel, "motor_imagery_polya_baseline_v1")
+base_model = load_model(NimbusProbit, "motor_imagery_polya_baseline_v1")
 
 # Collect 10-20 calibration trials from new subject
 calib_features = collect_calibration_trials()  # Your function
@@ -538,7 +536,7 @@ clf.fit(X_train, y_train)
   <Tab title="Julia">
 ```julia
 model = train_model(
-    RxPolyaModel,
+    NimbusProbit,
     train_data;
     iterations = 50,
     N = 1,
@@ -572,7 +570,7 @@ clf.fit(X_train, y_train)
   <Tab title="Julia">
 ```julia
 model = train_model(
-    RxPolyaModel,
+    NimbusProbit,
     train_data;
     iterations = 50,
     N = 1,
@@ -606,7 +604,7 @@ clf.fit(X_train, y_train)
   <Tab title="Julia">
 ```julia
 model = train_model(
-    RxPolyaModel,
+    NimbusProbit,
     train_data;
     iterations = 50,
     N = 1,                           # Standard (default)
@@ -682,7 +680,7 @@ for Wβ_scale in Wβ_scales
         
         # Train model with these hyperparameters
         model = train_model(
-            RxPolyaModel,
+            NimbusProbit,
             train_data;
             iterations = 50,
             N = 1,
@@ -712,7 +710,7 @@ println("  Validation accuracy: $(round(best_accuracy*100, digits=1))%")
 
 # Retrain on all data with best hyperparameters
 final_model = train_model(
-    RxPolyaModel,
+    NimbusProbit,
     all_data;
     iterations = 50,
     N = 1,
@@ -746,7 +744,7 @@ final_model = train_model(
 - **For calibration**: 10-20 trials per class sufficient
 
 <Warning>
-**RxPolya requires at least 2 observations** to estimate regression coefficients and the precision matrix. Single-trial training will raise an error.
+**NimbusSoftmax requires at least 2 observations** to estimate regression coefficients and the precision matrix. Single-trial training will raise an error.
 </Warning>
 
 ### Feature Normalization
@@ -788,7 +786,7 @@ train_norm = apply_normalization(train_features, norm_params)
 
 # Train with normalized features
 train_data = BCIData(train_norm, metadata, labels)
-model = train_model(RxPolyaModel, train_data)
+model = train_model(NimbusProbit, train_data)
 
 # Save params with model
 @save "model.jld2" model norm_params
@@ -829,18 +827,18 @@ See [Preprocessing Requirements](/inference-configuration/preprocessing-requirem
 | **Batch Inference** | 15-25ms per trial | 10 iterations |
 | **Streaming Chunk** | 15-25ms | 10 iterations per chunk |
 
-Slightly slower than RxLDA/RxGMM due to continuous transition complexity.
+Slightly slower than NimbusLDA/NimbusQDA due to continuous transition complexity.
 
 ### Classification Accuracy
 
-| Paradigm | Classes | Typical Accuracy | When to Use RxPolya |
+| Paradigm | Classes | Typical Accuracy | When to Use NimbusSoftmax |
 |----------|---------|------------------|---------------------|
-| Motor Imagery | 2-4 | 70-85% | When RxLDA/RxGMM insufficient |
+| Motor Imagery | 2-4 | 70-85% | When NimbusLDA/NimbusQDA insufficient |
 | P300 | 2 (Target/Non-target) | 85-95% | Complex distributions |
 | SSVEP | 2-6 | 85-98% | Advanced applications |
 
 <Note>
-Bayesian Softmax typically provides comparable or slightly better accuracy than RxLDA/RxGMM for complex distributions, at the cost of ~5-10ms additional latency.
+Bayesian Softmax typically provides comparable or slightly better accuracy than NimbusLDA/NimbusQDA for complex distributions, at the cost of ~5-10ms additional latency.
 </Note>
 
 ## Model Inspection
@@ -926,7 +924,7 @@ for reg in [0.1, 1.0, 10.0]:
 # Train multiple models and compare
 models = []
 for n_iter in [20, 50, 100]
-    model = train_model(RxPolyaModel, train_data; iterations=n_iter)
+    model = train_model(NimbusProbit, train_data; iterations=n_iter)
     results = predict_batch(model, test_data)
     accuracy = sum(results.predictions .== test_labels) / length(test_labels)
     
@@ -944,22 +942,22 @@ end
 ✅ **Flexible Multinomial Classification**: Natural handling of multinomial distributions  
 ✅ **Continuous Transition Mapping**: Sophisticated feature-to-latent-space transformation  
 ✅ **Full Bayesian Uncertainty**: Complete posterior distributions over predictions  
-✅ **No Gaussian Assumption**: More flexible than Gaussian classifiers (RxLDA/RxGMM)  
+✅ **No Gaussian Assumption**: More flexible than Gaussian classifiers (NimbusLDA/NimbusQDA)  
 ✅ **Production-Ready**: Battle-tested in real BCI applications  
 ✅ **Calibration Support**: Fast subject-specific adaptation  
 
 ### Limitations
 
-❌ **More Complex**: More parameters than RxLDA, requires careful hyperparameter tuning  
-❌ **Slower Inference**: ~15-25ms vs ~10-15ms for RxLDA  
+❌ **More Complex**: More parameters than NimbusLDA, requires careful hyperparameter tuning  
+❌ **Slower Inference**: ~15-25ms vs ~10-15ms for NimbusLDA  
 ❌ **(K-1) Dimensional Space**: Works in reduced dimension (not always intuitive)  
 ❌ **No Mahalanobis Distance**: Discriminative model lacks explicit class centers for outlier detection  
 ❌ **Requires Multiple Trials**: Cannot train on single trial (minimum 2 observations)  
 ❌ **Less Interpretable**: Harder to interpret than generative models with explicit means
 
-## Comparison: Bayesian Softmax vs RxLDA vs RxGMM vs RxSTS
+## Comparison: Bayesian Softmax vs NimbusLDA vs NimbusQDA vs NimbusSTS
 
-| Aspect | Bayesian Softmax | RxLDA | RxGMM | RxSTS |
+| Aspect | Bayesian Softmax | NimbusLDA | NimbusQDA | NimbusSTS |
 |--------|---------|-------|-------|-------|
 | **Mathematical Model** | Bayesian Multinomial Logistic Regression | Pooled Gaussian Classifier (PGC) | Heteroscedastic Gaussian Classifier (HGC) | State-Space Model (EKF) |
 | **Representation** | (K-1) dimensional latent space | K class means with shared precision | K class means with class-specific precisions | Features + latent state dynamics |
@@ -977,16 +975,16 @@ end
 
 ```
 Is your data non-stationary (temporal drift)?
-├─ Yes → Use RxSTS (handles temporal dynamics)
+├─ Yes → Use NimbusSTS (handles temporal dynamics)
 └─ No → Do you need Mahalanobis-based outlier detection?
-    ├─ Yes → Use RxLDA or RxGMM
+    ├─ Yes → Use NimbusLDA or NimbusQDA
     └─ No → Are classes well-separated with Gaussian structure?
-        ├─ Yes → Use RxLDA (fastest)
+        ├─ Yes → Use NimbusLDA (fastest)
         └─ No → Do classes have different covariances?
-            ├─ Yes → Use RxGMM
+            ├─ Yes → Use NimbusQDA
             └─ No → Are distributions complex/non-Gaussian?
                 ├─ Yes → Use Bayesian Softmax
-                └─ No → Use RxLDA (simplest)
+                └─ No → Use NimbusLDA (simplest)
 ```
 
 ## Practical Examples
@@ -1022,7 +1020,7 @@ for class_id in clf.classes_:
 
 # Train on motor imagery data
 mi_data = BCIData(csp_features, mi_metadata, labels)  # 4-class MI
-model = train_model(RxPolyaModel, mi_data; iterations=50)
+model = train_model(NimbusProbit, mi_data; iterations=50)
 
 # Test
 results = predict_batch(model, test_data)
@@ -1069,7 +1067,7 @@ print(f"Specificity: {specificity * 100:.1f}%")
 
 # Train on P300 data
 p300_data = BCIData(erp_features, p300_metadata, labels)  # 1=target, 2=non-target
-model = train_model(RxPolyaModel, p300_data; iterations=50)
+model = train_model(NimbusProbit, p300_data; iterations=50)
 
 # Test
 results = predict_batch(model, test_data)
@@ -1087,18 +1085,18 @@ println("Specificity: $(round(specificity * 100, digits=1))%")
   </Tab>
 </Tabs>
 
-### Comparing with RxLDA/RxGMM
+### Comparing with NimbusLDA/NimbusQDA
 
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSoftmax, NimbusSTS
+from nimbus_bci import NimbusLDA, NimbusQDA, NimbusSoftmax, NimbusSTS
 
 # Train all models
 lda_clf = NimbusLDA()
 lda_clf.fit(X_train, y_train)
 
-gmm_clf = NimbusGMM()
+gmm_clf = NimbusQDA()
 gmm_clf.fit(X_train, y_train)
 
 softmax_clf = NimbusSoftmax()
@@ -1110,7 +1108,7 @@ sts_clf.fit(X_train, y_train)
 # Evaluate all models
 models = [
     ("NimbusLDA", lda_clf),
-    ("NimbusGMM", gmm_clf),
+    ("NimbusQDA", gmm_clf),
     ("NimbusSoftmax", softmax_clf),
     ("NimbusSTS", sts_clf)
 ]
@@ -1136,14 +1134,14 @@ for name, clf in models:
 # Note: NimbusSTS (Bayesian STS) is currently Python-only
 
 # Train all three Julia models
-rxlda_model = train_model(RxLDAModel, train_data)
-rxgmm_model = train_model(RxGMMModel, train_data)
-rxpolya_model = train_model(RxPolyaModel, train_data)
+rxlda_model = train_model(NimbusLDA, train_data)
+rxgmm_model = train_model(NimbusQDA, train_data)
+rxpolya_model = train_model(NimbusProbit, train_data)
 
 # Evaluate all three
 models = [
-    ("RxLDA", rxlda_model),
-    ("RxGMM", rxgmm_model),
+    ("NimbusLDA", rxlda_model),
+    ("NimbusQDA", rxgmm_model),
     ("Bayesian Softmax", rxpolya_model)
 ]
 
@@ -1167,13 +1165,13 @@ end
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Bayesian LDA (RxLDA)" icon="brain" href="/models/rxlda">
+  <Card title="Bayesian LDA (NimbusLDA)" icon="brain" href="/models/rxlda">
     Faster model with shared covariance
   </Card>
-  <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
+  <Card title="Bayesian QDA (NimbusQDA)" icon="brain" href="/models/rxgmm">
     Flexible model with class-specific covariances
   </Card>
-  <Card title="Bayesian STS (RxSTS)" icon="wave-pulse" href="/models/rxsts">
+  <Card title="Bayesian STS (NimbusSTS)" icon="wave-pulse" href="/models/rxsts">
     Adaptive model for non-stationary data
   </Card>
   <Card title="Training Guide" icon="graduation-cap" href="/examples/advanced-applications">
@@ -1208,7 +1206,7 @@ end
     __html: JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'TechArticle',
-      headline: 'Bayesian Softmax (RxPolya)',
+      headline: 'Bayesian Softmax (NimbusSoftmax)',
       description:
         'Bayesian Multinomial Logistic Regression with uncertainty quantification using RxInfer.jl. Flexible 15-25ms inference for complex multinomial BCI classification tasks.',
       author: {
@@ -1227,7 +1225,7 @@ end
         description: 'Bayesian multinomial classification for complex BCI tasks',
       },
       keywords:
-        'Bayesian Softmax, RxPolya, Multinomial Logistic Regression, multinomial classification, BCI, logistic regression, RxInfer, NimbusSoftmax',
+        'Bayesian Softmax, NimbusSoftmax, Multinomial Logistic Regression, multinomial classification, BCI, logistic regression, RxInfer, NimbusSoftmax',
       inLanguage: 'en-US',
       isAccessibleForFree: true,
     }),

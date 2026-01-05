@@ -10,7 +10,7 @@ icon: "play"
 Streaming inference is essential for real-time BCI applications. Both Python and Julia SDKs support chunk-by-chunk processing for responsive brain-computer interfaces with sub-25ms latency per chunk.
 
 <Note>
-Both SDKs support Bayesian models: **Bayesian LDA**, **Bayesian GMM**, **Bayesian Softmax**, and **Bayesian STS** (Python SDK only). All support streaming inference with similar latencies.
+Both SDKs support Bayesian models: **Bayesian LDA**, **Bayesian QDA**, **Bayesian Softmax**, and **Bayesian STS** (Python SDK only). All support streaming inference with similar latencies.
 
 **Python SDK users**: See [Python Streaming Inference](/python-sdk/streaming-inference) for Python-specific detailed examples and patterns.
 </Note>
@@ -137,7 +137,7 @@ using NimbusSDK
 
 # 1. Authenticate and load model
 NimbusSDK.install_core("your-api-key")
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 # 2. Configure streaming metadata
 metadata = BCIMetadata(
@@ -298,7 +298,7 @@ using NimbusSDK
 
 # Setup
 NimbusSDK.install_core("your-api-key")
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 metadata = BCIMetadata(
     sampling_rate = 250.0,
@@ -358,7 +358,7 @@ end
 using NimbusSDK
 
 # P300 detection with streaming
-model = load_model(RxLDAModel, "p300_detection_v1")
+model = load_model(NimbusLDA, "p300_detection_v1")
 
 metadata = BCIMetadata(
     sampling_rate = 250.0,

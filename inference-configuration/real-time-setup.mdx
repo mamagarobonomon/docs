@@ -10,7 +10,7 @@ icon: "settings"
 Setting up for real-time BCI applications requires proper configuration to achieve 10-25ms latency while maintaining accuracy. This guide covers essential setup steps and best practices for both Python and Julia SDKs.
 
 <Note>
-Both SDKs support Bayesian models: **Bayesian LDA**, **Bayesian GMM**, **Bayesian Softmax**, and **Bayesian STS** (Python SDK only). Choose based on your accuracy, latency, and adaptivity requirements.
+Both SDKs support Bayesian models: **Bayesian LDA**, **Bayesian QDA**, **Bayesian Softmax**, and **Bayesian STS** (Python SDK only). Choose based on your accuracy, latency, and adaptivity requirements.
 </Note>
 
 ## Quick Start
@@ -55,7 +55,7 @@ using NimbusSDK
 NimbusSDK.install_core("your-api-key")
 
 # 2. Load model
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 # 3. Configure streaming metadata
 metadata = BCIMetadata(
@@ -124,21 +124,21 @@ metadata = BCIMetadata(
 
 ## Model Selection for Real-Time
 
-### Bayesian LDA vs Bayesian GMM vs Bayesian STS
+### Bayesian LDA vs Bayesian QDA vs Bayesian STS
 
 <Tabs>
   <Tab title="Python">
 
 ```python
-from nimbus_bci import NimbusLDA, NimbusGMM, NimbusSTS
+from nimbus_bci import NimbusLDA, NimbusQDA, NimbusSTS
 
 # Bayesian LDA: Fastest, recommended for stationary real-time
 clf_lda = NimbusLDA()
 # Typical latency: 10-20ms
 # Use when: Speed is priority, classes are well-separated, data is stationary
 
-# Bayesian GMM: More flexible, slightly slower
-clf_gmm = NimbusGMM()
+# Bayesian QDA: More flexible, slightly slower
+clf_qda = NimbusQDA()
 # Typical latency: 15-25ms
 # Use when: Need flexibility for overlapping classes, data is stationary
 
@@ -153,13 +153,13 @@ clf_sts = NimbusSTS()
 ```julia
 using NimbusSDK
 
-# RxLDA: Faster, recommended for real-time
-lda_model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+# NimbusLDA: Faster, recommended for real-time
+lda_model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 # Typical latency: 10-20ms
 # Use when: Speed is priority, classes are well-separated
 
-# RxGMM: More flexible, slightly slower
-gmm_model = load_model(RxGMMModel, "motor_imagery_4class_gmm_v1")
+# NimbusQDA: More flexible, slightly slower
+gmm_model = load_model(NimbusQDA, "motor_imagery_4class_gmm_v1")
 # Typical latency: 15-25ms
 # Use when: Need flexibility for overlapping classes
 
@@ -169,7 +169,7 @@ gmm_model = load_model(RxGMMModel, "motor_imagery_4class_gmm_v1")
 </Tabs>
 
 <Tip>
-For most real-time applications with **stationary data**, **Bayesian LDA (RxLDA)** is recommended due to its faster inference while maintaining good accuracy. For **long sessions with non-stationary data**, consider **NimbusSTS** (Python SDK).
+For most real-time applications with **stationary data**, **Bayesian LDA (NimbusLDA)** is recommended due to its faster inference while maintaining good accuracy. For **long sessions with non-stationary data**, consider **NimbusSTS** (Python SDK).
 </Tip>
 
 ## Aggregation Strategies
@@ -213,7 +213,7 @@ Julia's JIT compiler makes the first inference slower. Warm up before real use:
 using NimbusSDK
 
 # Load model
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 session = init_streaming(model, metadata)
 
 # Warmup: Run a few dummy inferences
@@ -347,7 +347,7 @@ end
 using NimbusSDK
 
 # Setup for gaming
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 # Fast chunks for responsive gameplay
 metadata = BCIMetadata(
@@ -378,7 +378,7 @@ end
 using NimbusSDK
 
 # P300 detection setup
-model = load_model(RxLDAModel, "p300_binary_v1")
+model = load_model(NimbusLDA, "p300_binary_v1")
 
 # Post-stimulus window
 metadata = BCIMetadata(
@@ -410,7 +410,7 @@ end
 using NimbusSDK
 
 # Safety-critical setup
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 # Longer chunks for higher confidence
 metadata = BCIMetadata(
@@ -494,7 +494,7 @@ end
 
 ### Latency Expectations
 
-| Hardware | RxLDA Latency | RxGMM Latency |
+| Hardware | NimbusLDA Latency | NimbusQDA Latency |
 |----------|---------------|---------------|
 | i5, 8GB RAM | 15-25ms | 20-30ms |
 | i7, 16GB RAM | 10-20ms | 15-25ms |
@@ -533,7 +533,7 @@ println("  Mean: $(round(mean(latencies[2:end]), digits=1)) ms")
 
 **Common Solutions:**
 1. Run warmup inferences before real use
-2. Use RxLDA instead of RxGMM for speed
+2. Use NimbusLDA instead of NimbusQDA for speed
 3. Reduce chunk_size if acceptable
 4. Check system resource usage
 5. Close other applications

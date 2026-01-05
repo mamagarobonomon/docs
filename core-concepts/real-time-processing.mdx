@@ -18,7 +18,7 @@ Both achieve similar latencies (~10-25ms) with different technical approaches.
 </Note>
 
 <Note>
-**Model coverage (streaming/batch):** Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), Bayesian Softmax (RxPolya), and Bayesian STS (RxSTS / `NimbusSTS`, Python SDK only).
+**Model coverage (streaming/batch):** NimbusLDA and NimbusQDA (Python + Julia), plus NimbusSoftmax and NimbusSTS (Python) and NimbusProbit (Julia).
 </Note>
 
 ## Why Latency Matters in BCI
@@ -260,25 +260,25 @@ Real-time systems must manage memory carefully:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusLDA, NimbusGMM
+from nimbus_bci import NimbusLDA, NimbusQDA
 
 # NimbusLDA: Fast with shared covariance
-# NimbusGMM: More flexible with class-specific covariances
+# NimbusQDA: More flexible with class-specific covariances
 
 # Choose based on accuracy/speed tradeoff
 if accuracy_priority:
-    clf = NimbusGMM(n_components=2)  # More flexible
+    clf = NimbusQDA()  # More flexible than LDA for overlapping distributions
 else:
     clf = NimbusLDA()  # Faster
 ```
   </Tab>
   <Tab title="Julia">
 ```julia
-# RxLDA: Fast with shared covariance
-# RxGMM: More flexible with class-specific covariances
+# NimbusLDA: Fast with shared covariance
+# NimbusQDA: More flexible with class-specific covariances
 
 # Choose based on accuracy/speed tradeoff
-model = accuracy_priority ? RxGMMModel : RxLDAModel
+model = accuracy_priority ? NimbusQDA : NimbusLDA
 ```
   </Tab>
 </Tabs>
@@ -323,7 +323,7 @@ NimbusSDK consistently achieves sub-25ms latency for BCI applications:
 - **Batch**: Efficient parallel processing
 
 <Note>
-Performance measured on modern CPU (Intel i7 or equivalent). RxLDA is typically faster than RxGMM due to shared covariance structure.
+Performance measured on modern CPU (Intel i7 or equivalent). NimbusLDA is typically faster than NimbusQDA due to shared covariance structure.
 </Note>
 
 ## Deployment Considerations

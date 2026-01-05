@@ -1,6 +1,6 @@
 ---
 title: "Model Specification"
-description: "Overview of probabilistic models in Nimbus. Learn about Bayesian LDA, GMM, Softmax, and STS models with factor graphs and reactive message passing."
+description: "Overview of probabilistic models in Nimbus. Learn about NimbusLDA/NimbusQDA plus non-Gaussian models (NimbusSoftmax, NimbusProbit) and adaptive NimbusSTS with factor graphs and reactive message passing."
 keywords: ["model specification", "probabilistic models", "Bayesian models", "factor graphs", "message passing", "RxInfer", "BCI models", "Bayesian inference", "Nimbus models"]
 icon: "box"
 ---
@@ -10,11 +10,12 @@ icon: "box"
 NimbusSDK provides **pre-built probabilistic models** powered by [RxInfer.jl](https://github.com/ReactiveBayes/RxInfer.jl), a reactive message passing framework for efficient Bayesian inference.
 
 <Info>
-**Four Production Models Available:**
-- [Bayesian LDA (RxLDA)](/models/rxlda) - Fast, shared covariance
-- [Bayesian GMM (RxGMM)](/models/rxgmm) - Flexible, class-specific covariances
-- [Bayesian Softmax (RxPolya)](/models/rxpolya) - Multinomial logistic regression
-- [Bayesian STS (RxSTS)](/models/rxsts) - Adaptive, for non-stationary data
+**Nimbus Models Available:**
+- [NimbusLDA](/models/rxlda) - Fast, shared covariance (**Python + Julia**)
+- [NimbusQDA](/models/rxgmm) - Flexible, class-specific covariances (**Python + Julia**)
+- [NimbusSoftmax](/models/rxpolya) - Non-Gaussian static model (**Python only**)
+- [NimbusProbit](/models/nimbusprobit) - Non-Gaussian static model (**Julia only**)
+- [NimbusSTS](/models/rxsts) - Stateful adaptive model (**Python only**)
 
 For detailed implementation, see the individual model pages above.
 </Info>
@@ -23,7 +24,7 @@ For detailed implementation, see the individual model pages above.
 
 ## Model Architecture
 
-The static models (LDA, GMM, Softmax) are built on **factor graphs** with **reactive message passing**:
+The static models (LDA, QDA, Softmax, Probit) are built on **factor graphs** with **reactive message passing**:
 
 ```
         Prior               Likelihood            Posterior
@@ -44,7 +45,7 @@ $$
 
 **Components:**
 1. **Prior**: $ p(\text{class}) $ - uniform or learned class probabilities
-2. **Likelihood**: $ p(\text{data}|\text{class}) $ - Gaussian (LDA/GMM) or Softmax (RxPolya)
+2. **Likelihood**: $ p(\text{data}|\text{class}) $ - Gaussian (LDA/QDA) or a non-Gaussian classifier (Softmax/Probit)
 3. **Posterior**: $ p(\text{class}|\text{data}) $ - computed via message passing
 
 ### Reactive Message Passing
@@ -66,7 +67,7 @@ Data Stream ──► Factor Graph ──► Message Passing ──► Posterior
 
 ## Model Comparison
 
-| Feature              | RxLDA (NimbusLDA)      | RxGMM (NimbusGMM)         | RxPolya (NimbusSoftmax)   | RxSTS (NimbusSTS)         |
+| Feature              | NimbusLDA              | NimbusQDA                 | NimbusSoftmax (Py)        | NimbusSTS (Py)            |
 | -------------------- | ---------------------- | ------------------------- | ------------------------- | ------------------------- |
 | **Covariance**       | Shared across classes  | Class-specific            | N/A (logistic)            | N/A (state-space)         |
 | **Decision Boundary**| Linear                 | Quadratic                 | Non-linear (flexible)     | Dynamic (time-varying)    |
@@ -89,16 +90,16 @@ Data Stream ──► Factor Graph ──► Message Passing ──► Posterior
 
 ### Motor Imagery
 
-**Recommended Model**: Bayesian LDA (RxLDA)
+**Recommended Model**: NimbusLDA (Bayesian LDA)
 
-Motor imagery classes are typically well-separated in CSP feature space, making RxLDA ideal:
+Motor imagery classes are typically well-separated in CSP feature space, making NimbusLDA ideal:
 
 - **2-class** (left/right hand): 75-90% accuracy
 - **4-class** (hands/feet/tongue): 70-85% accuracy
 - **Inference**: 10-15ms per trial
 - **ITR**: 15-25 bits/minute
 
-**Why RxLDA?**
+**Why NimbusLDA?**
 - Fast inference for real-time control
 - Shared covariance assumption holds well
 - Lowest data requirements
@@ -107,7 +108,7 @@ See [Basic Examples - Motor Imagery](/examples/basic-examples#motor-imagery) for
 
 ### P300 Event-Related Potential
 
-**Recommended Model**: Bayesian GMM (RxGMM)
+**Recommended Model**: NimbusQDA (Bayesian QDA)
 
 P300 target and non-target ERPs have overlapping distributions, requiring flexible modeling:
 
@@ -115,7 +116,7 @@ P300 target and non-target ERPs have overlapping distributions, requiring flexib
 - **Inference**: 15-25ms per epoch
 - **ITR**: 10-20 bits/minute
 
-**Why RxGMM?**
+**Why NimbusQDA?**
 - Class-specific covariances capture ERP morphology
 - Better for overlapping distributions
 - Handles individual differences
@@ -124,16 +125,16 @@ See [Basic Examples - P300 Speller](/examples/basic-examples#p300-speller) for i
 
 ### SSVEP (Steady-State Visual Evoked Potential)
 
-**Recommended Model**: Bayesian LDA (RxLDA) or Bayesian GMM (RxGMM)
+**Recommended Model**: NimbusLDA or NimbusQDA
 
-- **4-target**: 85-95% accuracy, use RxLDA
-- **6+ target**: 80-90% accuracy, use RxGMM
+- **4-target**: 85-95% accuracy, use NimbusLDA
+- **6+ target**: 80-90% accuracy, use NimbusQDA
 - **Inference**: 10-20ms per trial
 - **ITR**: 30-50 bits/minute
 
 **Model Selection:**
-- **RxLDA**: For 2-4 targets with well-separated frequencies
-- **RxGMM**: For 6+ targets with overlapping harmonics
+- **NimbusLDA**: For 2-4 targets with well-separated frequencies
+- **NimbusQDA**: For 6+ targets with overlapping harmonics
 
 See [Advanced Applications - SSVEP Control](/examples/advanced-applications#ssvep-control) for implementation.
 
@@ -141,13 +142,13 @@ See [Advanced Applications - SSVEP Control](/examples/advanced-applications#ssve
 
 | Paradigm | Recommended Model | Typical Accuracy | ITR | User Training |
 |----------|-------------------|------------------|-----|---------------|
-| **Motor Imagery** | RxLDA (or RxSTS for long sessions) | 70-85% (4-class) | 15-25 bits/min | High |
-| **P300** | RxGMM | 85-95% (with reps) | 10-20 bits/min | Low |
-| **SSVEP** | RxLDA/RxGMM | 85-95% (4-class) | 30-50 bits/min | Low |
-| **Long-duration Adaptive** | **RxSTS** | **75-90% (maintains over time)** | **Varies** | **Medium** |
+| **Motor Imagery** | NimbusLDA (or NimbusSTS for long sessions) | 70-85% (4-class) | 15-25 bits/min | High |
+| **P300** | NimbusQDA | 85-95% (with reps) | 10-20 bits/min | Low |
+| **SSVEP** | NimbusLDA / NimbusQDA | 85-95% (4-class) | 30-50 bits/min | Low |
+| **Long-duration Adaptive** | **NimbusSTS (Py)** | **75-90% (maintains over time)** | **Varies** | **Medium** |
 
 <Note>
-**New: Use RxSTS (NimbusSTS)** for sessions >30 minutes or when you observe accuracy degradation over time. It's the only model that explicitly handles temporal drift and non-stationarity.
+**New: Use NimbusSTS (Python-only)** for sessions >30 minutes or when you observe accuracy degradation over time. It's the only model that explicitly handles temporal drift and non-stationarity.
 </Note>
 
 ---
@@ -186,7 +187,7 @@ best_accuracy = 0.0
 best_params = nothing
 
 for mu_scale in mu_scales
-    model = train_model(RxLDAModel, train_data; mu_scale=mu_scale)
+    model = train_model(NimbusLDA, train_data; mu_scale=mu_scale)
     results = predict_batch(model, val_data)
     accuracy = sum(results.predictions .== val_data.labels) / length(val_data.labels)
     
@@ -230,21 +231,21 @@ clf.partial_fit(X_new_subject[:20], y_new[:20])
 Combine multiple models for improved robustness:
 
 ```python
-from nimbus_bci import NimbusLDA, NimbusGMM
+from nimbus_bci import NimbusLDA, NimbusQDA
 import numpy as np
 
 # Train multiple models
 clf_lda = NimbusLDA()
 clf_lda.fit(X_train, y_train)
 
-clf_gmm = NimbusGMM()
-clf_gmm.fit(X_train, y_train)
+clf_qda = NimbusQDA()
+clf_qda.fit(X_train, y_train)
 
 # Ensemble prediction (weighted average)
 probs_lda = clf_lda.predict_proba(X_test)
-probs_gmm = clf_gmm.predict_proba(X_test)
+probs_qda = clf_qda.predict_proba(X_test)
 
-ensemble_probs = 0.6 * probs_lda + 0.4 * probs_gmm
+ensemble_probs = 0.6 * probs_lda + 0.4 * probs_qda
 ensemble_predictions = ensemble_probs.argmax(axis=1)
 ```
 
@@ -280,9 +281,9 @@ print(f"ECE: {calib_metrics.ece:.3f}")
 - **Fixed structure**: Cannot modify factor graph structure at runtime
 
 **Model-Specific:**
-- **RxLDA**: Assumes Gaussian distributions with shared covariance, linear decision boundaries
-- **RxGMM**: Assumes Gaussian distributions, higher overfitting risk with limited data
-- **RxPolya**: May require more training data than LDA/GMM for complex tasks
+- **NimbusLDA**: Assumes Gaussian distributions with shared covariance, linear decision boundaries
+- **NimbusQDA**: Assumes Gaussian distributions with class-specific covariances, higher overfitting risk with limited data
+- **NimbusSoftmax / NimbusProbit**: May require more training data than LDA/QDA for complex tasks
 </Warning>
 
 ## Troubleshooting
@@ -324,17 +325,20 @@ print(f"ECE: {calib_metrics.ece:.3f}")
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Bayesian LDA (RxLDA)" icon="brain" href="/models/rxlda">
+  <Card title="NimbusLDA" icon="brain" href="/models/rxlda">
     Fast, shared covariance classifier
   </Card>
-  <Card title="Bayesian GMM (RxGMM)" icon="brain" href="/models/rxgmm">
+  <Card title="NimbusQDA" icon="brain" href="/models/rxgmm">
     Flexible, class-specific covariances
   </Card>
-  <Card title="Bayesian STS (RxSTS)" icon="brain" href="/models/rxsts">
+  <Card title="NimbusSTS (Python)" icon="brain" href="/models/rxsts">
     Adaptive, for non-stationary data
   </Card>
-  <Card title="Bayesian Softmax (RxPolya)" icon="brain" href="/models/rxpolya">
-    Multinomial logistic regression
+  <Card title="NimbusSoftmax (Python)" icon="brain" href="/models/rxpolya">
+    Non-Gaussian static classification
+  </Card>
+  <Card title="NimbusProbit (Julia)" icon="brain" href="/models/nimbusprobit">
+    Non-Gaussian static classification
   </Card>
   <Card title="Basic Examples" icon="play" href="/examples/basic-examples">
     Complete Python & Julia code
@@ -347,7 +351,7 @@ print(f"ECE: {calib_metrics.ece:.3f}")
 ---
 
 <Note>
-**Development Philosophy**: NimbusSDK provides **battle-tested, production-ready models** (Bayesian LDA, Bayesian GMM, Bayesian Softmax, Bayesian STS) that are proven effective for BCI applications. These models cover the majority of BCI use cases with fast inference, uncertainty quantification, and online learning. **Bayesian STS** adds adaptive capabilities for non-stationary data and long-duration sessions.
+**Development Philosophy**: Nimbus provides **battle-tested, production-ready models** (NimbusLDA, NimbusQDA, NimbusSoftmax (Py), NimbusProbit (Jl), NimbusSTS (Py)) that are proven effective for BCI applications. These models cover the majority of BCI use cases with fast inference, uncertainty quantification, and online learning. NimbusSTS adds adaptive capabilities for non-stationary data and long-duration sessions.
 </Note>
 
 <script
@@ -358,7 +362,7 @@ print(f"ECE: {calib_metrics.ece:.3f}")
       '@type': 'TechArticle',
       headline: 'Model Specification',
       description:
-        'Overview of probabilistic models in Nimbus. Learn about Bayesian LDA, GMM, Softmax, and STS models with factor graphs and reactive message passing.',
+        'Overview of probabilistic models in Nimbus. Learn about NimbusLDA/NimbusQDA plus non-Gaussian models (NimbusSoftmax, NimbusProbit) and adaptive NimbusSTS with factor graphs and reactive message passing.',
       author: {
         '@type': 'Organization',
         name: 'Nimbus BCI',

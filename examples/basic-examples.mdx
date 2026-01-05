@@ -14,7 +14,7 @@ This section provides fundamental examples of using Nimbus for brain-computer in
 - **Python SDK**: sklearn-compatible API with MNE integration → [Python Quickstart](/python-sdk/quickstart)
 - **Julia SDK**: RxInfer.jl-based with pre-trained models → [Julia Quickstart](/quickstart)
 
-For detailed model information, see [Bayesian LDA](/models/rxlda), [Bayesian GMM](/models/rxgmm), [Bayesian Softmax](/models/rxpolya), and [Bayesian STS](/models/rxsts).
+For detailed model information, see [Bayesian LDA](/models/rxlda), [Bayesian QDA](/models/rxgmm), [Bayesian Softmax](/models/rxpolya), and [Bayesian STS](/models/rxsts).
 </Note>
 
 ## Motor Imagery Classification
@@ -63,7 +63,7 @@ using NimbusSDK
 NimbusSDK.install_core("your-api-key")
 
 # 2. Load pre-trained 2-class model
-model = load_model(RxLDAModel, "motor_imagery_2class_v1")
+model = load_model(NimbusLDA, "motor_imagery_2class_v1")
 
 # 3. Prepare your preprocessed CSP features
 # Features must be CSP-transformed EEG (8-30 Hz bandpass)
@@ -153,7 +153,7 @@ using NimbusSDK
 
 # Authenticate and load 4-class model
 NimbusSDK.install_core("your-api-key")
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 # Prepare 4-class data
 # Classes: 1=left hand, 2=right hand, 3=feet, 4=tongue
@@ -193,7 +193,7 @@ Train a model on your own data:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusLDA, NimbusGMM
+from nimbus_bci import NimbusLDA, NimbusQDA
 from nimbus_bci.compat import extract_csp_features
 from sklearn.model_selection import train_test_split
 import numpy as np
@@ -223,8 +223,8 @@ X_train, X_test, y_train, y_test = train_test_split(
 clf_lda = NimbusLDA(mu_scale=3.0)
 clf_lda.fit(X_train, y_train)
 
-# Or train NimbusGMM model (more flexible, class-specific covariances)
-clf_gmm = NimbusGMM(mu_scale=3.0)
+# Or train NimbusQDA model (more flexible, class-specific covariances)
+clf_gmm = NimbusQDA(mu_scale=3.0)
 clf_gmm.fit(X_train, y_train)
 
 # Save trained model
@@ -265,9 +265,9 @@ train_data = BCIData(
     train_labels
 )
 
-# Train RxLDA model (faster, shared covariance)
+# Train NimbusLDA model (faster, shared covariance)
 rxlda_model = train_model(
-    RxLDAModel,
+    NimbusLDA,
     train_data;
     iterations = 50,
     showprogress = true,
@@ -275,9 +275,9 @@ rxlda_model = train_model(
     description = "Custom 4-class motor imagery"
 )
 
-# Or train RxGMM model (more flexible, class-specific covariances)
+# Or train NimbusQDA model (more flexible, class-specific covariances)
 rxgmm_model = train_model(
-    RxGMMModel,
+    NimbusQDA,
     train_data;
     iterations = 50,
     showprogress = true,
@@ -306,7 +306,7 @@ Detect target vs non-target stimuli:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusGMM  # GMM often better for P300
+from nimbus_bci import NimbusQDA  # GMM often better for P300
 import numpy as np
 import mne
 
@@ -337,7 +337,7 @@ p300_window = (times >= 0.25) & (times <= 0.5)
 features = np.mean(data[:, ch_indices, :][:, :, p300_window], axis=2)
 
 # Train classifier (GMM better for P300's overlapping distributions)
-clf = NimbusGMM()
+clf = NimbusQDA()
 clf.fit(features, labels)
 
 # Predict
@@ -359,7 +359,7 @@ using NimbusSDK
 
 # Setup and load P300 model
 NimbusSDK.install_core("your-api-key")
-model = load_model(RxLDAModel, "p300_binary_v1")
+model = load_model(NimbusLDA, "p300_binary_v1")
 
 # Prepare P300 ERP features
 # Features extracted from 0.2-0.8s post-stimulus window
@@ -398,11 +398,11 @@ Implement a P300-based speller:
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusGMM
+from nimbus_bci import NimbusQDA
 import numpy as np
 
 # Train P300 speller model
-clf = NimbusGMM()
+clf = NimbusQDA()
 # Assume we have training data from calibration phase
 clf.fit(X_calib, y_calib)  # X_calib: ERP features, y_calib: target/non-target
 
@@ -464,7 +464,7 @@ print(f"\nSpelled word: {word}")
 using NimbusSDK
 
 NimbusSDK.install_core("your-api-key")
-model = load_model(RxLDAModel, "p300_speller_v1")
+model = load_model(NimbusLDA, "p300_speller_v1")
 
 # Spelling matrix (6x6 for 36 characters)
 matrix = reshape(collect('A':'Z') ∪ collect('0':'9'), 6, 6)
@@ -572,7 +572,7 @@ using NimbusSDK
 
 # Setup
 NimbusSDK.install_core("your-api-key")
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 
 metadata = BCIMetadata(
     sampling_rate = 250.0,
@@ -794,7 +794,7 @@ using NimbusSDK
 NimbusSDK.install_core("your-api-key")
 
 # Load baseline model
-baseline_model = load_model(RxLDAModel, "motor_imagery_baseline_v1")
+baseline_model = load_model(NimbusLDA, "motor_imagery_baseline_v1")
 
 # Collect quick calibration (10-20 trials per class)
 println("Collecting calibration data...")
@@ -1045,14 +1045,14 @@ end
 
 ## Performance Comparison
 
-### RxLDA vs RxGMM
+### NimbusLDA vs NimbusQDA
 
 Compare the two models:
 
 <Tabs>
   <Tab title="Python">
 ```python
-from nimbus_bci import NimbusLDA, NimbusGMM
+from nimbus_bci import NimbusLDA, NimbusQDA
 import numpy as np
 
 # Train both models on same data
@@ -1060,8 +1060,8 @@ print("Training NimbusLDA...")
 clf_lda = NimbusLDA()
 clf_lda.fit(X_train, y_train)
 
-print("\nTraining NimbusGMM...")
-clf_gmm = NimbusGMM()
+print("\nTraining NimbusQDA...")
+clf_gmm = NimbusQDA()
 clf_gmm.fit(X_train, y_train)
 
 # Test both models
@@ -1069,7 +1069,7 @@ print("\n" + "=" * 50)
 print("Model Comparison")
 print("=" * 50)
 
-for clf, name in [(clf_lda, "NimbusLDA"), (clf_gmm, "NimbusGMM")]:
+for clf, name in [(clf_lda, "NimbusLDA"), (clf_gmm, "NimbusQDA")]:
     predictions = clf.predict(X_test)
     probabilities = clf.predict_proba(X_test)
     
@@ -1089,7 +1089,7 @@ for clf, name in [(clf_lda, "NimbusLDA"), (clf_gmm, "NimbusGMM")]:
 
 print("\nRecommendation:")
 print("  • NimbusLDA: Faster, good for well-separated classes")
-print("  • NimbusGMM: More flexible, better for overlapping distributions")
+print("  • NimbusQDA: More flexible, better for overlapping distributions")
 ```
   </Tab>
   <Tab title="Julia">
@@ -1099,18 +1099,18 @@ using NimbusSDK
 NimbusSDK.install_core("your-api-key")
 
 # Train both models on same data
-println("Training RxLDA...")
-rxlda = train_model(RxLDAModel, train_data; iterations=50, showprogress=true)
+println("Training NimbusLDA...")
+rxlda = train_model(NimbusLDA, train_data; iterations=50, showprogress=true)
 
-println("\nTraining RxGMM...")
-rxgmm = train_model(RxGMMModel, train_data; iterations=50, showprogress=true)
+println("\nTraining NimbusQDA...")
+rxgmm = train_model(NimbusQDA, train_data; iterations=50, showprogress=true)
 
 # Test both models
 println("\n" * "="^50)
 println("Model Comparison")
 println("="^50)
 
-for (model, name) in [(rxlda, "RxLDA"), (rxgmm, "RxGMM")]
+for (model, name) in [(rxlda, "NimbusLDA"), (rxgmm, "NimbusQDA")]
     results = predict_batch(model, test_data)
     accuracy = sum(results.predictions .== test_labels) / length(test_labels)
     mean_conf = mean(results.confidences)
@@ -1123,8 +1123,8 @@ for (model, name) in [(rxlda, "RxLDA"), (rxgmm, "RxGMM")]
 end
 
 println("\nRecommendation:")
-println("  • RxLDA: Faster, good for well-separated classes")
-println("  • RxGMM: More flexible, better for overlapping distributions")
+println("  • NimbusLDA: Faster, good for well-separated classes")
+println("  • NimbusQDA: More flexible, better for overlapping distributions")
 ```
   </Tab>
 </Tabs>
@@ -1285,13 +1285,13 @@ print(f"Final uncertainty: {np.trace(z_cov):.3f}")
   <Card title="Basic Examples" icon="play" href="/examples/basic-examples">
     Complete working code examples
   </Card>
-  <Card title="RxLDA Model" icon="brain" href="/models/rxlda">
-    Detailed RxLDA documentation
+  <Card title="NimbusLDA Model" icon="brain" href="/models/rxlda">
+    Detailed NimbusLDA documentation
   </Card>
-  <Card title="RxGMM Model" icon="brain" href="/models/rxgmm">
-    Detailed RxGMM documentation
+  <Card title="NimbusQDA Model" icon="brain" href="/models/rxgmm">
+    Detailed NimbusQDA documentation
   </Card>
-  <Card title="RxSTS Model" icon="wave-pulse" href="/models/rxsts">
+  <Card title="NimbusSTS Model" icon="wave-pulse" href="/models/rxsts">
     Adaptive model for non-stationary data
   </Card>
   <Card title="Batch Processing" icon="list" href="/inference-configuration/batch-processing">
@@ -1305,5 +1305,5 @@ print(f"Final uncertainty: {np.trace(z_cov):.3f}")
 ---
 
 <Note>
-All examples use actual NimbusSDK.jl functions and the real RxLDA/RxGMM models. No mocked or simulated code.
+All examples use actual NimbusSDK.jl functions and the real NimbusLDA/NimbusQDA models. No mocked or simulated code.
 </Note>

@@ -10,8 +10,8 @@ icon: "link"
 Complete workflows for preprocessing EEG data with external tools and using the features in Nimbus BCI (Python and Julia SDKs).
 
 These pipelines work with any Nimbus model once you have valid features:
-- **Python SDK**: `NimbusLDA`, `NimbusGMM`, `NimbusSoftmax`, `NimbusSTS`
-- **Julia SDK**: `RxLDAModel`, `RxGMMModel`, `RxPolyaModel`
+- **Python SDK**: `NimbusLDA`, `NimbusQDA`, `NimbusSoftmax`, `NimbusSTS`
+- **Julia SDK**: `NimbusLDA`, `NimbusQDA`, `NimbusProbit`
 
 <Note>
 **Python SDK Users:** The `nimbus-bci` package has native MNE-Python integration! See the [MNE Integration](/python-sdk/mne-integration) guide for streamlined workflows.
@@ -200,8 +200,8 @@ bci_data = BCIData(features, metadata, labels)
 
 # Authenticate and run inference
 NimbusSDK.install_core("your-api-key")
-# Choose model type based on your needs: RxLDAModel, RxGMMModel, or RxPolyaModel
-model = load_model(RxLDAModel, "motor_imagery_4class_v1")
+# Choose model type based on your needs: NimbusLDA, NimbusQDA, or NimbusProbit
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
 results = predict_batch(model, bci_data)
 
 println("Predictions: ", results.predictions)

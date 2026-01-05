@@ -69,7 +69,7 @@ The Python SDK provides four Bayesian classifiers:
 | Classifier | Description | Best For |
 |------------|-------------|----------|
 | **NimbusLDA** | Bayesian LDA with shared covariance | Fast, well-separated classes (motor imagery) |
-| **NimbusGMM** | Bayesian GMM with class-specific covariances | Complex distributions (P300) |
+| **NimbusQDA** | Bayesian QDA with class-specific covariances | Complex distributions (P300) |
 | **NimbusSoftmax** | Bayesian logistic regression (Polya-Gamma VI) | Non-Gaussian decision boundaries |
 | **NimbusSTS** | Bayesian Structural Time Series (Extended Kalman Filter) | Non-stationary data, long sessions |
 
@@ -134,7 +134,7 @@ EEG Data → MNE-Python → nimbus-bci → Your Application
     Control devices with imagined movements using CSP features and NimbusLDA
   </Card>
   <Card title="P300 Speller" icon="keyboard">
-    Communication interfaces using ERP features and NimbusGMM
+    Communication interfaces using ERP features and NimbusQDA
   </Card>
   <Card title="Real-time Neurofeedback" icon="activity">
     Streaming inference for live brain state monitoring
@@ -150,7 +150,7 @@ The `nimbus-bci` package provides:
 
 **Classifiers:**
 - `NimbusLDA` - Bayesian Linear Discriminant Analysis
-- `NimbusGMM` - Bayesian Gaussian Mixture Model
+- `NimbusQDA` - Bayesian Quadratic Discriminant Analysis
 - `NimbusSoftmax` - Bayesian Multinomial Logistic Regression
 - `NimbusSTS` - Bayesian Structural Time Series (Extended Kalman Filter)
 

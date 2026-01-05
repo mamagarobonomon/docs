@@ -117,7 +117,7 @@ Benefits:
 - Medium Dynamics (100ms): Motor planning  
 - Fast Dynamics (10ms): Neural oscillations
 
-Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), and Bayesian Softmax (RxPolya) handle temporal structure through proper feature aggregation and trial-level inference.
+NimbusLDA and NimbusQDA (both SDKs), plus NimbusSoftmax (Python) / NimbusProbit (Julia), handle temporal structure through proper feature aggregation and trial-level inference.
 
 ### Multi-modal Integration
 
@@ -183,19 +183,19 @@ BCI signals can have extreme values. RxInfer handles this robustly:
 
 ### Model Structure
 
-Bayesian LDA (RxLDA), Bayesian GMM (RxGMM), Bayesian Softmax (RxPolya), and Bayesian STS (`NimbusSTS`) all use factor graph representations:
+NimbusLDA and NimbusQDA (both SDKs), NimbusSoftmax (Python) / NimbusProbit (Julia), and NimbusSTS (Python) all use factor graph representations:
 
-**RxLDA**: Linear Discriminant Analysis
+**NimbusLDA**: Linear Discriminant Analysis
 - Gaussian observations with shared precision matrix
 - Fast inference due to shared covariance
 - Optimal for well-separated classes
 
-**RxGMM**: Gaussian Mixture Model
+**NimbusQDA**: Quadratic Discriminant Analysis (QDA)
 - Class-specific covariance matrices
 - More flexible for overlapping distributions
 - Handles complex class structures
 
-**Bayesian Softmax (RxPolya)**: Multinomial Logistic Regression
+**Non-Gaussian Multinomial (NimbusSoftmax / NimbusProbit)**: Multinomial classifier with uncertainty quantification
 - Continuous transitions to latent space
 - MultinomialPolya likelihood for classification
 - Most flexible for complex multinomial tasks

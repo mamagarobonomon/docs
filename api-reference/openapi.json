@@ -236,8 +236,8 @@
           },
           "type": {
             "type": "string",
-            "enum": ["RxLDA", "RxGMM"],
-            "example": "RxLDA"
+            "enum": ["NimbusLDA", "NimbusQDA", "NimbusProbit"],
+            "example": "NimbusLDA"
           },
           "paradigm": {
             "type": "string",
@@ -743,7 +743,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["RxLDA", "RxGMM"]
+              "enum": ["NimbusLDA", "NimbusQDA", "NimbusProbit"]
             },
             "description": "Filter by model type"
           }

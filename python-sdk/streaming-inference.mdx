@@ -13,7 +13,7 @@ Process EEG data in real-time with chunk-by-chunk inference for online BCI appli
 
 Streaming inference allows you to process EEG data as it arrives, making predictions on partial trials before the full trial is complete. This is essential for real-time BCI applications where low latency is critical.
 
-**Supported models:** `NimbusLDA`, `NimbusGMM`, `NimbusSoftmax`, and `NimbusSTS`.
+**Supported models:** `NimbusLDA`, `NimbusQDA`, `NimbusSoftmax`, and `NimbusSTS`.
 
 **Key Features:**
 - **Chunk-by-chunk processing**: Process data as it streams in
@@ -341,11 +341,11 @@ while True:
 For P300-based BCI:
 
 ```python
-from nimbus_bci import NimbusGMM, StreamingSession
+from nimbus_bci import NimbusQDA, StreamingSession
 from nimbus_bci.data import BCIMetadata
 
 # Train on P300 data
-clf = NimbusGMM()  # GMM works better for P300
+clf = NimbusQDA()  # QDA often works better for P300
 clf.fit(erp_features, labels)  # 0=non-target, 1=target
 
 # Streaming setup
