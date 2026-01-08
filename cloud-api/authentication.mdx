@@ -1,0 +1,515 @@
+---
+title: "Authentication"
+description: "API key authentication and license management for Nimbus. Learn how to get API keys, authenticate requests, and manage licenses."
+keywords: ["authentication", "API key", "license management", "Nimbus API", "Julia SDK", "API authentication", "license tiers", "API credentials", "BCI"]
+icon: "key"
+---
+
+# API Authentication
+
+The Nimbus API uses API keys for authentication and license management. All requests to the API must include a valid API key.
+
+<Note>
+**Python SDK Users:** The Python SDK (`nimbus-bci`) does **not require authentication** or API keys. It runs entirely locally on your machine. This authentication guide is for **Julia SDK users only**.
+
+For Python SDK installation, see [Python SDK Installation](/python-sdk/installation).
+</Note>
+
+## Getting Your API Key
+
+<Card title="Request API Access" icon="envelope" href="mailto:hello@nimbusbci.com">
+  Contact **hello@nimbusbci.com** to request your API key and discuss your BCI use case.
+</Card>
+
+<Note>
+API keys are currently issued with a license tier based on your use case. Please include details about your intended application, expected volume, and timeline.
+</Note>
+
+## API Key Format
+
+- **Production keys**: `nbci_live_` + 48 hexadecimal characters
+- **Test keys**: `nbci_test_` + 48 hexadecimal characters
+
+Example: `nbci_live_a1b2c3d4e5f678901234567890abcdef12345678901234567890`
+
+## License Tiers
+
+| Tier | Monthly Quota | Features | Use Case |
+|------|---------------|----------|----------|
+| **Free** | 10,000 inferences | Basic models, batch inference | Personal projects, evaluation |
+| **Research** | 50,000 inferences | All models, streaming, training | Academic research |
+| **Commercial** | 500,000 inferences | Priority support, custom models | Production applications |
+| **Enterprise** | Unlimited | Dedicated support, on-premise | Large-scale deployments |
+
+## Authentication in Julia SDK
+
+The NimbusSDK.jl package uses a two-step approach:
+
+### One-Time Setup
+
+Install the proprietary core with your API key (one-time setup):
+
+```julia
+using NimbusSDK
+
+# One-time setup: Downloads core and validates API key
+NimbusSDK.install_core("nbci_live_your_key_here")
+
+# SDK is now ready to use
+# The core and credentials are cached locally
+```
+
+<Note>
+**What happens during install_core:**
+1. Validates your API key with the Nimbus API
+2. Downloads the proprietary NimbusSDKCore package
+3. Caches your credentials locally for offline use
+4. You only need to do this once per machine
+</Note>
+
+### Environment Variables
+
+For security, store your API key in an environment variable:
+
+```julia
+using NimbusSDK
+
+# Set in shell: export NIMBUS_API_KEY="nbci_live_..."
+api_key = ENV["NIMBUS_API_KEY"]
+NimbusSDK.install_core(api_key)
+```
+
+### After Installation
+
+Once the core is installed, you can use the SDK in any project without re-authenticating:
+
+```julia
+using NimbusSDK
+
+# No authentication needed - already installed!
+model = load_model(NimbusLDA, "motor_imagery_4class_v1")
+results = predict_batch(model, data)
+```
+
+## API Endpoints
+
+### POST /v1/auth/validate
+
+Validate an API key and return user permissions, quota, and license information.
+
+**Base URL**: `https://api.nimbusbci.com`
+
+**Endpoint**: `/v1/auth/validate`
+
+**Request:**
+```json
+{
+  "api_key": "nbci_live_a1b2c3..."
+}
+```
+
+**Response (Success):**
+```json
+{
+  "valid": true,
+  "user_id": "usr_1234567890",
+  "email": "researcher@university.edu",
+  "name": "Dr. Jane Smith",
+  "organization": "Neuroscience Lab",
+  "license_type": "research",
+  "features": [
+    "batch_inference",
+    "streaming",
+    "training",
+    "model_export"
+  ],
+  "quota": {
+    "monthly_limit": 50000,
+    "used": 1234,
+    "remaining": 48766,
+    "resets_at": "2025-11-01T00:00:00Z"
+  },
+  "expires_at": "2026-01-01T00:00:00Z"
+}
+```
+
+**Response (Invalid Key):**
+```json
+{
+  "error": "Invalid or inactive API key",
+  "code": "INVALID_KEY"
+}
+```
+
+**Response (Quota Exceeded):**
+```json
+{
+  "error": "Monthly quota exceeded",
+  "code": "QUOTA_EXCEEDED"
+}
+```
+
+**cURL Example:**
+```bash
+curl -X POST https://api.nimbusbci.com/v1/auth/validate \
+  -H "Content-Type: application/json" \
+  -d '{"api_key": "nbci_live_your_key_here"}'
+```
+
+### POST /v1/auth/refresh
+
+Refresh API key credentials and get updated quota information.
+
+**Request:**
+```json
+{
+  "api_key": "nbci_live_a1b2c3..."
+}
+```
+
+**Response:**
+```json
+{
+  "valid": true,
+  "license_type": "research",
+  "features": [
+    "batch_inference",
+    "streaming",
+    "training",
+    "model_export"
+  ],
+  "quota": {
+    "monthly_limit": 50000,
+    "used": 1250,
+    "remaining": 48750,
+    "resets_at": "2025-11-01T00:00:00Z"
+  },
+  "expires_at": "2026-01-01T00:00:00Z"
+}
+```
+
+### POST /v1/auth/revoke
+
+Revoke an API key, making it permanently inactive.
+
+<Warning>
+**This action is irreversible**. Once revoked, the API key cannot be reactivated. Contact support to generate a new key.
+</Warning>
+
+**Request:**
+```json
+{
+  "api_key": "nbci_live_a1b2c3...",
+  "reason": "No longer needed"
+}
+```
+
+**Request Fields:**
+- `api_key` (required): The API key to revoke
+- `reason` (optional): Reason for revocation (logged for audit purposes)
+
+**Response:**
+```json
+{
+  "revoked": true,
+  "message": "API key successfully revoked"
+}
+```
+
+**Error Response:**
+```json
+{
+  "error": "API key not found or already revoked",
+  "code": "KEY_NOT_FOUND"
+}
+```
+
+## SDK Installation
+
+### GET /v1/installer/github-token
+
+Get a GitHub access token for installing the proprietary NimbusSDKCore package. This endpoint is used by the `install_core()` function in NimbusSDK.jl.
+
+**Authentication**: Required (API key)
+
+**Request Methods**: GET or POST
+
+**Query Parameters (GET):**
+```bash
+curl "https://api.nimbusbci.com/v1/installer/github-token?api_key=nbci_live_your_key"
+```
+
+**Request Body (POST):**
+```json
+{
+  "api_key": "nbci_live_a1b2c3..."
+}
+```
+
+**Alternative Authentication:**
+You can also provide the API key via header:
+```bash
+curl https://api.nimbusbci.com/v1/installer/github-token \
+  -H "X-API-Key: nbci_live_your_key"
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "github_token": "ghp_xxxxxxxxxxxxxxxxxxxx",
+  "expires_at": null,
+  "message": "GitHub token retrieved successfully"
+}
+```
+
+**Response Fields:**
+- `success` (boolean): Whether the request was successful
+- `github_token` (string): Temporary GitHub Personal Access Token for package installation
+- `expires_at` (string|null): Token expiration time (null for non-expiring tokens)
+- `message` (string): Success message
+
+**Error Responses:**
+```json
+{
+  "error": "API key is required",
+  "code": "MISSING_KEY"
+}
+```
+
+```json
+{
+  "error": "Invalid or inactive API key",
+  "code": "INVALID_KEY"
+}
+```
+
+```json
+{
+  "error": "GitHub token not configured",
+  "code": "NOT_CONFIGURED",
+  "message": "GitHub token is not configured on the server. Please contact support."
+}
+```
+
+**Usage in Julia SDK:**
+This endpoint is called automatically by `NimbusSDK.install_core()`:
+
+```julia
+using NimbusSDK
+
+# This internally calls /v1/installer/github-token
+NimbusSDK.install_core("nbci_live_your_key")
+```
+
+<Note>
+**Security**: The GitHub token is temporary and scoped only to read access for the private NimbusSDKCore repository. It cannot be used to access other repositories or perform write operations.
+</Note>
+
+<Warning>
+**Do not share or store the GitHub token**. It is provided temporarily for installation purposes only. The token may be rotated or revoked at any time.
+</Warning>
+
+## Error Codes
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `MISSING_KEY` | 400 | API key not provided |
+| `INVALID_FORMAT` | 400 | API key format is invalid |
+| `MISSING_EVENT_TYPE` | 400 | Event type not provided (analytics endpoint) |
+| `INVALID_KEY` | 401 | API key is invalid or inactive |
+| `KEY_EXPIRED` | 401 | API key has expired |
+| `KEY_NOT_FOUND` | 404 | API key not found (revoke endpoint) |
+| `METHOD_NOT_ALLOWED` | 405 | HTTP method not allowed for this endpoint |
+| `QUOTA_EXCEEDED` | 429 | Monthly usage quota exceeded |
+| `RATE_LIMIT_EXCEEDED` | 429 | Too many requests in short time |
+| `SERVER_ERROR` | 500 | Internal server error |
+| `NOT_CONFIGURED` | 503 | Server configuration issue |
+
+## Security Best Practices
+
+### Protect Your API Key
+
+<Warning>
+**Never expose your API key in:**
+- Client-side code (browsers, mobile apps)
+- Public repositories (GitHub, GitLab)
+- Logs or error messages
+- Shared environments
+
+API keys should only be used in secure server environments or local development machines.
+</Warning>
+
+### Best Practices
+
+**✅ Do:**
+- Store API keys in environment variables
+- Use separate keys for development/production
+- Rotate keys regularly (every 90 days recommended)
+- Monitor API usage for anomalies
+- Use offline mode after initial validation for security
+- Keep keys in `.gitignore` and `.env` files
+
+**❌ Don't:**
+- Hardcode keys in source code
+- Share keys via email or messaging apps
+- Use the same key across multiple projects
+- Commit keys to version control
+- Log API keys in application logs
+
+### AuthSession Structure
+
+The `authenticate()` function returns an `AuthSession` object:
+
+```julia
+struct AuthSession
+    api_key::String              # Your API key
+    user_id::String              # Unique user identifier
+    license_type::Symbol         # :trial, :research, :commercial, :enterprise
+    expires_at::DateTime         # When credentials expire
+    features_enabled::Vector{Symbol}  # Enabled features
+    usage_quota::Union{Int, Nothing}  # Remaining calls (nothing = unlimited)
+end
+```
+
+### Julia Example with Environment Variables
+
+**.env file:**
+```bash
+# Store in .env (add to .gitignore!)
+NIMBUS_API_KEY=nbci_live_your_key_here
+```
+
+**Julia code:**
+```julia
+using NimbusSDK
+using DotEnv
+
+# Load from .env file
+DotEnv.config()
+
+# Authenticate and inspect session
+session = NimbusSDK.install_core(ENV["NIMBUS_API_KEY"])
+println("License type: $(session.license_type)")
+println("Features: $(session.features_enabled)")
+println("Expires: $(session.expires_at)")
+```
+
+## Rate Limiting
+
+The Nimbus API implements rate limiting to prevent abuse:
+
+- **Validate endpoint**: 100 requests per minute
+- **Refresh endpoint**: 10 requests per minute
+- **Other endpoints**: 1000 requests per minute
+
+If you exceed the rate limit, you'll receive a `429` response with a `Retry-After` header.
+
+## Monitoring Usage
+
+Track your API usage through the SDK:
+
+```julia
+using NimbusSDK
+
+# Check current quota
+session = NimbusSDK.install_core(api_key)
+
+# Usage information is available in the session
+println("Quota remaining: $(session.quota_remaining)")
+println("Resets at: $(session.quota_reset_at)")
+```
+
+## License Features
+
+Different license tiers unlock different SDK features:
+
+| Feature | Free | Research | Commercial | Enterprise |
+|---------|------|----------|------------|------------|
+| **Batch Inference** | ✅ | ✅ | ✅ | ✅ |
+| **Streaming Inference** | ❌ | ✅ | ✅ | ✅ |
+| **Model Training** | ❌ | ✅ | ✅ | ✅ |
+| **Model Calibration** | ❌ | ✅ | ✅ | ✅ |
+| **Pre-trained Models** | Basic | All | All | All + Custom |
+| **Priority Support** | ❌ | ❌ | ✅ | ✅ |
+| **On-premise Deployment** | ❌ | ❌ | ❌ | ✅ |
+| **Custom Models** | ❌ | ❌ | ✅ | ✅ |
+
+## Upgrading Your License
+
+To upgrade your license tier, contact **hello@nimbusbci.com** with:
+
+- Current license tier
+- Desired tier
+- Use case details
+- Expected monthly volume
+
+## Troubleshooting
+
+### "Invalid API key" Error
+
+**Causes:**
+- API key is incorrectly formatted
+- API key has been revoked
+- API key has expired
+
+**Solution:** Verify the API key is correct and contact support if needed.
+
+### "Quota exceeded" Error
+
+**Causes:**
+- Monthly usage limit reached
+- Burst usage exceeded threshold
+
+**Solution:** Wait for quota reset or contact support to upgrade your tier.
+
+### "Rate limit exceeded" Error
+
+**Causes:**
+- Too many requests in short time period
+
+**Solution:** Implement exponential backoff and retry logic.
+
+```julia
+using NimbusSDK
+
+function authenticate_with_retry(api_key; max_retries=3)
+    for attempt in 1:max_retries
+        try
+            return NimbusSDK.install_core(api_key)
+        catch e
+            if attempt == max_retries
+                rethrow(e)
+            end
+            sleep(2^attempt)  # Exponential backoff
+        end
+    end
+end
+
+session = authenticate_with_retry(api_key)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Julia SDK" icon="code" href="/julia-sdk/api-reference">
+    Complete SDK reference
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/julia-sdk/quickstart">
+    Get started with NimbusSDK (Julia)
+  </Card>
+  <Card title="Model Registry" icon="database" href="/cloud-api/inference-endpoints">
+    Browse available models
+  </Card>
+  <Card title="Examples" icon="braces" href="/examples/basic-examples">
+    Working code examples
+  </Card>
+</CardGroup>
+
+## Support
+
+For authentication issues or license inquiries:
+
+- **Email**: hello@nimbusbci.com
+- **Website**: https://nimbusbci.com
+- **API Status**: https://api.nimbusbci.com/api/health

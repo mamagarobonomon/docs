@@ -1,0 +1,102 @@
+---
+title: 'API Reference'
+description: 'Nimbus API for authentication, licensing, and model registry. REST API documentation for Julia SDK backend services.'
+keywords: ["API reference", "Nimbus API", "REST API", "authentication", "model registry", "licensing", "Julia SDK", "API documentation", "BCI API"]
+icon: 'book-open'
+---
+
+# Nimbus API
+
+The Nimbus API provides backend services for the Julia SDK (NimbusSDK.jl), including:
+
+- **Authentication**: API key validation and licensing (Julia SDK only)
+- **Model Registry**: Access to pre-trained models (Julia SDK only)
+- **Analytics**: Usage tracking and performance metrics
+- **Quota Management**: License-based usage limits
+
+<Note>
+**Python SDK Users**: The Python SDK (`nimbus-bci`) does **not** require API keys or API access. All processing is local. See the [Python SDK documentation](/python-sdk/introduction) for details.
+</Note>
+
+## API Base URL
+
+```
+https://api.nimbusbci.com
+```
+
+## Authentication
+
+All API requests require authentication via API key. Include your API key in requests either as:
+
+- JSON body parameter: `"api_key": "nbci_live_..."`
+- Query parameter: `?api_key=nbci_live_...`
+- Header: `X-API-Key: nbci_live_...`
+
+### API Key Format
+
+- **Production keys**: `nbci_live_` + 48 hex characters
+- **Test keys**: `nbci_test_` + 48 hex characters
+
+### License Tiers
+
+| Tier | Monthly Quota | Features | Use Case |
+|------|---------------|----------|----------|
+| **Free** | 10,000 inferences | Basic models, batch inference | Personal projects, evaluation |
+| **Research** | 50,000 inferences | All models, streaming, training | Academic research |
+| **Commercial** | 500,000 inferences | Priority support, custom models | Production applications |
+| **Enterprise** | Unlimited | Dedicated support, on-premise | Large-scale deployments |
+
+## SDK Comparison
+
+| Feature | Python SDK | Julia SDK |
+|---------|------------|-----------|
+| **API Key Required** | ❌ No | ✅ Yes |
+| **API Access** | Not needed | Required for installation |
+| **Authentication** | None | Via API key |
+| **Model Registry** | Not available | Pre-trained models |
+| **Licensing** | Proprietary (free eval) | Commercial tiers |
+
+## Quick Start (Julia SDK)
+
+```julia
+using NimbusSDK
+
+# Authentication is handled automatically by the SDK
+NimbusSDK.install_core("nbci_live_your_key_here")
+
+# The SDK communicates with the API for:
+# - Key validation
+# - Model downloads
+# - Usage logging (optional)
+```
+
+**Python SDK**: No API setup needed. Install with `pip install nimbus-bci` and start using immediately.
+
+## Endpoints Overview
+
+The Nimbus API provides the following endpoints:
+
+- **Authentication**: `/v1/auth/validate`, `/v1/auth/refresh`, `/v1/auth/revoke`
+- **SDK Installation**: `/v1/installer/github-token`
+- **Models**: `/v1/models/list`
+- **Analytics**: `/v1/analytics/log`
+- **Health**: `/api/health`
+
+Detailed documentation for each endpoint is available in the following pages.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Python SDK" icon="python" href="/python-sdk/introduction">
+    No API key needed - get started immediately
+  </Card>
+  <Card title="Julia SDK" icon="code" href="/julia-sdk/api-reference">
+    Complete Julia SDK reference (requires API key)
+  </Card>
+  <Card title="Authentication" icon="key" href="/cloud-api/authentication">
+    API key validation and management (Julia SDK)
+  </Card>
+  <Card title="Model Registry" icon="database" href="/cloud-api/inference-endpoints">
+    Pre-trained models (Julia SDK)
+  </Card>
+</CardGroup>

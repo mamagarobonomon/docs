@@ -43,7 +43,11 @@
     },
     {
       "name": "Julia SDK",
-      "url": "api-reference"
+      "url": "julia-sdk"
+    },
+    {
+      "name": "Cloud API",
+      "url": "cloud-api"
     }
   ],
   "navigation": {
@@ -51,7 +55,8 @@
       {
         "group": "Getting Started",
         "pages": [
-          "index"
+          "index",
+          "quickstart"
         ]
       },
       {
@@ -112,14 +117,19 @@
         ]
       },
       {
-        "group": "Julia SDK & Cloud API",
+        "group": "Julia SDK",
         "pages": [
-          "quickstart",
-          "api-reference/julia-sdk",
-          "api-reference/introduction",
-          "api-reference/authentication",
-          "api-reference/inference-endpoints",
-          "api-reference/streaming-api"
+          "julia-sdk/quickstart",
+          "julia-sdk/api-reference"
+        ]
+      },
+      {
+        "group": "Cloud API",
+        "pages": [
+          "cloud-api/introduction",
+          "cloud-api/authentication",
+          "cloud-api/inference-endpoints",
+          "cloud-api/streaming-api"
         ]
       }
     ]
