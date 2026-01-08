@@ -39,15 +39,11 @@
   "tabs": [
     {
       "name": "Python SDK",
-      "url": "python-sdk"
+      "url": "python-sdk/quickstart"
     },
     {
       "name": "Julia SDK",
-      "url": "julia-sdk"
-    },
-    {
-      "name": "Cloud API",
-      "url": "cloud-api"
+      "url": "julia-sdk/quickstart"
     }
   ],
   "navigation": {
@@ -120,12 +116,7 @@
         "group": "Julia SDK",
         "pages": [
           "julia-sdk/quickstart",
-          "julia-sdk/api-reference"
-        ]
-      },
-      {
-        "group": "Cloud API",
-        "pages": [
+          "julia-sdk/api-reference",
           "cloud-api/introduction",
           "cloud-api/authentication",
           "cloud-api/inference-endpoints",
